@@ -1,0 +1,34 @@
+{
+  "GetSchedule": {
+    "transport": "OWA GraphQL gateway",
+    "url": "https://outlook.office.com/outlookgatewayb2/graphql",
+    "host_via_mcas": "outlook.office.com.mcas.ms/outlookgatewayb2/graphql",
+    "method": "POST",
+    "operationName": "GetSchedule",
+    "request_variables": {
+      "input": {
+        "userId": "<signed-in user UPN>",
+        "schedules": ["<mailbox SMTP, e.g. a room>"],
+        "availabilityViewInterval": 30,
+        "startTime": { "dateTime": "YYYY-MM-DDT00:00:00.000", "timeZone": { "name": "<browser TZ, e.g. Singapore Standard Time>" } },
+        "endTime": { "dateTime": "YYYY-MM-DDT23:59:59.999", "timeZone": { "name": "<browser TZ>" } }
+      }
+    },
+    "auth": "Page session only. NOT replayable: a bare/page-context fetch returns 401 because OWA injects a per-request X-OWA-CANARY (httpOnly cookie, not JS-readable) + bearer; the MSAL token cache is encrypted (msal.cache.encryption cookie). Must let the page issue the request and intercept the response.",
+    "response": "[{ data: { getSchedule: { schedules: [ { scheduleId, availabilityView, error{message,responseCode}, scheduleItems[ { status, subject, location, isMeeting, isRecurring, startTime{dateTime,timeZone}, endTime{dateTime,timeZone} } ], workingHours, flexibleWorkingHours } ] } } }]",
+    "availabilityView": "String of per-slot digits; 0=free 1=tentative 2=busy 3=oof 4=workingElsewhere. NOTE: the captured response's window is in UTC (slot 0 = 00:00 UTC), so it cannot be decoded as local without the request's startTime/timeZone. The adapter uses scheduleItems for timing instead.",
+    "scheduleItems_status_enum": ["Free", "Tentative", "Busy", "Oof", "WorkingElsewhere"],
+    "scheduleItems_time": "startTime/endTime dateTime are absolute UTC (timeZone.name='UTC'); convert to the user's local TZ for display. This is the adapter's timeline source.",
+    "fires_when": "Once per attendee when a mailbox is added to the Scheduling Assistant. Two GetSchedule variants fire: one with availabilityView+scheduleItems (free/busy), one with workingHours/flexibleWorkingHours and empty availabilityView.",
+    "trigger_ui": "OWA calendar deeplink compose -> Open Scheduling Assistant -> set Start date -> Add required attendee (room email) -> select resolved suggestion.",
+    "verified_at": "2026-06-15"
+  },
+  "findmeetinglocations": {
+    "url": "https://outlook.office.com.mcas.ms/SchedulingB2/api/v1.0/me/findmeetinglocations?query=<text>",
+    "method": "GET",
+    "auth": "Same OWA session; bare page-context fetch => 401 (canary/bearer).",
+    "response": "Room suggestions with display name, email, capacity, building, and a coarse point-in-time Available/Unavailable badge (NOT a timeline). Backs the Scheduling Assistant 'Add a room' autocomplete.",
+    "use": "The adapter uses this (via the 'Add a room' field) to resolve a room NAME to its mailbox. It does NOT match a raw SMTP query, so email input is added via the 'Add required attendee' picker instead.",
+    "verified_at": "2026-06-15"
+  }
+}

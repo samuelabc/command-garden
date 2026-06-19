@@ -1,0 +1,16 @@
+{
+  "ReportFAK": {
+    "url": "https://mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net/api/ReportFAK",
+    "method": "GET",
+    "params": {
+      "required": {
+        "date": "First day of the target month, format YYYY-MM-01 (e.g. 2026-06-01). Returns the whole month."
+      },
+      "optional": {}
+    },
+    "auth": "Bearer access token from MSAL cache in sessionStorage (key contains 'accesstoken'); scope api://d7bb6408-1065-4db2-bcea-c1a31b48b323/.default. Cross-origin from the app, but CORS allows the timetracking origin.",
+    "response": "Array of ~28-31 day objects: { date, calendarHeader{date,from,to,amount,timecardId,journalId,calendarCode,onCall,status,isTransferred,mserp_istransferred,timeprofileId,noCapacity}, calendarLines[ { mserp_activitynumber, mserp_category, mserp_linenumber, mserp_journalid, mserp_projectdate, mserp_projectid, mserp_hours, mserp_resourceid, mserp_dataareaid, date, delete } ], isReleased, isSaved }",
+    "verified_at": "2026-06-15",
+    "notes": "calendarLines is empty on holidays/weekends/unbooked days. Booking date for a line = its parent day's calendarHeader.date (mserp_projectdate can differ). Daily booked hours sum to the workday (e.g. 8h). status RELEASED = submitted/frozen."
+  }
+}
