@@ -1,0 +1,9 @@
+export type FilterFn = (value: unknown, ...args: unknown[]) => unknown;
+
+export const BUILT_IN_FILTERS: Record<string, FilterFn> = {
+  default: (value: unknown, fallback: unknown) => value ?? fallback,
+  number: (value: unknown) => Number(value),
+  trim: (value: unknown) => String(value).trim(),
+  upper: (value: unknown) => String(value).toUpperCase(),
+  lower: (value: unknown) => String(value).toLowerCase(),
+};
