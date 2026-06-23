@@ -1,6 +1,6 @@
-import { tokenize } from './tokenizer';
-import { parse, type Expr } from './parser';
-import { BUILT_IN_FILTERS } from './filters';
+import { tokenize } from './tokenizer.js';
+import { parse, type Expr } from './parser.js';
+import { BUILT_IN_FILTERS } from './filters.js';
 
 export interface ExprContext {
   args: Record<string, string | number | boolean>;
@@ -25,7 +25,7 @@ function exec(expr: Expr, context: ExprContext): unknown {
       return expr.value;
     case 'variable': {
       const [root, ...rest] = expr.path;
-      const scope = (context as Record<string, unknown>)[root];
+      const scope = (context as unknown as Record<string, unknown>)[root];
       return rest.length === 0 ? scope : resolvePath(scope, rest);
     }
     case 'concat': {
@@ -37,7 +37,7 @@ function exec(expr: Expr, context: ExprContext): unknown {
       const value = exec(expr.expr, context);
       const filter = BUILT_IN_FILTERS[expr.filter];
       if (!filter) throw new Error(`Unknown filter: ${expr.filter}`);
-      const args = expr.args.map((a) => exec(a, context));
+      const args = expr.args.map((a: Expr) => exec(a, context));
       return filter(value, ...args);
     }
   }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { CAPABILITIES } from './capabilities';
-import { pipelineStepSchema } from './pipeline';
+import { CAPABILITIES } from './capabilities.js';
+import { pipelineStepSchema } from './pipeline.js';
 
 const capabilityEnum = z.enum(CAPABILITIES);
 

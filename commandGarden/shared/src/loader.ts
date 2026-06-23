@@ -1,7 +1,7 @@
 import { parse as parseYaml } from 'yaml';
 import { ZodError } from 'zod';
-import { connectorSchema, type ConnectorDef } from './connector';
-import { STEP_CAPABILITY_MAP } from './pipeline';
+import { connectorSchema, type ConnectorDef } from './connector.js';
+import { STEP_CAPABILITY_MAP } from './pipeline.js';
 
 export interface LoadError {
   code: 'YAML_PARSE_ERROR' | 'SCHEMA_VALIDATION_ERROR';
@@ -34,7 +34,7 @@ export function parseConnectorYaml(yamlContent: string): LoadResult {
       error: {
         code: 'SCHEMA_VALIDATION_ERROR',
         message: 'Connector YAML does not match schema',
-        details: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`),
+        details: result.error.issues.map((i: { path: (string | number)[]; message: string }) => `${i.path.join('.')}: ${i.message}`),
       },
     };
   }

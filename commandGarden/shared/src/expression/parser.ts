@@ -1,4 +1,4 @@
-import type { Token, TokenType } from './tokenizer';
+import type { Token, TokenType } from './tokenizer.js';
 
 export type Expr =
   | { type: 'variable'; path: string[] }

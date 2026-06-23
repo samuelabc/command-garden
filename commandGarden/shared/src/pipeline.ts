@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Capability } from './capabilities';
+import type { Capability } from './capabilities.js';
 
 export const PIPELINE_STEP_TYPES = [
   'navigate', 'wait', 'extract', 'click', 'type',

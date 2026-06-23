@@ -1,4 +1,4 @@
-import type { ConnectorDef } from './connector';
+import type { ConnectorDef } from './connector.js';
 
 // ---------- CLI → Daemon ----------
 
