@@ -9,6 +9,7 @@ function mockAdapter(overrides?: Partial<ChromeAdapter>): ChromeAdapter {
     waitForTabLoad: vi.fn().mockResolvedValue(undefined),
     executeInContent: vi.fn().mockResolvedValue(undefined),
     getCookies: vi.fn().mockResolvedValue({}),
+    evaluateInPage: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -102,6 +103,35 @@ describe('PipelineRunner', () => {
     ]);
     await runner.run(connector, { month: '2026-06' });
     expect(adapter.navigateTab).toHaveBeenCalledWith('https://example.com/2026-06');
+  });
+
+  it('executes js_evaluate step and stores result as variable', async () => {
+    const adapter = mockAdapter({
+      evaluateInPage: vi.fn().mockResolvedValue('my-token'),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'js_evaluate', code: 'return sessionStorage.getItem("token")', as: 'token' },
+    ] as unknown as import('@commandgarden/shared').PipelineStep[]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(adapter.evaluateInPage).toHaveBeenCalledWith(1, 'return sessionStorage.getItem("token")');
+  });
+
+  it('executes js_evaluate step and sets data when no as', async () => {
+    const mockRows = [{ name: 'Alice' }, { name: 'Bob' }];
+    const adapter = mockAdapter({
+      evaluateInPage: vi.fn().mockResolvedValue(mockRows),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'js_evaluate', code: 'return [{name:"Alice"},{name:"Bob"}]' },
+    ] as unknown as import('@commandgarden/shared').PipelineStep[]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(mockRows);
   });
 
   it('returns error result on step failure', async () => {

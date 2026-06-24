@@ -1,6 +1,6 @@
 // src/registry.ts
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { parseConnectorYaml, validateConnectorSemantics, type ConnectorDef } from '@commandgarden/shared';
 
 export class ConnectorRegistry {
@@ -19,6 +19,8 @@ export class ConnectorRegistry {
         const content = readFileSync(join(resolved, file), 'utf-8');
         const result = parseConnectorYaml(content);
         if (!result.ok) { errors.push(`${file}: ${result.error.message}`); continue; }
+        const fileErr = this.resolveFileRefs(result.data, join(resolved, file));
+        if (fileErr) { errors.push(`${file}: ${fileErr}`); continue; }
         const semErrs = validateConnectorSemantics(result.data);
         if (semErrs.length > 0) { errors.push(`${file}: ${semErrs.join('; ')}`); continue; }
         this.connectors.set(`${result.data.site}/${result.data.name}`, result.data);
@@ -26,6 +28,20 @@ export class ConnectorRegistry {
       }
     }
     return { loaded, errors };
+  }
+
+  private resolveFileRefs(connector: ConnectorDef, yamlPath: string): string | null {
+    const baseDir = dirname(yamlPath);
+    for (const step of connector.pipeline) {
+      if (step.step === 'js_evaluate' && step.file) {
+        const filePath = join(baseDir, step.file);
+        if (!existsSync(filePath)) {
+          return `js_evaluate file not found: ${step.file}`;
+        }
+        (step as { code?: string }).code = readFileSync(filePath, 'utf-8');
+      }
+    }
+    return null;
   }
 
   get(key: string): ConnectorDef | undefined { return this.connectors.get(key); }

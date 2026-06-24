@@ -1,6 +1,6 @@
 // src/content/content-script.ts
 import { isDomRequest, createDomResponse, type DomRequest } from '../messages.js';
-import { waitForSelector, extractData, clickElement, typeIntoElement, fetchFromPage } from './dom-executor.js';
+import { waitForSelector, extractData, clickElement, typeIntoElement, fetchFromPage, evaluateInMainWorld } from './dom-executor.js';
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isDomRequest(message)) return false;
@@ -31,6 +31,8 @@ async function handleRequest(req: DomRequest): Promise<unknown> {
         p.url as string, p.method as string,
         p.headers as Record<string, string>, p.body as string,
       );
+    case 'evaluate':
+      return evaluateInMainWorld(p.code as string, (p.timeout as number) ?? 30000);
     default:
       throw new Error(`Unknown action: ${req.action}`);
   }

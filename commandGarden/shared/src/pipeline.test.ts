@@ -6,8 +6,8 @@ import {
 } from './pipeline';
 
 describe('PIPELINE_STEP_TYPES', () => {
-  it('defines exactly 11 step types', () => {
-    expect(PIPELINE_STEP_TYPES).toHaveLength(11);
+  it('defines exactly 12 step types', () => {
+    expect(PIPELINE_STEP_TYPES).toHaveLength(12);
   });
 });
 
@@ -98,6 +98,21 @@ describe('pipelineStepSchema', () => {
 
   it('validates a set step', () => {
     const result = pipelineStepSchema.safeParse({ step: 'set', name: 'token', value: '${{ cookies.auth }}' });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates a js_evaluate step', () => {
+    const result = pipelineStepSchema.safeParse({ step: 'js_evaluate', code: 'return 42;' });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates a js_evaluate step with as', () => {
+    const result = pipelineStepSchema.safeParse({ step: 'js_evaluate', code: 'return 42;', as: 'val' });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates a js_evaluate step with file', () => {
+    const result = pipelineStepSchema.safeParse({ step: 'js_evaluate', file: 'report.eval.js' });
     expect(result.success).toBe(true);
   });
 

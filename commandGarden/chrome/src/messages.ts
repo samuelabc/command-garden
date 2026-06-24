@@ -1,7 +1,7 @@
 // src/messages.ts
 const randomUUID = () => crypto.randomUUID();
 
-export type DomAction = 'wait' | 'extract' | 'click' | 'type' | 'fetch';
+export type DomAction = 'wait' | 'extract' | 'click' | 'type' | 'fetch' | 'evaluate';
 
 export interface DomRequest {
   id: string;

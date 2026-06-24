@@ -26,6 +26,7 @@ export {
   type MapStep,
   type FilterStep,
   type SetStep,
+  type JsEvaluateStep,
 } from './pipeline.js';
 
 // Connector schema

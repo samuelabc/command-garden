@@ -7,6 +7,7 @@ export interface ChromeAdapter {
   waitForTabLoad(tabId: number): Promise<void>;
   executeInContent(tabId: number, step: PipelineStep): Promise<unknown>;
   getCookies(domain: string): Promise<Record<string, string>>;
+  evaluateInPage(tabId: number, code: string): Promise<unknown>;
 }
 
 export class PipelineRunner {
@@ -69,6 +70,17 @@ export class PipelineRunner {
             ctx.setCookies(cookies);
             if (step.name && step.as) {
               ctx.setVar(step.as, cookies[step.name] ?? '');
+            }
+            break;
+          }
+          case 'js_evaluate': {
+            if (!step.code) throw new Error('js_evaluate step has no code (file: not resolved?)');
+            const code = ctx.interpolate(step.code);
+            const result = await this.adapter.evaluateInPage(tabId, code);
+            if (step.as) {
+              ctx.setVar(step.as, result);
+            } else if (Array.isArray(result)) {
+              ctx.setData(result as Record<string, unknown>[]);
             }
             break;
           }

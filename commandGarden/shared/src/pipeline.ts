@@ -3,7 +3,7 @@ import type { Capability } from './capabilities.js';
 
 export const PIPELINE_STEP_TYPES = [
   'navigate', 'wait', 'extract', 'click', 'type',
-  'intercept', 'cookie', 'fetch', 'map', 'filter', 'set',
+  'intercept', 'cookie', 'fetch', 'map', 'filter', 'set', 'js_evaluate',
 ] as const;
 
 export type PipelineStepType = (typeof PIPELINE_STEP_TYPES)[number];
@@ -20,6 +20,7 @@ export const STEP_CAPABILITY_MAP: Record<PipelineStepType, Capability | null> = 
   map: null,
   filter: null,
   set: null,
+  js_evaluate: 'js_evaluate',
 };
 
 const navigateStepSchema = z.object({
@@ -90,6 +91,13 @@ const setStepSchema = z.object({
   value: z.string(),
 });
 
+const jsEvaluateStepSchema = z.object({
+  step: z.literal('js_evaluate'),
+  code: z.string().optional(),
+  file: z.string().optional(),
+  as: z.string().optional(),
+});
+
 export const pipelineStepSchema = z.discriminatedUnion('step', [
   navigateStepSchema,
   waitStepSchema,
@@ -102,6 +110,7 @@ export const pipelineStepSchema = z.discriminatedUnion('step', [
   mapStepSchema,
   filterStepSchema,
   setStepSchema,
+  jsEvaluateStepSchema,
 ]);
 
 export type PipelineStep = z.infer<typeof pipelineStepSchema>;
@@ -116,3 +125,4 @@ export type FetchStep = z.infer<typeof fetchStepSchema>;
 export type MapStep = z.infer<typeof mapStepSchema>;
 export type FilterStep = z.infer<typeof filterStepSchema>;
 export type SetStep = z.infer<typeof setStepSchema>;
+export type JsEvaluateStep = z.infer<typeof jsEvaluateStepSchema>;

@@ -86,6 +86,10 @@ export function validateConnectorSemantics(connector: ConnectorDef): string[] {
       }
     }
 
+    if (step.step === 'js_evaluate' && !step.code && !step.file) {
+      errors.push('js_evaluate step requires either "code" or "file"');
+    }
+
     if (step.step === 'cookie' && !declaredDomains.has(step.domain)) {
       errors.push(
         `Cookie step uses domain "${step.domain}" which is not declared in domains`,

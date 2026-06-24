@@ -34,6 +34,9 @@ export async function executeRun(
     const resp = await client.post<RunCommandResponse>('/api/run', {
       connector, args, format: outputFormat,
     });
+    if (!resp.ok) {
+      return `Error: ${resp.error ?? 'Unknown error from extension'} (${resp.durationMs}ms)`;
+    }
     return format(resp.data, resp.columns, connector, outputFormat);
   } catch (err) {
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
