@@ -25,7 +25,7 @@ export async function createServer(deps: ServerDeps) {
 
   // Auth + CSRF hook (skip for /api/status and WS upgrade)
   app.addHook('preHandler', async (req, reply) => {
-    if (req.url === '/api/status') return;
+    if (req.url === '/api/status' || req.url === '/ws/extension') return;
     const csrf = req.headers['x-commandgarden'];
     if (!csrf) { reply.code(403).send({ ok: false, error: 'Missing X-CommandGarden header' }); return; }
     const auth = req.headers.authorization;
