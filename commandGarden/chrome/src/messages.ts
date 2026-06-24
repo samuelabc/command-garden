@@ -1,5 +1,5 @@
 // src/messages.ts
-import { randomUUID } from 'node:crypto';
+const randomUUID = () => crypto.randomUUID();
 
 export type DomAction = 'wait' | 'extract' | 'click' | 'type' | 'fetch';
 

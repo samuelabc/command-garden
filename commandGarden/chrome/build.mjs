@@ -1,26 +1,34 @@
 import { build } from 'esbuild';
 import { cpSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Bundle service worker (ESM for MV3 module workers)
-await build({
-  entryPoints: ['src/background/service-worker.ts'],
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+const sharedOpts = {
   bundle: true,
-  outfile: 'dist/service-worker.js',
-  format: 'esm',
   platform: 'browser',
   target: 'chrome120',
   sourcemap: true,
+  alias: {
+    'node:crypto': resolve(__dirname, 'src/shims/node-crypto.ts'),
+  },
+};
+
+// Bundle service worker (ESM for MV3 module workers)
+await build({
+  ...sharedOpts,
+  entryPoints: ['src/background/service-worker.ts'],
+  outfile: 'dist/service-worker.js',
+  format: 'esm',
 });
 
 // Bundle content script (IIFE — no module support in content scripts)
 await build({
+  ...sharedOpts,
   entryPoints: ['src/content/content-script.ts'],
-  bundle: true,
   outfile: 'dist/content-script.js',
   format: 'iife',
-  platform: 'browser',
-  target: 'chrome120',
-  sourcemap: true,
 });
 
 // Copy manifest
