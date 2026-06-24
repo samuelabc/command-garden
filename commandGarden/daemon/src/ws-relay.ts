@@ -48,7 +48,7 @@ export class WsRelay {
   async send(
     connector: ConnectorDef,
     args: Record<string, string | number | boolean>,
-    timeoutMs = 30000,
+    timeoutMs = 120_000,
   ): Promise<ExtensionResponse> {
     if (!this.ws) throw new Error('Extension not connected');
     const id = randomUUID();
