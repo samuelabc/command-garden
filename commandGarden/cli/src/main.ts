@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // src/main.ts
 import { Command } from 'commander';
 import { join, dirname } from 'node:path';
@@ -26,7 +25,7 @@ const BASE_URL = `http://127.0.0.1:19825`;
 function createClient(): DaemonClient {
   const token = readToken(TOKEN_PATH);
   if (!token) {
-    console.error('No session token found. Is the daemon running? Try: commandgarden daemon start');
+    console.error('No session token found. Is the daemon running? Try: cg daemon start');
     process.exit(1);
   }
   return new DaemonClient(BASE_URL, token);

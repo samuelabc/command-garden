@@ -40,12 +40,25 @@ For the full design spec, see [`docs/superpowers/specs/2026-06-23-commandgarden-
 
 ---
 
-## Build & Install
+## Installation
+
+### From npm (recommended)
+
+```bash
+npm install -g @commandgarden/cli
+```
+
+This makes both `commandgarden` and the shorthand `cg` available globally.
+
+### From source
 
 ```bash
 # From the commandGarden/ directory
 npm install
 npm run build
+
+# Link globally so 'cg' and 'commandgarden' are available on PATH
+npm link --workspace=cli
 ```
 
 Build compiles all four workspace packages in dependency order: `shared` → `daemon` → `cli` → `chrome`.
@@ -57,10 +70,10 @@ Build compiles all four workspace packages in dependency order: `shared` → `da
 ### 1. Start the Daemon
 
 ```bash
-# Option A: via the CLI (builds must be complete)
-node cli/dist/main.js daemon start
+# Option A: via the CLI
+cg daemon start
 
-# Option B: directly
+# Option B: directly (from source builds)
 node daemon/dist/main.js
 ```
 
@@ -78,7 +91,7 @@ The extension's service worker will connect to the daemon via WebSocket on `ws:/
 ### 3. Verify
 
 ```bash
-node cli/dist/main.js daemon status
+cg daemon status
 ```
 
 Expected output:
@@ -96,7 +109,7 @@ This walkthrough uses the built-in `demo/extract-table` connector, which extract
 ### List available connectors
 
 ```bash
-node cli/dist/main.js list
+cg list
 ```
 
 ```
@@ -109,7 +122,7 @@ teams/room-availability    read    outlook.cloud.microsoft.…    navigate, js_e
 ### Inspect a connector
 
 ```bash
-node cli/dist/main.js inspect demo/extract-table
+cg inspect demo/extract-table
 ```
 
 ```
@@ -135,7 +148,7 @@ Pipeline steps:
 ### Run with JSON output
 
 ```bash
-node cli/dist/main.js run demo/extract-table --minScore 50 --format json
+cg run demo/extract-table --minScore 50 --format json
 ```
 
 ```json
@@ -155,7 +168,7 @@ node cli/dist/main.js run demo/extract-table --minScore 50 --format json
 ### Run with table output
 
 ```bash
-node cli/dist/main.js run demo/extract-table --minScore 50 --format table
+cg run demo/extract-table --minScore 50 --format table
 ```
 
 ```
@@ -171,7 +184,7 @@ node cli/dist/main.js run demo/extract-table --minScore 50 --format table
 ### Timetracking report
 
 ```bash
-node cli/dist/main.js run timetracking/report --month 2026-06 --format json
+cg run timetracking/report --month 2026-06 --format json
 ```
 
 This connector navigates to the timetracking portal, fetches the monthly report API using your existing browser session cookies, and returns structured booking data.
@@ -182,10 +195,10 @@ This connector navigates to the timetracking portal, fetches the monthly report 
 
 ```bash
 # By room name
-node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
+cg run teams/room-availability --room "MBTMY The Vista" --format json
 
 # By room email
-node cli/dist/main.js run teams/room-availability --room "RES-RERE-M6VJ7ZUW@mercedes-benz.com" --date 2026-06-18 --format table
+cg run teams/room-availability --room "RES-RERE-M6VJ7ZUW@mercedes-benz.com" --date 2026-06-18 --format table
 ```
 
 This connector drives the Outlook Scheduling Assistant in your authenticated browser session to fetch a meeting room's free/busy timeline for a given day. It intercepts the page's own GraphQL `getSchedule` call (the endpoint rejects replayed requests) and returns time blocks with state (`free`, `busy`, `tentative`, `oof`, `elsewhere`), start/end times, and duration.
@@ -239,7 +252,7 @@ pipeline:
 Validate before use:
 
 ```bash
-node cli/dist/main.js validate connectors/my-connector.yaml
+cg validate connectors/my-connector.yaml
 ```
 
 ### Available pipeline steps
@@ -274,13 +287,13 @@ Every command execution is logged to `~/.commandgarden/audit.db` (SQLite). The a
 
 ```bash
 # List recent events
-node cli/dist/main.js audit list --since 7d
+cg audit list --since 7d
 
 # Filter by connector
-node cli/dist/main.js audit list --since 30d --connector timetracking/*
+cg audit list --since 30d --connector timetracking/*
 
 # Export as JSON
-node cli/dist/main.js audit export --format json --since 30d
+cg audit export --format json --since 30d
 ```
 
 Denied commands (unapproved domain, missing capability, invalid token) are logged with a denial reason.
@@ -319,9 +332,9 @@ output:
 Manage via CLI:
 
 ```bash
-node cli/dist/main.js config show
-node cli/dist/main.js config set daemon.port 9999
-node cli/dist/main.js config set audit.retentionDays 180
+cg config show
+cg config set daemon.port 9999
+cg config set audit.retentionDays 180
 ```
 
 ### Approving high-risk connectors
@@ -358,17 +371,30 @@ npm test -w chrome
 
 ---
 
+## Publishing
+
+The CLI is published as a single npm package. The `@commandgarden/shared` workspace is bundled into the CLI at build time via `tsup`, so only one package needs to be published.
+
+```bash
+npm run build
+cd cli && npm publish --access public
+```
+
+---
+
 ## Project Structure
 
 ```
 commandGarden/
   shared/        Shared types — connector schema (Zod), protocol messages,
                  audit events, expression parser, pipeline definitions
+                 (bundled into CLI at build time, not published separately)
   daemon/        Local HTTP + WebSocket server (Fastify) — auth token
                  management, connector registry, capability validation,
                  audit store (SQLite), WebSocket relay to extension
   cli/           CLI client (Commander.js) — run, list, inspect, validate,
                  daemon management, audit queries, config management
+                 Published as @commandgarden/cli on npm
   chrome/        Chrome MV3 extension — service worker, content scripts,
                  domain guard, pipeline step execution engine
   connectors/    Built-in YAML connector definitions

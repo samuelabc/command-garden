@@ -1,6 +1,7 @@
 {
   "name": "@commandgarden/shared",
   "version": "0.1.0",
+  "description": "Shared types and utilities for CommandGarden",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
