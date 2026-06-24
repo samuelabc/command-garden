@@ -33,17 +33,44 @@
     }
     .dot.connected { background: #4caf50; }
     .dot.disconnected { background: #f44336; }
+    .dot.disabled { background: #666; }
     .status-text { flex: 1; }
-    .reconnect-btn {
-      background: #333;
-      color: #ccc;
-      border: 1px solid #555;
-      border-radius: 4px;
-      padding: 3px 10px;
-      font-size: 12px;
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
       cursor: pointer;
     }
-    .reconnect-btn:hover { background: #444; }
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #555;
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track {
+      background: #4caf50;
+    }
+    .toggle-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      pointer-events: none;
+    }
+    .toggle input:checked ~ .toggle-knob {
+      transform: translateX(16px);
+    }
     .activity-list {
       max-height: 240px;
       overflow-y: auto;
@@ -71,9 +98,13 @@
 <body>
   <div class="header">commandGarden</div>
   <div class="status-row">
-    <div id="dot" class="dot disconnected"></div>
+    <div id="dot" class="dot disabled"></div>
     <span id="status-text" class="status-text">Checking…</span>
-    <button id="reconnect-btn" class="reconnect-btn" style="display:none">Reconnect</button>
+    <label class="toggle">
+      <input type="checkbox" id="toggle-input">
+      <div class="toggle-track"></div>
+      <div class="toggle-knob"></div>
+    </label>
   </div>
   <div id="activity" class="activity-list"></div>
   <script src="popup.js"></script>

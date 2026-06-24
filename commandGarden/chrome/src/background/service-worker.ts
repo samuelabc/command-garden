@@ -3,7 +3,8 @@ import type { ExtensionRequest } from '@commandgarden/shared';
 import { WsClient } from './ws-client.js';
 import { PipelineRunner } from '../pipeline/runner.js';
 import { RealChromeAdapter } from './chrome-adapter.js';
-import type { ActivityEntry, PopupMessage, PopupStatusResponse } from '../popup/popup-types.js';
+import type { ActivityEntry, PopupMessage } from '../popup/popup-types.js';
+import { initFromStorage, handleSetEnabled, buildStatusResponse } from './service-worker-logic.js';
 
 const DAEMON_URL = 'ws://127.0.0.1:19825/ws/extension';
 const client = new WsClient(DAEMON_URL);
@@ -34,22 +35,23 @@ client.onRequest(async (request: ExtensionRequest) => {
   }
 });
 
+const storageGet = chrome.storage.local.get.bind(chrome.storage.local);
+const storageSet = chrome.storage.local.set.bind(chrome.storage.local);
+
 chrome.runtime.onMessage.addListener(
   (message: PopupMessage, _sender, sendResponse) => {
     if (message.type === 'getStatus') {
-      const response: PopupStatusResponse = {
-        connected: client.isConnected(),
-        recentActivity,
-      };
-      sendResponse(response);
+      buildStatusResponse(client, storageGet, recentActivity, sendResponse);
     } else if (message.type === 'reconnect') {
       client.disconnect();
       client.connect();
       sendResponse({ ok: true });
+    } else if (message.type === 'setEnabled') {
+      handleSetEnabled(message.enabled, client, storageSet, sendResponse, recentActivity);
     }
     return true;
   },
 );
 
-client.connect();
+initFromStorage(storageGet, client);
 console.log('commandGarden service worker started');

@@ -7,9 +7,11 @@ export interface ActivityEntry {
 
 export type PopupMessage =
   | { type: 'getStatus' }
-  | { type: 'reconnect' };
+  | { type: 'reconnect' }
+  | { type: 'setEnabled'; enabled: boolean };
 
 export interface PopupStatusResponse {
   connected: boolean;
+  enabled: boolean;
   recentActivity: ActivityEntry[];
 }

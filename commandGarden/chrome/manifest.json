@@ -3,7 +3,7 @@
   "name": "commandGarden",
   "version": "0.1.0",
   "description": "Enterprise browser automation — secure, auditable CLI commands for websites",
-  "permissions": ["cookies", "tabs", "scripting", "webRequest"],
+  "permissions": ["cookies", "tabs", "scripting", "webRequest", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service-worker.js",

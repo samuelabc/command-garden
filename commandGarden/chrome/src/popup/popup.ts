@@ -4,13 +4,25 @@ import { timeAgo } from './time-ago.js';
 
 const dot = document.getElementById('dot')!;
 const statusText = document.getElementById('status-text')!;
-const reconnectBtn = document.getElementById('reconnect-btn') as HTMLButtonElement;
+const toggleInput = document.getElementById('toggle-input') as HTMLInputElement;
 const activityEl = document.getElementById('activity')!;
 
+let currentEnabled = true;
+
 function render(status: PopupStatusResponse): void {
-  dot.className = `dot ${status.connected ? 'connected' : 'disconnected'}`;
-  statusText.textContent = status.connected ? 'Connected' : 'Disconnected';
-  reconnectBtn.style.display = status.connected ? 'none' : '';
+  currentEnabled = status.enabled;
+  toggleInput.checked = status.enabled;
+
+  if (!status.enabled) {
+    dot.className = 'dot disabled';
+    statusText.textContent = 'Disabled';
+  } else if (status.connected) {
+    dot.className = 'dot connected';
+    statusText.textContent = 'Connected';
+  } else {
+    dot.className = 'dot disconnected';
+    statusText.textContent = 'Disconnected';
+  }
 
   if (status.recentActivity.length === 0) {
     activityEl.innerHTML = '<div class="empty">No recent activity</div>';
@@ -44,15 +56,16 @@ function fetchStatus(): void {
   });
 }
 
-reconnectBtn.addEventListener('click', () => {
-  reconnectBtn.disabled = true;
-  reconnectBtn.textContent = 'Reconnecting…';
-  chrome.runtime.sendMessage({ type: 'reconnect' }, () => {
-    setTimeout(() => {
-      reconnectBtn.disabled = false;
-      reconnectBtn.textContent = 'Reconnect';
-      fetchStatus();
-    }, 1000);
+toggleInput.addEventListener('change', () => {
+  const newEnabled = toggleInput.checked;
+  toggleInput.disabled = true;
+  chrome.runtime.sendMessage({ type: 'setEnabled', enabled: newEnabled }, (response: PopupStatusResponse) => {
+    toggleInput.disabled = false;
+    if (chrome.runtime.lastError) {
+      toggleInput.checked = currentEnabled;
+      return;
+    }
+    render(response);
   });
 });
 
