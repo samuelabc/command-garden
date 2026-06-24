@@ -161,9 +161,10 @@ describe('ConnectorRegistry loads sample connectors', () => {
     const { loaded, errors } = registry.load();
 
     expect(errors).toEqual([]);
-    expect(loaded).toBe(2);
+    expect(loaded).toBe(3);
     expect(registry.get('demo/extract-table')).toBeDefined();
     expect(registry.get('timetracking/report')).toBeDefined();
+    expect(registry.get('teams/room-availability')).toBeDefined();
   });
 
   it('lists all connectors', async () => {
@@ -174,5 +175,6 @@ describe('ConnectorRegistry loads sample connectors', () => {
     const keys = registry.keys();
     expect(keys).toContain('demo/extract-table');
     expect(keys).toContain('timetracking/report');
+    expect(keys).toContain('teams/room-availability');
   });
 });

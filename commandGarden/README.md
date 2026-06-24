@@ -100,9 +100,10 @@ node cli/dist/main.js list
 ```
 
 ```
-CONNECTOR             ACCESS  DOMAINS                CAPABILITIES
-demo/extract-table    read    demo.example.com       navigate, dom_read
-timetracking/report   read    timetracking.mercedes… navigate, cookie_read
+CONNECTOR                  ACCESS  DOMAINS                      CAPABILITIES
+demo/extract-table         read    demo.example.com             navigate, dom_read
+timetracking/report        read    timetracking.mercedes…       navigate, js_evaluate
+teams/room-availability    read    outlook.cloud.microsoft.…    navigate, js_evaluate
 ```
 
 ### Inspect a connector
@@ -174,6 +175,22 @@ node cli/dist/main.js run timetracking/report --month 2026-06 --format json
 ```
 
 This connector navigates to the timetracking portal, fetches the monthly report API using your existing browser session cookies, and returns structured booking data.
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### Room availability (Teams/Outlook)
+
+```bash
+# By room name
+node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
+
+# By room email
+node cli/dist/main.js run teams/room-availability --room "RES-RERE-M6VJ7ZUW@mercedes-benz.com" --date 2026-06-18 --format table
+```
+
+This connector drives the Outlook Scheduling Assistant in your authenticated browser session to fetch a meeting room's free/busy timeline for a given day. It intercepts the page's own GraphQL `getSchedule` call (the endpoint rejects replayed requests) and returns time blocks with state (`free`, `busy`, `tentative`, `oof`, `elsewhere`), start/end times, and duration.
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
 ---
 
@@ -305,6 +322,23 @@ Manage via CLI:
 node cli/dist/main.js config show
 node cli/dist/main.js config set daemon.port 9999
 node cli/dist/main.js config set audit.retentionDays 180
+```
+
+### Approving high-risk connectors
+
+Connectors that use `js_evaluate` or `cookie_write` are classified as **high-risk** and blocked by default. To allow a connector to run, add its key (`site/name`) to `security.approvedHighRisk` in `~/.commandgarden/config.yaml`:
+
+```yaml
+security:
+  approvedHighRisk:
+    - "timetracking/report"
+    - "teams/room-availability"
+```
+
+If a high-risk connector is not approved, running it will return:
+
+```
+Error: Connector "<key>" uses high-risk capabilities [js_evaluate] but is not approved
 ```
 
 ---
