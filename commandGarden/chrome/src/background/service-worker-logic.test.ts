@@ -20,6 +20,7 @@ const mockClient = {
   connect: vi.fn(),
   disconnect: vi.fn(),
   isConnected: vi.fn(() => false),
+  waitConnected: vi.fn(() => Promise.resolve(false)),
 };
 
 function resetStorage() {
@@ -56,26 +57,29 @@ describe('handleSetEnabled', () => {
     resetStorage();
   });
 
-  it('disconnects and persists when set to false', () => {
+  it('disconnects and persists when set to false', async () => {
     const sendResponse = vi.fn();
     mockClient.isConnected.mockReturnValue(false);
-    handleSetEnabled(false, mockClient, mockSet as any, sendResponse);
+    await handleSetEnabled(false, mockClient, mockSet as any, sendResponse);
     expect(mockClient.disconnect).toHaveBeenCalled();
     expect(mockSet).toHaveBeenCalledWith({ enabled: false }, expect.any(Function));
   });
 
-  it('connects and persists when set to true', () => {
+  it('connects and persists when set to true', async () => {
     const sendResponse = vi.fn();
     mockClient.isConnected.mockReturnValue(false);
-    handleSetEnabled(true, mockClient, mockSet as any, sendResponse);
+    mockClient.waitConnected.mockResolvedValue(true);
+    await handleSetEnabled(true, mockClient, mockSet as any, sendResponse);
     expect(mockClient.connect).toHaveBeenCalled();
+    expect(mockClient.waitConnected).toHaveBeenCalled();
     expect(mockSet).toHaveBeenCalledWith({ enabled: true }, expect.any(Function));
   });
 
-  it('responds with enabled and connected status', () => {
+  it('responds with enabled and connected status', async () => {
     const sendResponse = vi.fn();
     mockClient.isConnected.mockReturnValue(true);
-    handleSetEnabled(true, mockClient, mockSet as any, sendResponse);
+    mockClient.waitConnected.mockResolvedValue(true);
+    await handleSetEnabled(true, mockClient, mockSet as any, sendResponse);
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({ enabled: true, connected: true }),
     );
@@ -88,11 +92,12 @@ describe('buildStatusResponse', () => {
     resetStorage();
   });
 
-  it('includes enabled from storage and connected from client', () => {
+  it('includes enabled from storage and connected from client', async () => {
     mockStorage['enabled'] = true;
     mockClient.isConnected.mockReturnValue(true);
+    mockClient.waitConnected.mockResolvedValue(true);
     const sendResponse = vi.fn();
-    buildStatusResponse(mockClient, mockGet as any, [], sendResponse);
+    await buildStatusResponse(mockClient, mockGet as any, [], sendResponse);
     expect(sendResponse).toHaveBeenCalledWith({
       enabled: true,
       connected: true,
@@ -100,10 +105,11 @@ describe('buildStatusResponse', () => {
     });
   });
 
-  it('defaults enabled to true when not in storage', () => {
+  it('defaults enabled to true when not in storage', async () => {
     mockClient.isConnected.mockReturnValue(false);
+    mockClient.waitConnected.mockResolvedValue(false);
     const sendResponse = vi.fn();
-    buildStatusResponse(mockClient, mockGet as any, [], sendResponse);
+    await buildStatusResponse(mockClient, mockGet as any, [], sendResponse);
     expect(sendResponse).toHaveBeenCalledWith({
       enabled: true,
       connected: false,

@@ -80,6 +80,27 @@ export class WsClient {
 
   isConnected(): boolean { return this.ws !== null && this.ws.readyState === this.WS.OPEN; }
 
+  waitConnected(timeoutMs = 2000): Promise<boolean> {
+    if (!this.ws || this.ws.readyState === this.WS.OPEN) {
+      return Promise.resolve(this.isConnected());
+    }
+    return new Promise(resolve => {
+      const ws = this.ws!;
+      let settled = false;
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        ws.removeEventListener('open', onOpen);
+        ws.removeEventListener('close', onClose);
+      };
+      const timer = setTimeout(() => { cleanup(); resolve(false); }, timeoutMs);
+      const onOpen = () => { clearTimeout(timer); cleanup(); resolve(true); };
+      const onClose = () => { clearTimeout(timer); cleanup(); resolve(false); };
+      ws.addEventListener('open', onOpen);
+      ws.addEventListener('close', onClose);
+    });
+  }
+
   disconnect(): void {
     this.intentionallyClosed = true;
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }

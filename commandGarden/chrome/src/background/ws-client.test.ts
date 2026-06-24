@@ -19,6 +19,22 @@ class MockWebSocket extends EventEmitter {
   removeEventListener(event: string, cb: (...args: unknown[]) => void) { this.off(event, cb); }
 }
 
+class SlowMockWebSocket extends EventEmitter {
+  static OPEN = 1;
+  readyState = 0;
+  sent: string[] = [];
+  url: string;
+  constructor(url: string) {
+    super();
+    this.url = url;
+  }
+  send(data: string) { this.sent.push(data); }
+  close() { this.readyState = 3; this.emit('close'); }
+  addEventListener(event: string, cb: (...args: unknown[]) => void) { this.on(event, cb); }
+  removeEventListener(event: string, cb: (...args: unknown[]) => void) { this.off(event, cb); }
+  simulateOpen() { this.readyState = 1; this.emit('open'); }
+}
+
 describe('WsClient', () => {
   let client: WsClient;
 
@@ -67,5 +83,53 @@ describe('WsClient', () => {
     expect(client.isConnected()).toBe(false);
     vi.advanceTimersByTime(1000);
     expect(client.isConnected()).toBe(true);
+  });
+});
+
+describe('WsClient.waitConnected', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('resolves true immediately when already connected', async () => {
+    const c = new WsClient('ws://localhost', MockWebSocket as any);
+    c.connect();
+    await expect(c.waitConnected()).resolves.toBe(true);
+    c.disconnect();
+  });
+
+  it('resolves false immediately when no socket', async () => {
+    const c = new WsClient('ws://localhost', MockWebSocket as any);
+    await expect(c.waitConnected()).resolves.toBe(false);
+  });
+
+  it('waits for open event then resolves true', async () => {
+    const c = new WsClient('ws://localhost', SlowMockWebSocket as any);
+    c.connect();
+    const ws = c.getSocket() as unknown as SlowMockWebSocket;
+    expect(c.isConnected()).toBe(false);
+    const promise = c.waitConnected();
+    ws.simulateOpen();
+    await expect(promise).resolves.toBe(true);
+    c.disconnect();
+  });
+
+  it('resolves false if socket closes before opening', async () => {
+    const c = new WsClient('ws://localhost', SlowMockWebSocket as any);
+    c.connect();
+    const ws = c.getSocket() as unknown as SlowMockWebSocket;
+    const promise = c.waitConnected();
+    ws.close();
+    await expect(promise).resolves.toBe(false);
+  });
+
+  it('resolves false on timeout', async () => {
+    vi.useFakeTimers();
+    const c = new WsClient('ws://localhost', SlowMockWebSocket as any);
+    c.connect();
+    const promise = c.waitConnected(500);
+    vi.advanceTimersByTime(500);
+    await expect(promise).resolves.toBe(false);
+    c.disconnect();
   });
 });
