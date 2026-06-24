@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // src/content/dom-executor.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { waitForSelector, extractData, clickElement, typeIntoElement } from './dom-executor.js';
