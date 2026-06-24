@@ -31,6 +31,17 @@ await build({
   format: 'iife',
 });
 
+// Bundle popup (IIFE — standard page script)
+await build({
+  ...sharedOpts,
+  entryPoints: ['src/popup/popup.ts'],
+  outfile: 'dist/popup.js',
+  format: 'iife',
+});
+
+// Copy popup HTML
+cpSync('src/popup/popup.html', 'dist/popup.html');
+
 // Copy manifest
 cpSync('manifest.json', 'dist/manifest.json');
 
