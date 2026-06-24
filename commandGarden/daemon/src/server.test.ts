@@ -127,4 +127,60 @@ describe('server', () => {
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe('command.denied');
   });
+
+  it('GET /api/connectors/:site/:name returns full connector', async () => {
+    const app = await createServer(deps);
+    const res = await app.inject({
+      method: 'GET', url: '/api/connectors/test/cmd',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.connector.site).toBe('test');
+    expect(body.connector.name).toBe('cmd');
+    expect(body.connector.pipeline).toBeDefined();
+  });
+
+  it('GET /api/connectors/:site/:name returns 404 for unknown', async () => {
+    const app = await createServer(deps);
+    const res = await app.inject({
+      method: 'GET', url: '/api/connectors/no/such',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('GET /api/audit returns audit events', async () => {
+    const app = await createServer(deps);
+    await app.inject({
+      method: 'POST', url: '/api/run',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+      payload: { connector: 'no/such', args: {} },
+    });
+    const res = await app.inject({
+      method: 'GET', url: '/api/audit',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.events).toHaveLength(1);
+    expect(body.events[0].type).toBe('command.denied');
+  });
+
+  it('GET /api/audit filters by connector pattern', async () => {
+    const app = await createServer(deps);
+    await app.inject({
+      method: 'POST', url: '/api/run',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+      payload: { connector: 'no/such', args: {} },
+    });
+    const res = await app.inject({
+      method: 'GET', url: '/api/audit?connector=other/*',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    const body = JSON.parse(res.body);
+    expect(body.events).toHaveLength(0);
+  });
 });

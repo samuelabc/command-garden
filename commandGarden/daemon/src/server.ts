@@ -49,6 +49,26 @@ export async function createServer(deps: ServerDeps) {
     })),
   }));
 
+  app.get('/api/connectors/:site/:name', async (req, reply) => {
+    const { site, name } = req.params as { site: string; name: string };
+    const key = `${site}/${name}`;
+    const connector = deps.registry.get(key);
+    if (!connector) {
+      reply.code(404).send({ ok: false, error: `Connector "${key}" not found` });
+      return;
+    }
+    return { ok: true, connector };
+  });
+
+  app.get('/api/audit', async (req) => {
+    const query = req.query as Record<string, string>;
+    const since = query.since ? new Date(query.since) : undefined;
+    const connector = query.connector;
+    const limit = query.limit ? parseInt(query.limit, 10) : 100;
+    const events = deps.auditStore.list({ since, connector, limit });
+    return { ok: true, events, count: events.length };
+  });
+
   app.post('/api/run', async (req, reply) => {
     if (!isRunCommandRequest(req.body)) {
       reply.code(400).send({ ok: false, error: 'Invalid request' }); return;
