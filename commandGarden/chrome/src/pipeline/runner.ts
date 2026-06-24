@@ -79,7 +79,7 @@ export class PipelineRunner {
             ctx.applyMap(step.fields);
             break;
           case 'filter':
-            ctx.applyFilter(step.field, step.operator, step.value);
+            ctx.applyFilter(step.field, step.operator, ctx.interpolate(step.value));
             break;
         }
       }

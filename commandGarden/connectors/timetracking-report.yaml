@@ -1,0 +1,58 @@
+site: timetracking
+name: report
+version: "1.0"
+description: "MBTI Time Tracking monthly report — one row per booking line"
+access: read
+
+# Note: Full runtime parity with the OpenCLI adapter requires a js_evaluate
+# pipeline step to read the MSAL access token from sessionStorage. The fetch
+# step below sends cookies via credentials:include but the API requires a
+# Bearer header. This connector validates against the schema and can be tested
+# with mocked adapter responses.
+
+domains:
+  - "timetracking.mercedes-benz-techinnovation.com"
+  - "mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net"
+capabilities:
+  - navigate
+  - cookie_read
+
+args:
+  - name: month
+    type: string
+    required: false
+    help: "Month in YYYY-MM format (default: current month)"
+    pattern: "^\\d{4}-\\d{2}$"
+
+columns:
+  - name: month
+    type: string
+  - name: date
+    type: string
+  - name: projectId
+    type: string
+  - name: category
+    type: string
+  - name: activity
+    type: string
+  - name: hours
+    type: number
+  - name: status
+    type: string
+  - name: journalId
+    type: string
+  - name: lineNumber
+    type: number
+
+pipeline:
+  - step: navigate
+    url: "https://timetracking.mercedes-benz-techinnovation.com/"
+  - step: wait
+    selector: "body"
+    timeout: 10000
+  - step: fetch
+    url: "https://mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net/api/ReportFAK?date=${{ args.month | default(\"2026-06\") }}-01"
+    method: GET
+    headers:
+      Accept: "application/json"
+    as: reportData
