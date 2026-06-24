@@ -22,6 +22,7 @@ export class WsRelay {
   get connected(): boolean { return this.ws !== null; }
 
   attach(ws: SocketLike): void {
+    if (this.ws) this.ws.close();
     this.ws = ws;
     ws.on('message', (raw: unknown) => {
       const data = JSON.parse(String(raw));

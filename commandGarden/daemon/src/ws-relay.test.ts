@@ -55,6 +55,14 @@ describe('WsRelay', () => {
     expect(resp.data).toEqual([{ a: 1 }]);
   });
 
+  it('closes previous socket when a new one attaches', () => {
+    relay.attach(socket as any);
+    const socket2 = new MockSocket();
+    relay.attach(socket2 as any);
+    expect(socket.closed).toBe(true);
+    expect(relay.connected).toBe(true);
+  });
+
   it('times out if no response', async () => {
     vi.useFakeTimers();
     relay.attach(socket as any);
