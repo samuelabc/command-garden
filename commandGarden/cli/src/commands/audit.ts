@@ -69,7 +69,7 @@ export async function executeAuditExport(
     const header = AUDIT_COLUMNS.join(',');
     const rows = resp.events.map(e =>
       AUDIT_COLUMNS.map(col => {
-        const val = (e as Record<string, unknown>)[col];
+        const val = (e as unknown as Record<string, unknown>)[col];
         const str = String(val ?? '');
         return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
       }).join(','),

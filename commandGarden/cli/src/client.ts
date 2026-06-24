@@ -25,7 +25,7 @@ export class DaemonClient {
 
   async status(): Promise<{ ok: boolean; extensionConnected: boolean; connectorCount: number }> {
     const resp = await this.rawFetch('/api/status', { method: 'GET' });
-    return resp.json();
+    return resp.json() as Promise<{ ok: boolean; extensionConnected: boolean; connectorCount: number }>;
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
