@@ -104,8 +104,6 @@ Daemon is running on http://127.0.0.1:19825
 
 ## Happy Flow: Running a Connector
 
-This walkthrough uses the built-in `demo/extract-table` connector, which extracts rows from an HTML table.
-
 ### List available connectors
 
 ```bash
@@ -114,71 +112,8 @@ cg list
 
 ```
 CONNECTOR                  ACCESS  DOMAINS                      CAPABILITIES
-demo/extract-table         read    demo.example.com             navigate, dom_read
 timetracking/report        read    timetracking.mercedes…       navigate, js_evaluate
 teams/room-availability    read    outlook.cloud.microsoft.…    navigate, js_evaluate
-```
-
-### Inspect a connector
-
-```bash
-cg inspect demo/extract-table
-```
-
-```
-Connector: demo/extract-table v1.0
-Description: Extract rows from an HTML table — sample connector for testing
-Access: read
-Domains: demo.example.com
-Capabilities: navigate, dom_read
-
-Arguments:
-  --minScore  (number, optional, default: 0)  Minimum score to include in results
-
-Output columns: name, email, score, status
-
-Pipeline steps:
-  1. navigate → https://demo.example.com/users
-  2. wait → #data-table tbody (5000ms)
-  3. extract → #data-table tbody tr
-  4. map → name, email, score, status
-  5. filter → score gte minScore
-```
-
-### Run with JSON output
-
-```bash
-cg run demo/extract-table --minScore 50 --format json
-```
-
-```json
-{
-  "ok": true,
-  "connector": "demo/extract-table",
-  "rowCount": 3,
-  "columns": ["name", "email", "score", "status"],
-  "data": [
-    { "name": "Alice", "email": "alice@example.com", "score": 92, "status": "ACTIVE" },
-    { "name": "Bob", "email": "bob@example.com", "score": 78, "status": "ACTIVE" },
-    { "name": "Carol", "email": "carol@example.com", "score": 65, "status": "PENDING" }
-  ]
-}
-```
-
-### Run with table output
-
-```bash
-cg run demo/extract-table --minScore 50 --format table
-```
-
-```
-┌────────┬─────────────────────┬───────┬──────────┐
-│ name   │ email               │ score │ status   │
-├────────┼─────────────────────┼───────┼──────────┤
-│ Alice  │ alice@example.com   │    92 │ ACTIVE   │
-│ Bob    │ bob@example.com     │    78 │ ACTIVE   │
-│ Carol  │ carol@example.com   │    65 │ PENDING  │
-└────────┴─────────────────────┴───────┴──────────┘
 ```
 
 ### Timetracking report
