@@ -1,0 +1,42 @@
+{
+  "name": "@commandgarden/cli",
+  "version": "0.1.0",
+  "description": "Enterprise browser automation CLI",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/main.js",
+  "bin": {
+    "commandgarden": "./dist/main.js",
+    "cg": "./dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "browser-automation",
+    "cli",
+    "enterprise",
+    "commandgarden"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "cli-table3": "^0.6.0",
+    "commander": "^12.0.0",
+    "yaml": "^2.4.0"
+  },
+  "devDependencies": {
+    "@commandgarden/shared": "*",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  }
+}

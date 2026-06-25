@@ -1,0 +1,180 @@
+import { describe, it, expect, vi } from 'vitest';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { parseConnectorYaml } from '@commandgarden/shared';
+import { PipelineRunner, type ChromeAdapter } from './runner';
+
+const CONNECTORS_DIR = join(__dirname, '../../../connectors');
+
+function loadConnectorDef(filename: string) {
+  const yaml = readFileSync(join(CONNECTORS_DIR, filename), 'utf-8');
+  const result = parseConnectorYaml(yaml);
+  if (!result.ok) throw new Error(result.error.message);
+  for (const step of result.data.pipeline) {
+    if (step.step === 'js_evaluate' && step.file) {
+      const filePath = join(CONNECTORS_DIR, step.file);
+      if (!existsSync(filePath)) throw new Error(`File not found: ${step.file}`);
+      (step as { code?: string }).code = readFileSync(filePath, 'utf-8');
+    }
+  }
+  return result.data;
+}
+
+function mockAdapter(overrides?: Partial<ChromeAdapter>): ChromeAdapter {
+  return {
+    navigateTab: vi.fn().mockResolvedValue(1),
+    waitForTabLoad: vi.fn().mockResolvedValue(undefined),
+    executeInContent: vi.fn().mockResolvedValue(undefined),
+    getCookies: vi.fn().mockResolvedValue({}),
+    evaluateInPage: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+describe('demo/extract-table — full pipeline', () => {
+  const MOCK_DOM_DATA = [
+    { name: ' Alice ', email: ' ALICE@DEMO.COM ', rawScore: '85', status: ' active ' },
+    { name: ' Bob ', email: ' BOB@DEMO.COM ', rawScore: '42', status: ' inactive ' },
+    { name: ' Carol ', email: ' CAROL@DEMO.COM ', rawScore: '91', status: ' active ' },
+  ];
+
+  it('executes full pipeline and returns mapped + filtered data', async () => {
+    const connector = loadConnectorDef('demo-extract-table.yaml');
+    const executeInContent = vi.fn()
+      .mockResolvedValueOnce(undefined) // wait step
+      .mockResolvedValueOnce(MOCK_DOM_DATA); // extract step
+
+    const adapter = mockAdapter({ executeInContent });
+    const runner = new PipelineRunner(adapter);
+    const result = await runner.run(connector, { minScore: 50 });
+
+    expect(result.ok).toBe(true);
+    // After map: name trimmed, email lowered, rawScore→score as number string, status uppered
+    // After filter: score >= 50 → Alice (85) and Carol (91), Bob (42) excluded
+    expect(result.data).toHaveLength(2);
+    expect(result.data[0]).toEqual({
+      name: 'Alice',
+      email: 'alice@demo.com',
+      score: '85',
+      status: 'ACTIVE',
+    });
+    expect(result.data[1]).toEqual({
+      name: 'Carol',
+      email: 'carol@demo.com',
+      score: '91',
+      status: 'ACTIVE',
+    });
+  });
+
+  it('returns all rows when minScore is 0', async () => {
+    const connector = loadConnectorDef('demo-extract-table.yaml');
+    const executeInContent = vi.fn()
+      .mockResolvedValueOnce(undefined) // wait
+      .mockResolvedValueOnce(MOCK_DOM_DATA); // extract
+
+    const adapter = mockAdapter({ executeInContent });
+    const runner = new PipelineRunner(adapter);
+    const result = await runner.run(connector, { minScore: 0 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toHaveLength(3);
+  });
+
+  it('navigates to the correct URL', async () => {
+    const connector = loadConnectorDef('demo-extract-table.yaml');
+    const adapter = mockAdapter({
+      executeInContent: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce([]),
+    });
+    const runner = new PipelineRunner(adapter);
+    await runner.run(connector, { minScore: 0 });
+
+    expect(adapter.navigateTab).toHaveBeenCalledWith('https://demo.example.com/users');
+  });
+
+  it('returns empty data when no rows match filter', async () => {
+    const connector = loadConnectorDef('demo-extract-table.yaml');
+    const executeInContent = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(MOCK_DOM_DATA);
+
+    const adapter = mockAdapter({ executeInContent });
+    const runner = new PipelineRunner(adapter);
+    const result = await runner.run(connector, { minScore: 100 });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toHaveLength(0);
+  });
+});
+
+describe('timetracking/report — pipeline execution', () => {
+  const MOCK_ROWS = [
+    { month: '2026-06', date: '2026-06-02', projectId: 'P001', category: 'Dev',
+      activity: 'A001', hours: 8, status: 'RELEASED', journalId: 'J001', lineNumber: 1 },
+  ];
+
+  it('navigates to timetracking page and calls js_evaluate step', async () => {
+    const connector = loadConnectorDef('timetracking-report.yaml');
+    const evaluateInPage = vi.fn().mockResolvedValue(MOCK_ROWS);
+
+    const adapter = mockAdapter({ evaluateInPage });
+    const runner = new PipelineRunner(adapter);
+    const result = await runner.run(connector, { month: '2026-06' });
+
+    expect(result.ok).toBe(true);
+    expect(adapter.navigateTab).toHaveBeenCalledWith(
+      'https://timetracking.mercedes-benz-techinnovation.com/'
+    );
+    expect(evaluateInPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns rows from js_evaluate as pipeline data', async () => {
+    const connector = loadConnectorDef('timetracking-report.yaml');
+    const evaluateInPage = vi.fn().mockResolvedValue(MOCK_ROWS);
+
+    const adapter = mockAdapter({ evaluateInPage });
+    const runner = new PipelineRunner(adapter);
+    const result = await runner.run(connector, { month: '2026-06' });
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(MOCK_ROWS);
+  });
+
+  it('interpolates month arg into js_evaluate code', async () => {
+    const connector = loadConnectorDef('timetracking-report.yaml');
+    const evaluateInPage = vi.fn().mockResolvedValue([]);
+
+    const adapter = mockAdapter({ evaluateInPage });
+    const runner = new PipelineRunner(adapter);
+    await runner.run(connector, { month: '2026-07' });
+
+    const code = evaluateInPage.mock.calls[0][1] as string;
+    expect(code).toContain("let month = '2026-07'");
+  });
+});
+
+describe('ConnectorRegistry loads sample connectors', () => {
+  it('loads connectors from the connectors directory', async () => {
+    const { ConnectorRegistry } = await import('../../../daemon/src/registry');
+    const registry = new ConnectorRegistry([CONNECTORS_DIR]);
+    const { loaded, errors } = registry.load();
+
+    expect(errors).toEqual([]);
+    expect(loaded).toBe(3);
+    expect(registry.get('demo/extract-table')).toBeDefined();
+    expect(registry.get('timetracking/report')).toBeDefined();
+    expect(registry.get('teams/room-availability')).toBeDefined();
+  });
+
+  it('lists all connectors', async () => {
+    const { ConnectorRegistry } = await import('../../../daemon/src/registry');
+    const registry = new ConnectorRegistry([CONNECTORS_DIR]);
+    registry.load();
+
+    const keys = registry.keys();
+    expect(keys).toContain('demo/extract-table');
+    expect(keys).toContain('timetracking/report');
+    expect(keys).toContain('teams/room-availability');
+  });
+});
