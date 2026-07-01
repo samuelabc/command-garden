@@ -1,6 +1,8 @@
 // src/main.ts
 import { Command } from 'commander';
 import { join, dirname } from 'node:path';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { DaemonClient, readToken } from './client.js';
@@ -18,8 +20,38 @@ import { executeUp, executeDown } from './commands/up-down.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const DAEMON_SCRIPT = join(__dirname, '..', '..', 'daemon', 'dist', 'main.js');
-const APP_SCRIPT = join(__dirname, '..', '..', 'app', 'dist', 'server', 'main.js');
+
+function resolveScript(relativePath: string, packageName: string, entryPoint: string): string {
+  // 1. Relative path — works inside the monorepo
+  const relative = join(__dirname, relativePath);
+  if (existsSync(relative)) return relative;
+
+  // 2. Package resolution — works for global install (after npm link)
+  try {
+    const require = createRequire(import.meta.url);
+    const pkgJsonPath = require.resolve(`${packageName}/package.json`);
+    const resolved = join(dirname(pkgJsonPath), entryPoint);
+    if (existsSync(resolved)) return resolved;
+  } catch { /* not resolvable */ }
+
+  // 3. Fail with actionable guidance
+  console.error(`Cannot find ${packageName} entry point.`);
+  console.error(`Looked at:\n  - ${relative}`);
+  console.error(`\nIf @commandgarden/cli is installed globally, also run:`);
+  console.error(`  cd <monorepo>/commandGarden/${packageName.split('/').pop()} && npm link`);
+  process.exit(1);
+}
+
+let _daemonScript: string | undefined;
+function getDaemonScript(): string {
+  return (_daemonScript ??= resolveScript('../../daemon/dist/main.js', '@commandgarden/daemon', 'dist/main.js'));
+}
+
+let _appScript: string | undefined;
+function getAppScript(): string {
+  return (_appScript ??= resolveScript('../../app/dist/server/main.js', '@commandgarden/app', 'dist/server/main.js'));
+}
+
 const CG_HOME = join(homedir(), '.commandgarden');
 const TOKEN_PATH = join(CG_HOME, 'session-token');
 const CONFIG_PATH = join(CG_HOME, 'config.yaml');
@@ -95,7 +127,7 @@ daemon
   .command('start')
   .description('Start the daemon in background')
   .action(async () => {
-    console.log(await executeDaemonStart(BASE_URL, CG_HOME, DAEMON_SCRIPT));
+    console.log(await executeDaemonStart(BASE_URL, CG_HOME, getDaemonScript()));
   });
 
 daemon
@@ -182,7 +214,7 @@ gui
   .option('-b, --background', 'Run in background')
   .option('--no-open', 'Do not open browser')
   .action(async (opts: { background?: boolean; open?: boolean }) => {
-    console.log(await executeGuiStart(BASE_URL, CG_HOME, APP_SCRIPT, {
+    console.log(await executeGuiStart(BASE_URL, CG_HOME, getAppScript(), {
       background: opts.background,
       noOpen: opts.open === false,
       configPath: CONFIG_PATH,
@@ -204,7 +236,7 @@ program
   .command('up')
   .description('Start daemon + GUI, open browser')
   .action(async () => {
-    console.log(await executeUp(BASE_URL, CG_HOME, DAEMON_SCRIPT, APP_SCRIPT, CONFIG_PATH));
+    console.log(await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), CONFIG_PATH));
   });
 
 program
