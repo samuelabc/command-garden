@@ -218,7 +218,24 @@ Use `${{ }}` for template expressions (no JS eval):
 
 ## Audit Log
 
-Every command execution is logged to `~/.commandgarden/audit.db` (SQLite). The audit log records what was accessed and row counts, never actual data values.
+Every command execution is logged to `~/.commandgarden/audit.db` (SQLite). The audit log records what was accessed and row counts, never actual data values. Sensitive argument values (matching `token`, `password`, `secret`, `api_key`, `credential`, `auth`) are automatically redacted.
+
+### Event types
+
+| Type | When logged |
+|---|---|
+| `command.start` | Before pipeline execution begins |
+| `command.success` | Pipeline completed successfully |
+| `command.error` | Pipeline failed |
+| `command.denied` | Validation rejected (unapproved domain, missing capability) |
+| `auth.failed` | Invalid token or missing CSRF header |
+| `approval.granted` | Step approval was approved (from CLI or extension) |
+| `approval.rejected` | Step approval was rejected |
+| `config.changed` | Configuration value was changed via `cg config set` |
+
+Each command execution is linked by a **correlation ID** across its start, success/error, and any approval events. A **connector hash** (SHA-256 of the YAML file) is recorded so changes to connectors between runs are visible in the audit trail.
+
+### Querying events
 
 ```bash
 # List recent events
@@ -227,11 +244,40 @@ cg audit list --since 7d
 # Filter by connector
 cg audit list --since 30d --connector timetracking/*
 
+# Filter by event type
+cg audit list --type auth.failed --since 7d
+cg audit list --type command.denied --since 30d
+
+# Show full details of a single event (including pipeline steps)
+cg audit show <event-id>
+
 # Export as JSON
 cg audit export --format json --since 30d
+
+# Export as CSV (includes all fields)
+cg audit export --format csv --since 30d
 ```
 
-Denied commands (unapproved domain, missing capability, invalid token) are logged with a denial reason.
+### Pipeline step visibility
+
+Successful and failed command events include a `steps` array showing each pipeline step that executed, with its type, capability, duration, and any error. Use `cg audit show <id>` to see the step-by-step breakdown:
+
+```
+Pipeline Steps:
+  #  Step         Capability          Duration  Error
+  1  navigate     navigate            320ms
+  2  wait         navigate            450ms
+  3  js_evaluate  js_evaluate         280ms
+  4  map          -                   2ms
+```
+
+### Security features
+
+- **Audit-or-fail**: Commands are blocked if the audit system is unavailable (disk full, corruption)
+- **File permissions**: `audit.db` is created with `0600` permissions (owner-only read/write)
+- **Denial logging**: Blocked commands log `command.denied` with the denial reason
+- **Auth failure logging**: Invalid tokens and missing CSRF headers are logged as `auth.failed`
+- **Config change tracking**: All `cg config set` mutations are logged with old and new values
 
 ---
 
