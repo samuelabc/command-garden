@@ -1,7 +1,9 @@
 // src/server.ts
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
-import { isRunCommandRequest, createAuditEvent } from '@commandgarden/shared';
+import { randomUUID, createHash } from 'node:crypto';
+import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP } from '@commandgarden/shared';
+import type { ApprovalRequest, ApprovalConfig } from '@commandgarden/shared';
 import { userInfo } from 'node:os';
 import type { DaemonConfig } from './config.js';
 import type { ConnectorRegistry } from './registry.js';
@@ -9,9 +11,11 @@ import type { AuditStore } from './audit-store.js';
 import { WsRelay } from './ws-relay.js';
 import { validateCommand } from './validator.js';
 import { validateToken } from './auth.js';
+import { SseManager } from './sse-manager.js';
 
 export interface ServerDeps {
   config: DaemonConfig;
+  configPath: string;
   sessionToken: string;
   registry: ConnectorRegistry;
   auditStore: AuditStore;
@@ -27,10 +31,17 @@ export async function createServer(deps: ServerDeps) {
   app.addHook('preHandler', async (req, reply) => {
     if (req.url === '/api/status' || req.url === '/ws/extension') return;
     const csrf = req.headers['x-commandgarden'];
-    if (!csrf) { reply.code(403).send({ ok: false, error: 'Missing X-CommandGarden header' }); return; }
+    if (!csrf) {
+      try { deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user, source: req.url })); } catch { /* audit best-effort for auth failures */ }
+      reply.code(403).send({ ok: false, error: 'Missing X-CommandGarden header' }); return;
+    }
     const auth = req.headers.authorization;
-    if (!auth?.startsWith('Bearer ')) { reply.code(401).send({ ok: false, error: 'Unauthorized' }); return; }
+    if (!auth?.startsWith('Bearer ')) {
+      try { deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user, source: req.url })); } catch { /* audit best-effort */ }
+      reply.code(401).send({ ok: false, error: 'Unauthorized' }); return;
+    }
     if (!validateToken(auth.slice(7), deps.sessionToken)) {
+      try { deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user, source: req.url })); } catch { /* audit best-effort */ }
       reply.code(401).send({ ok: false, error: 'Invalid token' }); return;
     }
   });
@@ -64,9 +75,97 @@ export async function createServer(deps: ServerDeps) {
     const query = req.query as Record<string, string>;
     const since = query.since ? new Date(query.since) : undefined;
     const connector = query.connector;
+    const type = query.type;
     const limit = query.limit ? parseInt(query.limit, 10) : 100;
-    const events = deps.auditStore.list({ since, connector, limit });
+    const events = deps.auditStore.list({ since, connector, type, limit });
     return { ok: true, events, count: events.length };
+  });
+
+  app.get('/api/audit/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const event = deps.auditStore.getById(id);
+    if (!event) {
+      reply.code(404).send({ ok: false, error: 'Event not found' }); return;
+    }
+    return { ok: true, event };
+  });
+
+  const SSE_CONNECT_TIMEOUT_MS = 30_000;
+  const sse = new SseManager();
+
+  function buildApprovalConfig(): ApprovalConfig {
+    return {
+      approvalRequired: deps.config.security.approvalRequired,
+      autoApproveConnectors: deps.config.security.autoApproveConnectors,
+      approvalTimeoutMs: deps.config.security.approvalTimeoutMs,
+    };
+  }
+
+  function connectorNeedsApproval(connectorKey: string, connector: { pipeline: { step: string }[]; capabilities: string[] }): boolean {
+    const approvalRequired = new Set(deps.config.security.approvalRequired);
+    if (approvalRequired.size === 0) return false;
+    if (deps.config.security.autoApproveConnectors.includes(connectorKey)) return false;
+    return connector.pipeline.some(s => {
+      const cap = STEP_CAPABILITY_MAP[s.step as keyof typeof STEP_CAPABILITY_MAP];
+      return cap != null && approvalRequired.has(cap);
+    });
+  }
+
+  deps.wsRelay.onApprovalRequest((request: ApprovalRequest) => {
+    sse.send(request.requestId, 'approval', request);
+    deps.wsRelay.registerApproval(request, deps.config.security.approvalTimeoutMs);
+  });
+
+  deps.wsRelay.onApprovalResolved((approvalId, approved, request) => {
+    try {
+      deps.auditStore.insert(createAuditEvent({
+        type: approved ? 'approval.granted' : 'approval.rejected',
+        connector: request.connectorKey,
+        user,
+        source: 'extension',
+        correlationId: request.requestId,
+      }));
+    } catch { /* audit best-effort */ }
+  });
+
+  app.get('/api/run/events/:requestId', async (req, reply) => {
+    const { requestId } = req.params as { requestId: string };
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+
+    sse.register(requestId, (event, data) => {
+      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    });
+
+    req.raw.on('close', () => {
+      sse.remove(requestId);
+    });
+  });
+
+  app.post('/api/approval', async (req, reply) => {
+    const body = req.body as { approvalId?: string; approved?: boolean };
+    if (!body.approvalId || typeof body.approved !== 'boolean') {
+      reply.code(400).send({ ok: false, error: 'Missing approvalId or approved field' }); return;
+    }
+    // Look up pending approval BEFORE resolving (resolve deletes the entry)
+    const pending = deps.wsRelay.getPendingApproval(body.approvalId);
+    const resolved = deps.wsRelay.resolveApproval(body.approvalId, body.approved);
+    if (!resolved) {
+      reply.code(404).send({ ok: false, error: 'No pending approval with that ID' }); return;
+    }
+    try {
+      deps.auditStore.insert(createAuditEvent({
+        type: body.approved ? 'approval.granted' : 'approval.rejected',
+        connector: pending?.request.connectorKey ?? '',
+        user,
+        source: 'cli',
+        correlationId: pending?.request.requestId,
+      }));
+    } catch { /* audit best-effort for approvals */ }
+    return { ok: true };
   });
 
   app.post('/api/run', async (req, reply) => {
@@ -87,38 +186,124 @@ export async function createServer(deps: ServerDeps) {
       reply.code(503).send({ ok: false, error: 'Extension not connected' }); return;
     }
     const connector = validation.connector!;
+    const requiresApproval = connectorNeedsApproval(body.connector, connector);
+    const approvalConfig = requiresApproval ? buildApprovalConfig() : undefined;
+    const correlationId = randomUUID();
+    const meta = deps.registry.getWithMeta(body.connector);
+    const connectorHash = meta
+      ? createHash('sha256').update(meta.yamlContent).digest('hex').slice(0, 16)
+      : undefined;
     const startTime = Date.now();
-    deps.auditStore.insert(createAuditEvent({
-      type: 'command.start', connector: body.connector, user,
-      args: body.args as Record<string, string>,
-      domains: connector.domains, capabilities: [...connector.capabilities],
-    }));
     try {
-      const resp = await deps.wsRelay.send(connector, body.args);
-      const durationMs = Date.now() - startTime;
       deps.auditStore.insert(createAuditEvent({
-        type: resp.ok ? 'command.success' : 'command.error',
-        connector: body.connector, user,
+        type: 'command.start', connector: body.connector, user,
         args: body.args as Record<string, string>,
         domains: connector.domains, capabilities: [...connector.capabilities],
-        rowCount: resp.data.length,
-        columns: connector.columns?.map(c => c.name),
-        durationMs, error: resp.error,
+        correlationId, connectorHash,
       }));
-      return {
-        ok: resp.ok, connector: body.connector, rowCount: resp.data.length,
-        columns: connector.columns?.map(c => c.name) ?? [],
-        data: resp.data, error: resp.error, durationMs,
-      };
-    } catch (err) {
-      const durationMs = Date.now() - startTime;
-      const error = err instanceof Error ? err.message : 'Unknown error';
-      deps.auditStore.insert(createAuditEvent({
-        type: 'command.error', connector: body.connector, user,
-        args: body.args as Record<string, string>, durationMs, error,
-      }));
-      reply.code(500).send({ ok: false, error });
+    } catch {
+      reply.code(500).send({ ok: false, error: 'Audit system unavailable \u2014 command blocked' }); return;
     }
+
+    const runPipeline = async (requestId: string) => {
+      try {
+        const resp = await deps.wsRelay.send(connector, body.args, approvalConfig, undefined, requestId || undefined);
+        const durationMs = Date.now() - startTime;
+        deps.auditStore.insert(createAuditEvent({
+          type: resp.ok ? 'command.success' : 'command.error',
+          connector: body.connector, user,
+          args: body.args as Record<string, string>,
+          domains: connector.domains, capabilities: [...connector.capabilities],
+          rowCount: resp.data.length,
+          columns: connector.columns?.map(c => c.name),
+          durationMs, error: resp.error,
+          correlationId, connectorHash, steps: resp.steps,
+        }));
+        return {
+          ok: resp.ok, connector: body.connector, rowCount: resp.data.length,
+          columns: connector.columns?.map(c => c.name) ?? [],
+          data: resp.data, error: resp.error, durationMs,
+          requestId, requiresApproval,
+        };
+      } catch (err) {
+        const durationMs = Date.now() - startTime;
+        const error = err instanceof Error ? err.message : 'Unknown error';
+        deps.auditStore.insert(createAuditEvent({
+          type: 'command.error', connector: body.connector, user,
+          args: body.args as Record<string, string>, durationMs, error,
+          correlationId, connectorHash,
+        }));
+        return { ok: false, data: [], error, durationMs, requestId, requiresApproval };
+      }
+    };
+
+    if (requiresApproval) {
+      const requestId = randomUUID();
+      sse.waitForConnection(requestId, SSE_CONNECT_TIMEOUT_MS)
+        .then(() => runPipeline(requestId))
+        .then(result => {
+          sse.send(requestId, 'result', result);
+          sse.remove(requestId);
+        })
+        .catch((err) => {
+          const durationMs = Date.now() - startTime;
+          deps.auditStore.insert(createAuditEvent({
+            type: 'command.error', connector: body.connector, user,
+            args: body.args as Record<string, string>, durationMs,
+            error: err instanceof Error ? err.message : 'SSE timeout',
+          }));
+        });
+      reply.code(202).send({
+        ok: true, requestId, requiresApproval: true,
+        connector: body.connector,
+      });
+    } else {
+      const result = await runPipeline('');
+      if (!result.ok) {
+        reply.code(500).send(result); return;
+      }
+      return result;
+    }
+  });
+
+  app.post('/api/config', async (req, reply) => {
+    const body = req.body as { key?: string; value?: string };
+    if (!body.key || body.value === undefined) {
+      reply.code(400).send({ ok: false, error: 'Missing key or value' }); return;
+    }
+    const parts = body.key.split('.');
+    if (parts.length !== 2) {
+      reply.code(400).send({ ok: false, error: 'Key must be section.property' }); return;
+    }
+
+    const { readFileSync, writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { dirname } = await import('node:path');
+    const { parse: parseYaml, stringify: stringifyYaml } = await import('yaml');
+
+    let configObj: Record<string, Record<string, unknown>> = {};
+    if (existsSync(deps.configPath)) {
+      configObj = (parseYaml(readFileSync(deps.configPath, 'utf-8')) as Record<string, Record<string, unknown>>) ?? {};
+    }
+
+    const [section, prop] = parts;
+    const previousValue = JSON.stringify(configObj[section]?.[prop] ?? null);
+
+    if (!configObj[section]) configObj[section] = {};
+    let parsed: unknown = body.value;
+    if (body.value === 'true') parsed = true;
+    else if (body.value === 'false') parsed = false;
+    else if (!isNaN(Number(body.value)) && body.value !== '') parsed = Number(body.value);
+    configObj[section][prop] = parsed;
+
+    mkdirSync(dirname(deps.configPath), { recursive: true });
+    writeFileSync(deps.configPath, stringifyYaml(configObj), 'utf-8');
+
+    deps.auditStore.insert(createAuditEvent({
+      type: 'config.changed', connector: '_system/config', user,
+      source: body.key, previousValue, newValue: JSON.stringify(parsed),
+    }));
+
+    return { ok: true, key: body.key, value: body.value };
   });
 
   app.get('/ws/extension', { websocket: true }, (socket, req) => {

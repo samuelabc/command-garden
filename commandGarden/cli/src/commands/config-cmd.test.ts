@@ -37,26 +37,21 @@ describe('executeConfigShow', () => {
 });
 
 describe('executeConfigSet', () => {
-  it('sets a top-level.nested key', () => {
-    vi.mocked(existsSync).mockReturnValue(true);
-    vi.mocked(readFileSync).mockReturnValue(SAMPLE_CONFIG);
-    const output = executeConfigSet('/fake/.commandgarden/config.yaml', 'daemon.port', '9999');
+  it('calls daemon API and returns success', async () => {
+    const client = {
+      post: vi.fn().mockResolvedValue({ ok: true }),
+    } as unknown as import('../client.js').DaemonClient;
+    const output = await executeConfigSet(client, 'daemon.port', '9999');
     expect(output).toContain('daemon.port');
     expect(output).toContain('9999');
-    expect(writeFileSync).toHaveBeenCalled();
+    expect(client.post).toHaveBeenCalledWith('/api/config', { key: 'daemon.port', value: '9999' });
   });
 
-  it('creates config file if missing', () => {
-    vi.mocked(existsSync).mockReturnValue(false);
-    const output = executeConfigSet('/fake/.commandgarden/config.yaml', 'output.defaultFormat', 'json');
-    expect(output).toContain('output.defaultFormat');
-    expect(writeFileSync).toHaveBeenCalled();
-  });
-
-  it('rejects unknown top-level key', () => {
-    vi.mocked(existsSync).mockReturnValue(true);
-    vi.mocked(readFileSync).mockReturnValue(SAMPLE_CONFIG);
-    const output = executeConfigSet('/fake/.commandgarden/config.yaml', 'unknown.key', 'val');
-    expect(output).toContain('Unknown config section');
+  it('returns error on API failure', async () => {
+    const client = {
+      post: vi.fn().mockRejectedValue(new Error('Cannot connect')),
+    } as unknown as import('../client.js').DaemonClient;
+    const output = await executeConfigSet(client, 'daemon.port', '9999');
+    expect(output).toContain('Error');
   });
 });

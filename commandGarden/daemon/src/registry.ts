@@ -5,6 +5,7 @@ import { parseConnectorYaml, validateConnectorSemantics, type ConnectorDef } fro
 
 export class ConnectorRegistry {
   private connectors = new Map<string, ConnectorDef>();
+  private meta = new Map<string, { yamlContent: string; filePath: string }>();
 
   constructor(private paths: string[]) {}
 
@@ -12,6 +13,7 @@ export class ConnectorRegistry {
     const errors: string[] = [];
     let loaded = 0;
     this.connectors.clear();
+    this.meta.clear();
     for (const dir of this.paths) {
       const resolved = resolve(dir);
       if (!existsSync(resolved)) continue;
@@ -23,7 +25,9 @@ export class ConnectorRegistry {
         if (fileErr) { errors.push(`${file}: ${fileErr}`); continue; }
         const semErrs = validateConnectorSemantics(result.data);
         if (semErrs.length > 0) { errors.push(`${file}: ${semErrs.join('; ')}`); continue; }
-        this.connectors.set(`${result.data.site}/${result.data.name}`, result.data);
+        const key = `${result.data.site}/${result.data.name}`;
+        this.connectors.set(key, result.data);
+        this.meta.set(key, { yamlContent: content, filePath: join(resolved, file) });
         loaded++;
       }
     }
@@ -47,4 +51,11 @@ export class ConnectorRegistry {
   get(key: string): ConnectorDef | undefined { return this.connectors.get(key); }
   list(): ConnectorDef[] { return [...this.connectors.values()]; }
   keys(): string[] { return [...this.connectors.keys()]; }
+
+  getWithMeta(key: string): { connector: ConnectorDef; yamlContent: string; filePath: string } | undefined {
+    const connector = this.connectors.get(key);
+    const m = this.meta.get(key);
+    if (!connector || !m) return undefined;
+    return { connector, ...m };
+  }
 }

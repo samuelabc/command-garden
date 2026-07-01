@@ -62,10 +62,15 @@ export {
 export {
   type RunCommandRequest,
   type RunCommandResponse,
+  type ApprovalConfig,
   type ExtensionRequest,
   type ExtensionResponse,
+  type ApprovalRequest,
+  type ApprovalResponse,
   isRunCommandRequest,
   isExtensionResponse,
+  isApprovalRequest,
+  isApprovalResponse,
 } from './protocol.js';
 
 // Audit events
@@ -73,5 +78,7 @@ export {
   AUDIT_EVENT_TYPES,
   type AuditEvent,
   type AuditEventType,
+  type StepSummary,
   createAuditEvent,
+  redactArgs,
 } from './events.js';

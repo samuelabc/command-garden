@@ -1,5 +1,5 @@
 // src/background/service-worker-logic.ts
-import type { PopupStatusResponse, ActivityEntry } from '../popup/popup-types.js';
+import type { PopupStatusResponse, ActivityEntry, ApprovalInfo } from '../popup/popup-types.js';
 
 export interface ClientLike {
   connect(): void;
@@ -24,6 +24,7 @@ export async function handleSetEnabled(
   set: StorageSet,
   sendResponse: (response: PopupStatusResponse) => void,
   recentActivity: ActivityEntry[] = [],
+  pendingApprovals: ApprovalInfo[] = [],
 ): Promise<void> {
   if (enabled) {
     client.connect();
@@ -36,6 +37,7 @@ export async function handleSetEnabled(
       enabled,
       connected: client.isConnected(),
       recentActivity,
+      pendingApprovals,
     });
   });
 }
@@ -45,6 +47,7 @@ export async function buildStatusResponse(
   get: StorageGet,
   recentActivity: ActivityEntry[],
   sendResponse: (response: PopupStatusResponse) => void,
+  pendingApprovals: ApprovalInfo[] = [],
 ): Promise<void> {
   await client.waitConnected();
   get('enabled', (result) => {
@@ -52,6 +55,7 @@ export async function buildStatusResponse(
       enabled: (result.enabled ?? true) as boolean,
       connected: client.isConnected(),
       recentActivity,
+      pendingApprovals,
     });
   });
 }

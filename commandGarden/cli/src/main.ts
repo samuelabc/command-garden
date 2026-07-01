@@ -11,7 +11,7 @@ import { executeList } from './commands/list.js';
 import { executeInspect } from './commands/inspect.js';
 import { executeValidate } from './commands/validate.js';
 import { executeDaemonStatus, executeDaemonStart, executeDaemonStop } from './commands/daemon-cmd.js';
-import { executeAuditList, executeAuditExport } from './commands/audit.js';
+import { executeAuditList, executeAuditExport, executeAuditShow } from './commands/audit.js';
 import { executeConfigShow, executeConfigSet } from './commands/config-cmd.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -112,12 +112,14 @@ audit
   .description('List recent audit events')
   .option('--since <duration>', 'time window, e.g. 7d, 2w, 12h')
   .option('--connector <pattern>', 'filter by connector pattern, e.g. test/*')
+  .option('--type <pattern>', 'filter by event type, e.g. auth.failed, command.*')
   .option('--limit <n>', 'max events to return', '100')
-  .action(async (opts: { since?: string; connector?: string; limit: string }) => {
+  .action(async (opts: { since?: string; connector?: string; type?: string; limit: string }) => {
     const client = createClient();
-    const filter: { since?: string; connector?: string; limit?: number } = {};
+    const filter: { since?: string; connector?: string; type?: string; limit?: number } = {};
     if (opts.since) filter.since = parseDuration(opts.since).toISOString();
     if (opts.connector) filter.connector = opts.connector;
+    if (opts.type) filter.type = opts.type;
     filter.limit = parseInt(opts.limit, 10);
     console.log(await executeAuditList(client, filter));
   });
@@ -128,12 +130,22 @@ audit
   .option('--format <format>', 'export format: json, csv', 'json')
   .option('--since <duration>', 'time window, e.g. 7d, 30d')
   .option('--connector <pattern>', 'filter by connector pattern')
-  .action(async (opts: { format: string; since?: string; connector?: string }) => {
+  .option('--type <pattern>', 'filter by event type')
+  .action(async (opts: { format: string; since?: string; connector?: string; type?: string }) => {
     const client = createClient();
-    const filter: { since?: string; connector?: string } = {};
+    const filter: { since?: string; connector?: string; type?: string } = {};
     if (opts.since) filter.since = parseDuration(opts.since).toISOString();
     if (opts.connector) filter.connector = opts.connector;
+    if (opts.type) filter.type = opts.type;
     console.log(await executeAuditExport(client, filter, opts.format as 'json' | 'csv'));
+  });
+
+audit
+  .command('show <id>')
+  .description('Show full details of an audit event')
+  .action(async (id: string) => {
+    const client = createClient();
+    console.log(await executeAuditShow(client, id));
   });
 
 // --- config ---
@@ -151,8 +163,9 @@ config
 config
   .command('set <key> <value>')
   .description('Set a configuration value (e.g. daemon.port 9999)')
-  .action((key: string, value: string) => {
-    console.log(executeConfigSet(CONFIG_PATH, key, value));
+  .action(async (key: string, value: string) => {
+    const client = createClient();
+    console.log(await executeConfigSet(client, key, value));
   });
 
 program.parse();

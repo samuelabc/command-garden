@@ -11,6 +11,9 @@ describe('configSchema', () => {
     expect(c.daemon.port).toBe(19825);
     expect(c.daemon.host).toBe('127.0.0.1');
     expect(c.security.highRiskCapabilities).toEqual(['js_evaluate', 'cookie_write']);
+    expect(c.security.approvalRequired).toEqual([]);
+    expect(c.security.autoApproveConnectors).toEqual([]);
+    expect(c.security.approvalTimeoutMs).toBe(120_000);
     expect(c.audit.retentionDays).toBe(90);
     expect(c.output.defaultFormat).toBe('table');
   });

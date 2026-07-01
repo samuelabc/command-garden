@@ -1,6 +1,7 @@
 // src/main.ts
 import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
+import { createAuditEvent } from '@commandgarden/shared';
 import { loadConfig, expandHome } from './config.js';
 import { generateSessionToken, writeSessionToken } from './auth.js';
 import { AuditStore } from './audit-store.js';
@@ -10,7 +11,8 @@ import { createServer } from './server.js';
 
 async function main() {
   const cgHome = join(homedir(), '.commandgarden');
-  const config = loadConfig();
+  const configPath = join(cgHome, 'config.yaml');
+  const config = loadConfig(configPath);
 
   // Auth token
   const sessionToken = generateSessionToken();
@@ -22,7 +24,15 @@ async function main() {
   const dbPath = expandHome(config.audit.dbPath);
   const auditStore = new AuditStore(dbPath);
   const pruned = auditStore.prune(config.audit.retentionDays);
-  if (pruned > 0) console.log(`Pruned ${pruned} old audit events`);
+  if (pruned > 0) {
+    console.log(`Pruned ${pruned} old audit events`);
+    auditStore.insert(createAuditEvent({
+      type: 'config.changed', connector: '_system/prune', user: userInfo().username,
+      source: 'audit.prune',
+      previousValue: String(pruned), newValue: '0',
+      args: { retentionDays: String(config.audit.retentionDays) },
+    }));
+  }
 
   // Connector registry
   const connectorPaths = config.connectors.paths.map(expandHome);
@@ -35,7 +45,7 @@ async function main() {
   const wsRelay = new WsRelay();
 
   // Server
-  const app = await createServer({ config, sessionToken, registry, auditStore, wsRelay });
+  const app = await createServer({ config, configPath, sessionToken, registry, auditStore, wsRelay });
   const address = await app.listen({ port: config.daemon.port, host: config.daemon.host });
   console.log(`Daemon listening on ${address}`);
 

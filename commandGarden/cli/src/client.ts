@@ -51,6 +51,64 @@ export class DaemonClient {
     return data as T;
   }
 
+  async connectSSE(
+    path: string,
+    onEvent: (event: string, data: unknown) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const resp = await this.rawFetch(path, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'X-CommandGarden': '1',
+        'Accept': 'text/event-stream',
+      },
+      signal,
+    });
+
+    if (!resp.ok || !resp.body) {
+      throw new Error(`SSE connection failed: HTTP ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        let currentEvent = 'message';
+        let currentData = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            currentData = line.slice(6);
+          } else if (line === '') {
+            if (currentData) {
+              try {
+                onEvent(currentEvent, JSON.parse(currentData));
+              } catch {
+                onEvent(currentEvent, currentData);
+              }
+              currentData = '';
+              currentEvent = 'message';
+            }
+          }
+        }
+      }
+    } catch (err) {
+      if (signal?.aborted) return;
+      throw err;
+    }
+  }
+
   private rawFetch(path: string, init: RequestInit): Promise<Response> {
     return fetch(`${this.baseUrl}${path}`, init);
   }

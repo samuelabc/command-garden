@@ -1,9 +1,10 @@
 // src/background/ws-client.ts
 declare function setTimeout(cb: () => void, ms: number): number;
 declare function clearTimeout(id: number): void;
-import type { ExtensionRequest, ExtensionResponse } from '@commandgarden/shared';
+import type { ExtensionRequest, ExtensionResponse, ApprovalRequest, ApprovalResponse } from '@commandgarden/shared';
 
 type RequestHandler = (request: ExtensionRequest) => void;
+type ApprovalResponseHandler = (response: ApprovalResponse) => void;
 
 interface WebSocketLike {
   readyState: number;
@@ -21,6 +22,7 @@ interface WebSocketConstructor {
 export class WsClient {
   private ws: WebSocketLike | null = null;
   private handler: RequestHandler | null = null;
+  private approvalResponseHandler: ApprovalResponseHandler | null = null;
   private reconnectTimer: number | null = null;
   private reconnectDelay = 1000;
   private readonly maxReconnectDelay = 30000;
@@ -49,7 +51,11 @@ export class WsClient {
       if (!data || !this.handler) return;
       try {
         const parsed = JSON.parse(String(data));
-        if (parsed.id && parsed.connector) this.handler(parsed as ExtensionRequest);
+        if (parsed.type === 'approval.response' && this.approvalResponseHandler) {
+          this.approvalResponseHandler(parsed as ApprovalResponse);
+        } else if (parsed.id && parsed.connector) {
+          this.handler(parsed as ExtensionRequest);
+        }
       } catch { /* ignore parse errors */ }
     };
     const onClose = () => {
@@ -71,8 +77,21 @@ export class WsClient {
   }
 
   onRequest(handler: RequestHandler): void { this.handler = handler; }
+  onApprovalResponse(handler: ApprovalResponseHandler): void { this.approvalResponseHandler = handler; }
 
   sendResponse(response: ExtensionResponse): void {
+    if (this.ws && this.ws.readyState === this.WS.OPEN) {
+      this.ws.send(JSON.stringify(response));
+    }
+  }
+
+  sendApprovalRequest(request: ApprovalRequest): void {
+    if (this.ws && this.ws.readyState === this.WS.OPEN) {
+      this.ws.send(JSON.stringify(request));
+    }
+  }
+
+  sendApprovalResponse(response: ApprovalResponse): void {
     if (this.ws && this.ws.readyState === this.WS.OPEN) {
       this.ws.send(JSON.stringify(response));
     }

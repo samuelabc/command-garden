@@ -41,7 +41,7 @@ describe('WsRelay', () => {
   it('sends ExtensionRequest and receives response', async () => {
     relay.attach(socket as any);
     const connector = { site: 'test', name: 'cmd' } as any;
-    const promise = relay.send(connector, { key: 'val' }, 5000);
+    const promise = relay.send(connector, { key: 'val' }, undefined, 5000);
 
     // Parse sent message to get ID
     const sent = JSON.parse(socket.sent[0]);
@@ -66,9 +66,81 @@ describe('WsRelay', () => {
   it('times out if no response', async () => {
     vi.useFakeTimers();
     relay.attach(socket as any);
-    const promise = relay.send({} as any, {}, 100);
+    const promise = relay.send({} as any, {}, undefined, 100);
     vi.advanceTimersByTime(200);
     await expect(promise).rejects.toThrow('timed out');
     vi.useRealTimers();
+  });
+
+  it('includes approvalConfig in sent request when provided', async () => {
+    relay.attach(socket as any);
+    const connector = { site: 'test', name: 'cmd' } as any;
+    const approvalConfig = { approvalRequired: ['js_evaluate'], autoApproveConnectors: [], approvalTimeoutMs: 120_000 };
+    const promise = relay.send(connector, {}, approvalConfig, 5000);
+    const sent = JSON.parse(socket.sent[0]);
+    expect(sent.approvalConfig).toEqual(approvalConfig);
+    socket.emit('message', JSON.stringify({ id: sent.id, ok: true, data: [] }));
+    await promise;
+  });
+
+  it('calls approval handler on incoming approval.request', () => {
+    relay.attach(socket as any);
+    const handler = vi.fn();
+    relay.onApprovalRequest(handler);
+    socket.emit('message', JSON.stringify({
+      type: 'approval.request', approvalId: 'a1', requestId: 'r1',
+      connectorKey: 'test/cmd', stepIndex: 0, stepType: 'js_evaluate',
+      capability: 'js_evaluate', description: 'test step',
+    }));
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ approvalId: 'a1' }));
+  });
+
+  it('registerApproval + resolveApproval resolves the promise', async () => {
+    relay.attach(socket as any);
+    const request = {
+      type: 'approval.request' as const, approvalId: 'a1', requestId: 'r1',
+      connectorKey: 'test/cmd', stepIndex: 0, stepType: 'js_evaluate' as const,
+      capability: 'js_evaluate' as const, description: 'test',
+    };
+    const promise = relay.registerApproval(request, 5000);
+    const resolved = relay.resolveApproval('a1', true);
+    expect(resolved).toBe(true);
+    expect(await promise).toBe(true);
+    // Should also send approval.response to extension via WS
+    const sent = JSON.parse(socket.sent[0]);
+    expect(sent.type).toBe('approval.response');
+    expect(sent.approved).toBe(true);
+  });
+
+  it('resolveApproval returns false for unknown approvalId', () => {
+    relay.attach(socket as any);
+    expect(relay.resolveApproval('unknown', true)).toBe(false);
+  });
+
+  it('handles approval.response from extension (resolves pending)', async () => {
+    relay.attach(socket as any);
+    const request = {
+      type: 'approval.request' as const, approvalId: 'a2', requestId: 'r1',
+      connectorKey: 'test/cmd', stepIndex: 1, stepType: 'click' as const,
+      capability: 'dom_write' as const, description: 'click step',
+    };
+    const promise = relay.registerApproval(request, 5000);
+    // Simulate extension sending approval.response via WS
+    socket.emit('message', JSON.stringify({
+      type: 'approval.response', approvalId: 'a2', approved: false,
+    }));
+    expect(await promise).toBe(false);
+  });
+
+  it('rejects pending approvals on socket close', async () => {
+    relay.attach(socket as any);
+    const request = {
+      type: 'approval.request' as const, approvalId: 'a3', requestId: 'r1',
+      connectorKey: 'test/cmd', stepIndex: 0, stepType: 'navigate' as const,
+      capability: 'navigate' as const, description: 'navigate step',
+    };
+    const promise = relay.registerApproval(request, 5000);
+    socket.emit('close');
+    expect(await promise).toBe(false);
   });
 });
