@@ -1,6 +1,7 @@
 import type { ConnectorDef } from './connector.js';
 import type { PipelineStepType } from './pipeline.js';
 import type { Capability } from './capabilities.js';
+import type { StepSummary } from './events.js';
 
 // ---------- CLI → Daemon ----------
 
@@ -42,6 +43,7 @@ export interface ExtensionResponse {
   ok: boolean;
   data: Record<string, unknown>[];
   error?: string;
+  steps?: StepSummary[];
 }
 
 // ---------- Approval protocol ----------
