@@ -1,142 +1,485 @@
-import { useEffect, useState, useCallback } from 'react';
-import { api } from '../api';
-import { Badge } from '../components/Badge';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
+import { api, type Connector } from '../api';
 import { Spinner } from '../components/Spinner';
 
+const RESTART_REQUIRED_KEYS = new Set(['daemon.host', 'daemon.port', 'app.port']);
+
+interface ConfigState {
+  daemon: { host: string; port: number };
+  security: {
+    extensionId: string;
+    highRiskCapabilities: string[];
+    approvedHighRisk: string[];
+    approvalRequired: string[];
+    autoApproveConnectors: string[];
+    approvalTimeoutMs: number;
+  };
+  connectors: { paths: string[] };
+  audit: { retentionDays: number; dbPath: string };
+  output: { defaultFormat: string };
+  app: { port: number };
+}
+
+function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigState {
+  const d = raw.daemon ?? {};
+  const s = raw.security ?? {};
+  const c = raw.connectors ?? {};
+  const a = raw.audit ?? {};
+  const o = raw.output ?? {};
+  const ap = raw.app ?? {};
+  return {
+    daemon: { host: String(d.host ?? '127.0.0.1'), port: Number(d.port ?? 19825) },
+    security: {
+      extensionId: String(s.extensionId ?? ''),
+      highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? ['js_evaluate', 'cookie_write'],
+      approvedHighRisk: (s.approvedHighRisk as string[]) ?? [],
+      approvalRequired: (s.approvalRequired as string[]) ?? [],
+      autoApproveConnectors: (s.autoApproveConnectors as string[]) ?? [],
+      approvalTimeoutMs: Number(s.approvalTimeoutMs ?? 120000),
+    },
+    connectors: { paths: (c.paths as string[]) ?? ['./connectors', '~/.commandgarden/connectors'] },
+    audit: { retentionDays: Number(a.retentionDays ?? 90), dbPath: String(a.dbPath ?? '~/.commandgarden/audit.db') },
+    output: { defaultFormat: String(o.defaultFormat ?? 'table') },
+    app: { port: Number(ap.port ?? 19826) },
+  };
+}
+
+function configToFlat(config: ConfigState): Record<string, unknown> {
+  return {
+    daemon: { ...config.daemon },
+    security: { ...config.security },
+    connectors: { ...config.connectors },
+    audit: { ...config.audit },
+    output: { ...config.output },
+    app: { ...config.app },
+  };
+}
+
 export default function Config() {
-  const [config, setConfig] = useState<Record<string, Record<string, unknown>>>({});
-  const [edited, setEdited] = useState<Record<string, Record<string, unknown>>>({});
+  const [saved, setSaved] = useState<ConfigState | null>(null);
+  const [edited, setEdited] = useState<ConfigState | null>(null);
+  const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [restartBanner, setRestartBanner] = useState(false);
+  const [rawYaml, setRawYaml] = useState('');
+  const [rawOpen, setRawOpen] = useState(false);
+  const [rawError, setRawError] = useState('');
 
   useEffect(() => {
-    api.getConfig()
-      .then((d) => { setConfig(d.config); setEdited(structuredClone(d.config)); })
+    Promise.all([api.getConfig(), api.getConnectors()])
+      .then(([configRes, connRes]) => {
+        const state = configFromRaw(configRes.config);
+        setSaved(state);
+        setEdited(structuredClone(state));
+        setConnectors(connRes.connectors);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const handleChange = useCallback((section: string, key: string, value: string) => {
-    setEdited((prev) => {
-      const next = structuredClone(prev);
-      if (!next[section]) next[section] = {};
-      next[section][key] = value;
-      return next;
-    });
-  }, []);
+  const isDirty = useMemo(() => {
+    if (!saved || !edited) return false;
+    return JSON.stringify(saved) !== JSON.stringify(edited);
+  }, [saved, edited]);
 
-  const handleArrayRemove = useCallback((section: string, key: string, index: number) => {
-    setEdited((prev) => {
-      const next = structuredClone(prev);
-      const arr = next[section]?.[key];
-      if (Array.isArray(arr)) arr.splice(index, 1);
-      return next;
-    });
-  }, []);
-
-  const handleArrayAdd = useCallback((section: string, key: string) => {
-    const value = prompt(`Add value to ${section}.${key}:`);
-    if (!value) return;
-    setEdited((prev) => {
-      const next = structuredClone(prev);
-      if (!next[section]) next[section] = {};
-      const arr = next[section][key];
-      if (Array.isArray(arr)) arr.push(value);
-      else next[section][key] = [value];
-      return next;
-    });
-  }, []);
+  const changedCount = useMemo(() => {
+    if (!saved || !edited) return 0;
+    let count = 0;
+    for (const section of Object.keys(edited) as (keyof ConfigState)[]) {
+      const s = saved[section] as Record<string, unknown>;
+      const e = edited[section] as Record<string, unknown>;
+      for (const key of Object.keys(e)) {
+        if (JSON.stringify(s[key]) !== JSON.stringify(e[key])) count++;
+      }
+    }
+    return count;
+  }, [saved, edited]);
 
   const handleSave = useCallback(async () => {
+    if (!saved || !edited) return;
     setSaving(true);
     setToast(null);
+    let needsRestart = false;
     try {
-      for (const section of Object.keys(edited)) {
-        for (const key of Object.keys(edited[section])) {
-          const newVal = JSON.stringify(edited[section][key]);
-          const oldVal = JSON.stringify(config[section]?.[key] ?? null);
+      for (const section of Object.keys(edited) as (keyof ConfigState)[]) {
+        const s = saved[section] as Record<string, unknown>;
+        const e = edited[section] as Record<string, unknown>;
+        for (const key of Object.keys(e)) {
+          const newVal = JSON.stringify(e[key]);
+          const oldVal = JSON.stringify(s[key] ?? null);
           if (newVal !== oldVal) {
-            const val = edited[section][key];
-            const strVal = Array.isArray(val) ? JSON.stringify(val) : String(val);
-            await api.setConfig(`${section}.${key}`, strVal);
+            const configKey = `${section}.${key}`;
+            const val = e[key];
+            let strVal: string;
+            if (configKey === 'security.approvalTimeoutMs') {
+              strVal = String(val);
+            } else if (Array.isArray(val)) {
+              strVal = JSON.stringify(val);
+            } else {
+              strVal = String(val);
+            }
+            await api.setConfig(configKey, strVal);
+            if (RESTART_REQUIRED_KEYS.has(configKey)) needsRestart = true;
           }
         }
       }
-      setConfig(structuredClone(edited));
+      setSaved(structuredClone(edited));
       setToast({ type: 'success', msg: 'Configuration saved.' });
+      if (needsRestart) setRestartBanner(true);
     } catch (e) {
       setToast({ type: 'error', msg: e instanceof Error ? e.message : 'Save failed' });
     } finally {
       setSaving(false);
       setTimeout(() => setToast(null), 3000);
     }
-  }, [config, edited]);
+  }, [saved, edited]);
+
+  const handleDiscard = useCallback(() => {
+    if (saved) setEdited(structuredClone(saved));
+  }, [saved]);
+
+  const handleRawOpen = useCallback(() => {
+    if (!rawOpen && edited) {
+      setRawYaml(stringifyYaml(configToFlat(edited)));
+      setRawError('');
+    }
+    setRawOpen(!rawOpen);
+  }, [rawOpen, edited]);
+
+  const handleRawApply = useCallback(() => {
+    try {
+      const parsed = parseYaml(rawYaml) as Record<string, Record<string, unknown>>;
+      if (!parsed || typeof parsed !== 'object') throw new Error('Invalid YAML');
+      setEdited(configFromRaw(parsed));
+      setRawError('');
+    } catch (e) {
+      setRawError(e instanceof Error ? e.message : 'Invalid YAML');
+    }
+  }, [rawYaml]);
+
+  const set = useCallback(<S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][typeof key]) => {
+    setEdited(prev => {
+      if (!prev) return prev;
+      return { ...prev, [section]: { ...prev[section], [key]: value } };
+    });
+  }, []);
+
+  const addToArray = useCallback((section: keyof ConfigState, key: string, value: string) => {
+    setEdited(prev => {
+      if (!prev) return prev;
+      const sectionObj = prev[section] as Record<string, unknown>;
+      const arr = (sectionObj[key] as string[]) ?? [];
+      if (arr.includes(value)) return prev;
+      return { ...prev, [section]: { ...sectionObj, [key]: [...arr, value] } };
+    });
+  }, []);
+
+  const removeFromArray = useCallback((section: keyof ConfigState, key: string, value: string) => {
+    setEdited(prev => {
+      if (!prev) return prev;
+      const sectionObj = prev[section] as Record<string, unknown>;
+      const arr = (sectionObj[key] as string[]) ?? [];
+      return { ...prev, [section]: { ...sectionObj, [key]: arr.filter(v => v !== value) } };
+    });
+  }, []);
 
   if (loading) return <Spinner label="Loading configuration..." />;
 
-  const sections = Object.keys(edited);
-
-  return (
-    <div className="max-w-3xl">
-      <h2 className="text-2xl font-bold mb-6">Configuration</h2>
-
-      {sections.length === 0 ? (
+  if (!edited || !saved) {
+    return (
+      <div className="max-w-3xl">
+        <h2 className="text-2xl font-bold mb-6">Configuration</h2>
         <div className="bg-base-200 rounded-lg p-6 text-center">
           <p className="text-sm opacity-60 mb-2">No configuration found.</p>
           <p className="text-xs opacity-40">Make sure the daemon is running. Configuration will appear here automatically.</p>
         </div>
-      ) : (
-        <>
-          <div className="space-y-6">
-            {sections.map((section) => (
-              <div key={section} className="bg-base-200 rounded-lg p-5">
-                <h3 className="font-semibold mb-4 capitalize">{section}</h3>
-                <div className="space-y-3">
-                  {Object.entries(edited[section]).map(([key, value]) => (
-                    <div key={key} className="flex items-start gap-3">
-                      <label className="text-sm font-mono w-48 pt-2 shrink-0">{key}</label>
-                      {Array.isArray(value) ? (
-                        <div className="flex-1">
-                          <div className="flex flex-wrap gap-1 mb-1">
-                            {value.map((item, i) => (
-                              <Badge key={i} variant="neutral">
-                                <span className="flex items-center gap-1">
-                                  {String(item)}
-                                  <button className="opacity-50 hover:opacity-100 ml-0.5" onClick={() => handleArrayRemove(section, key, i)}>&times;</button>
-                                </span>
-                              </Badge>
-                            ))}
-                          </div>
-                          <button className="btn btn-xs btn-ghost" onClick={() => handleArrayAdd(section, key)}>+ Add</button>
-                        </div>
-                      ) : (
-                        <input
-                          type={typeof value === 'number' ? 'number' : 'text'}
-                          className="input input-bordered input-sm flex-1"
-                          value={String(value ?? '')}
-                          onChange={(e) => handleChange(section, key, e.target.value)}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+      </div>
+    );
+  }
 
-          <div className="mt-6 flex items-center gap-3">
-            <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+  return (
+    <div className="max-w-3xl pb-20">
+      <h2 className="text-2xl font-bold mb-6">Configuration</h2>
+
+      {restartBanner && (
+        <div className="alert alert-warning mb-6">
+          <span>Some changes require a daemon restart to take effect. Restart with: <code className="font-mono text-sm">cg down && cg up</code></span>
+          <button className="btn btn-sm btn-ghost" onClick={() => setRestartBanner(false)}>Dismiss</button>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <ServerSection config={edited} set={set} />
+        <ConnectorSecuritySection config={edited} connectors={connectors} set={set} addToArray={addToArray} removeFromArray={removeFromArray} />
+        <ConnectorSourcesSection config={edited} addToArray={addToArray} removeFromArray={removeFromArray} />
+        <AuditSection config={edited} set={set} />
+        <OutputSection config={edited} set={set} />
+      </div>
+
+      {/* Raw Config Editor */}
+      <div className="mt-6">
+        <button className="btn btn-sm btn-ghost gap-1" onClick={handleRawOpen}>
+          {rawOpen ? '▾' : '▸'} Raw Configuration (YAML)
+        </button>
+        {rawOpen && (
+          <div className="mt-2 bg-base-200 rounded-lg p-4">
+            <textarea
+              className="textarea textarea-bordered w-full font-mono text-sm"
+              rows={16}
+              value={rawYaml}
+              onChange={e => setRawYaml(e.target.value)}
+            />
+            {rawError && <p className="text-error text-sm mt-1">{rawError}</p>}
+            <button className="btn btn-sm btn-ghost mt-2" onClick={handleRawApply}>Apply to form</button>
+          </div>
+        )}
+      </div>
+
+      {/* Sticky save footer */}
+      {isDirty && (
+        <div className="fixed bottom-0 left-60 right-0 bg-base-200 border-t border-base-300 px-6 py-3 flex items-center justify-between z-50">
+          <span className="text-sm opacity-60">{changedCount} unsaved {changedCount === 1 ? 'change' : 'changes'}</span>
+          <div className="flex items-center gap-3">
+            {toast && (
+              <span className={`text-sm ${toast.type === 'success' ? 'text-success' : 'text-error'}`}>{toast.msg}</span>
+            )}
+            <button className="btn btn-sm btn-ghost" onClick={handleDiscard}>Discard</button>
+            <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save changes'}
             </button>
-            {toast && (
-              <span className={`text-sm ${toast.type === 'success' ? 'text-success' : 'text-error'}`}>
-                {toast.msg}
-              </span>
-            )}
           </div>
-        </>
+        </div>
       )}
     </div>
+  );
+}
+
+function SectionCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-base-200 rounded-lg p-5">
+      <h3 className="font-semibold mb-1">{title}</h3>
+      <p className="text-xs opacity-50 mb-4">{description}</p>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, help, restart, children }: { label: string; help: string; restart?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="w-48 shrink-0 pt-2">
+        <label className="text-sm font-medium">{label}</label>
+        {restart && (
+          <span className="ml-1.5 tooltip tooltip-right" data-tip="Requires daemon restart">
+            <span className="text-xs opacity-40">⟳</span>
+          </span>
+        )}
+        <p className="text-xs opacity-40 mt-0.5">{help}</p>
+      </div>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
+
+function ServerSection({ config, set }: {
+  config: ConfigState;
+  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
+}) {
+  return (
+    <SectionCard title="Server" description="Daemon and app server binding configuration">
+      <Field label="Daemon Host" help="IP address the daemon binds to" restart>
+        <input type="text" className="input input-bordered input-sm w-full" value={config.daemon.host}
+          onChange={e => set('daemon', 'host', e.target.value)} />
+      </Field>
+      <Field label="Daemon Port" help="Port the daemon listens on" restart>
+        <input type="number" className="input input-bordered input-sm w-full" min={1024} max={65535}
+          value={config.daemon.port} onChange={e => set('daemon', 'port', Number(e.target.value))} />
+      </Field>
+      <Field label="GUI Port" help="Port the GUI app server listens on" restart>
+        <input type="number" className="input input-bordered input-sm w-full" min={1024} max={65535}
+          value={config.app.port} onChange={e => set('app', 'port', Number(e.target.value))} />
+      </Field>
+    </SectionCard>
+  );
+}
+
+function ConnectorSecuritySection({ config, connectors, set, addToArray, removeFromArray }: {
+  config: ConfigState;
+  connectors: Connector[];
+  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
+  addToArray: (section: keyof ConfigState, key: string, value: string) => void;
+  removeFromArray: (section: keyof ConfigState, key: string, value: string) => void;
+}) {
+  const [addCapInput, setAddCapInput] = useState('');
+  const [addApprovalInput, setAddApprovalInput] = useState('');
+
+  const highRiskCaps = new Set(config.security.highRiskCapabilities);
+
+  return (
+    <SectionCard title="Connector Security" description="Manage which connectors are approved and which capabilities require approval">
+      {/* Per-connector table */}
+      {connectors.length > 0 && (
+        <div className="overflow-x-auto mb-4">
+          <table className="table table-sm">
+            <thead>
+              <tr>
+                <th>Connector</th>
+                <th>Capabilities</th>
+                <th>Risk</th>
+                <th>Approved</th>
+                <th>Auto-Approve</th>
+              </tr>
+            </thead>
+            <tbody>
+              {connectors.map(c => {
+                const isHighRisk = c.capabilities.some(cap => highRiskCaps.has(cap));
+                const isApproved = config.security.approvedHighRisk.includes(c.key);
+                const isAutoApproved = config.security.autoApproveConnectors.includes(c.key);
+                return (
+                  <tr key={c.key}>
+                    <td className="font-mono text-sm">{c.key}</td>
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        {c.capabilities.map(cap => (
+                          <span key={cap} className={`badge badge-xs ${highRiskCaps.has(cap) ? 'badge-warning' : ''}`}>{cap}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>{isHighRisk ? <span className="badge badge-warning badge-xs">High</span> : <span className="opacity-40">—</span>}</td>
+                    <td>
+                      {isHighRisk ? (
+                        <input type="checkbox" className="toggle toggle-sm toggle-success" checked={isApproved}
+                          onChange={() => isApproved
+                            ? removeFromArray('security', 'approvedHighRisk', c.key)
+                            : addToArray('security', 'approvedHighRisk', c.key)} />
+                      ) : <span className="opacity-40">—</span>}
+                    </td>
+                    <td>
+                      <input type="checkbox" className="toggle toggle-sm" checked={isAutoApproved}
+                        title="Skip approval prompts — pipeline steps execute without confirmation"
+                        onChange={() => isAutoApproved
+                          ? removeFromArray('security', 'autoApproveConnectors', c.key)
+                          : addToArray('security', 'autoApproveConnectors', c.key)} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Capability-level policy */}
+      <Field label="High-Risk Capabilities" help="Capabilities that require connector-level approval before first use">
+        <div className="flex flex-wrap gap-1 mb-1">
+          {config.security.highRiskCapabilities.map(cap => (
+            <span key={cap} className="badge badge-sm gap-1">
+              {cap}
+              <button className="text-xs opacity-50 hover:opacity-100" onClick={() => removeFromArray('security', 'highRiskCapabilities', cap)}>&times;</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <input type="text" className="input input-bordered input-xs flex-1" placeholder="Capability name"
+            value={addCapInput} onChange={e => setAddCapInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && addCapInput.trim()) { addToArray('security', 'highRiskCapabilities', addCapInput.trim()); setAddCapInput(''); } }} />
+          <button className="btn btn-xs btn-ghost" onClick={() => { if (addCapInput.trim()) { addToArray('security', 'highRiskCapabilities', addCapInput.trim()); setAddCapInput(''); } }}>Add</button>
+        </div>
+      </Field>
+
+      <Field label="Step Approval Required" help="Capabilities that pause for user confirmation at each pipeline step">
+        <div className="flex flex-wrap gap-1 mb-1">
+          {config.security.approvalRequired.map(cap => (
+            <span key={cap} className="badge badge-sm gap-1">
+              {cap}
+              <button className="text-xs opacity-50 hover:opacity-100" onClick={() => removeFromArray('security', 'approvalRequired', cap)}>&times;</button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          <input type="text" className="input input-bordered input-xs flex-1" placeholder="Capability name"
+            value={addApprovalInput} onChange={e => setAddApprovalInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && addApprovalInput.trim()) { addToArray('security', 'approvalRequired', addApprovalInput.trim()); setAddApprovalInput(''); } }} />
+          <button className="btn btn-xs btn-ghost" onClick={() => { if (addApprovalInput.trim()) { addToArray('security', 'approvalRequired', addApprovalInput.trim()); setAddApprovalInput(''); } }}>Add</button>
+        </div>
+      </Field>
+
+      <Field label="Approval Timeout (seconds)" help="How long to wait for approval before aborting the pipeline">
+        <input type="number" className="input input-bordered input-sm w-full" min={1} max={600}
+          value={Math.round(config.security.approvalTimeoutMs / 1000)}
+          onChange={e => set('security', 'approvalTimeoutMs', Number(e.target.value) * 1000)} />
+      </Field>
+
+      <Field label="Extension ID" help="Chrome extension ID for origin validation. Leave blank to accept any extension.">
+        <input type="text" className="input input-bordered input-sm w-full" placeholder="Leave blank for any"
+          value={config.security.extensionId} onChange={e => set('security', 'extensionId', e.target.value)} />
+      </Field>
+    </SectionCard>
+  );
+}
+
+function ConnectorSourcesSection({ config, addToArray, removeFromArray }: {
+  config: ConfigState;
+  addToArray: (section: keyof ConfigState, key: string, value: string) => void;
+  removeFromArray: (section: keyof ConfigState, key: string, value: string) => void;
+}) {
+  const [addPath, setAddPath] = useState('');
+  return (
+    <SectionCard title="Connector Sources" description="Directories to scan for connector YAML files">
+      <div className="space-y-1">
+        {config.connectors.paths.map((p, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="font-mono text-sm flex-1">{p}</span>
+            <button className="btn btn-xs btn-ghost opacity-50 hover:opacity-100" onClick={() => removeFromArray('connectors', 'paths', p)}>&times;</button>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-1 mt-2">
+        <input type="text" className="input input-bordered input-xs flex-1 font-mono" placeholder="~/path/to/connectors"
+          value={addPath} onChange={e => setAddPath(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && addPath.trim()) { addToArray('connectors', 'paths', addPath.trim()); setAddPath(''); } }} />
+        <button className="btn btn-xs btn-ghost" onClick={() => { if (addPath.trim()) { addToArray('connectors', 'paths', addPath.trim()); setAddPath(''); } }}>Add path</button>
+      </div>
+      <p className="text-xs opacity-40 mt-1">Use <code>~/</code> for home directory paths. Relative paths resolve from the install directory.</p>
+    </SectionCard>
+  );
+}
+
+function AuditSection({ config, set }: {
+  config: ConfigState;
+  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
+}) {
+  return (
+    <SectionCard title="Audit & Retention" description="Audit log storage and cleanup settings">
+      <Field label="Retention Period" help="Days to keep audit log entries before cleanup">
+        <input type="number" className="input input-bordered input-sm w-full" min={1} max={3650}
+          value={config.audit.retentionDays} onChange={e => set('audit', 'retentionDays', Number(e.target.value))} />
+      </Field>
+      <Field label="Database Path" help="Path to the audit SQLite database. Change only if you need a custom location.">
+        <input type="text" className="input input-bordered input-sm w-full font-mono opacity-60"
+          value={config.audit.dbPath} onChange={e => set('audit', 'dbPath', e.target.value)} />
+      </Field>
+    </SectionCard>
+  );
+}
+
+function OutputSection({ config, set }: {
+  config: ConfigState;
+  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
+}) {
+  return (
+    <SectionCard title="Output Defaults" description="Default formatting for CLI output">
+      <Field label="Default Output Format" help="Format used when no --format flag is specified">
+        <select className="select select-bordered select-sm w-full" value={config.output.defaultFormat}
+          onChange={e => set('output', 'defaultFormat', e.target.value)}>
+          <option value="table">table</option>
+          <option value="json">json</option>
+          <option value="csv">csv</option>
+        </select>
+      </Field>
+    </SectionCard>
   );
 }
