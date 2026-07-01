@@ -148,5 +148,20 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
+chrome.alarms.create('keepalive', { periodInMinutes: 0.4 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'keepalive' && !client.isConnected()) client.connect();
+});
+
+if (chrome.idle?.onStateChanged?.addListener) {
+  chrome.idle.onStateChanged.addListener((newState) => {
+    if (newState === 'active' && !client.isConnected()) client.connect();
+  });
+}
+
+chrome.runtime.onStartup.addListener(() => {
+  initFromStorage(storageGet, client);
+});
+
 initFromStorage(storageGet, client);
 console.log('commandGarden service worker started');

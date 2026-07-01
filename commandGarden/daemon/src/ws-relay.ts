@@ -48,6 +48,7 @@ export class WsRelay {
     this.ws = ws;
     ws.on('message', (raw: unknown) => {
       const data = JSON.parse(String(raw));
+      if (data.type === 'ping') return;
       if (isExtensionResponse(data)) {
         const entry = this.pending.get(data.id);
         if (entry) {

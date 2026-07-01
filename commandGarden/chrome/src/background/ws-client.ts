@@ -1,6 +1,9 @@
 // src/background/ws-client.ts
 declare function setTimeout(cb: () => void, ms: number): number;
 declare function clearTimeout(id: number): void;
+declare function setInterval(cb: () => void, ms: number): number;
+declare function clearInterval(id: number): void;
+declare function fetch(input: string, init?: { method?: string }): Promise<{ ok: boolean }>;
 import type { ExtensionRequest, ExtensionResponse, ApprovalRequest, ApprovalResponse } from '@commandgarden/shared';
 
 type RequestHandler = (request: ExtensionRequest) => void;
@@ -24,28 +27,46 @@ export class WsClient {
   private handler: RequestHandler | null = null;
   private approvalResponseHandler: ApprovalResponseHandler | null = null;
   private reconnectTimer: number | null = null;
+  private keepaliveTimer: number | null = null;
   private reconnectDelay = 1000;
   private readonly maxReconnectDelay = 30000;
+  private readonly keepaliveIntervalMs = 20_000;
   private intentionallyClosed = false;
+  private readonly probeUrl: string;
 
   constructor(
     private url: string,
     private WS: WebSocketConstructor = globalThis.WebSocket as unknown as WebSocketConstructor,
-  ) {}
+  ) {
+    this.probeUrl = url.replace(/^ws/, 'http').replace(/\/ws\/extension$/, '/api/status');
+  }
 
   connect(): void {
+    if (this.ws) return;
     this.intentionallyClosed = false;
     this.attemptConnect();
   }
 
   private attemptConnect(): void {
+    fetch(this.probeUrl, { method: 'HEAD' }).then(() => {
+      this.doConnect();
+    }).catch(() => {
+      this.scheduleReconnect();
+    });
+  }
+
+  private doConnect(): void {
+    if (this.ws) return;
     try {
       this.ws = new this.WS(this.url);
     } catch {
       this.scheduleReconnect();
       return;
     }
-    const onOpen = () => { this.reconnectDelay = 1000; };
+    const onOpen = () => {
+      this.reconnectDelay = 1000;
+      this.startKeepalive();
+    };
     const onMessage = (event: unknown) => {
       const data = typeof event === 'string' ? event : (event as { data?: string })?.data;
       if (!data || !this.handler) return;
@@ -60,11 +81,27 @@ export class WsClient {
     };
     const onClose = () => {
       this.ws = null;
+      this.stopKeepalive();
       if (!this.intentionallyClosed) this.scheduleReconnect();
     };
     this.ws.addEventListener('open', onOpen);
     this.ws.addEventListener('message', onMessage);
     this.ws.addEventListener('close', onClose);
+  }
+
+  private startKeepalive(): void {
+    this.stopKeepalive();
+    this.keepaliveTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === this.WS.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping' }));
+      } else {
+        this.stopKeepalive();
+      }
+    }, this.keepaliveIntervalMs);
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepaliveTimer) { clearInterval(this.keepaliveTimer); this.keepaliveTimer = null; }
   }
 
   private scheduleReconnect(): void {
@@ -122,6 +159,7 @@ export class WsClient {
 
   disconnect(): void {
     this.intentionallyClosed = true;
+    this.stopKeepalive();
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
     if (this.ws) this.ws.close();
   }
