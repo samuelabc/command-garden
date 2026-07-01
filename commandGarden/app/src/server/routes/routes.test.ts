@@ -40,18 +40,66 @@ describe('routes', () => {
 
   describe('GET /api/connectors', () => {
     it('proxies and enriches connector list', async () => {
-      (daemon.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        ok: true,
-        connectors: [
-          { key: 'timetracking/report', description: 'test', access: 'read', domains: [], capabilities: [] },
-        ],
-      });
+      (daemon.get as ReturnType<typeof vi.fn>)
+        .mockImplementation((path: string) => {
+          if (path === '/api/connectors') {
+            return Promise.resolve({
+              ok: true,
+              connectors: [
+                { key: 'timetracking/report', description: 'test', access: 'read', domains: [], capabilities: [] },
+              ],
+            });
+          }
+          if (path === '/api/config') {
+            return Promise.resolve({
+              ok: true,
+              config: { security: { highRiskCapabilities: ['js_evaluate', 'cookie_write'], approvedHighRisk: [], autoApproveConnectors: [] } },
+            });
+          }
+          return Promise.resolve({ ok: true });
+        });
       const resp = await app.inject({ method: 'GET', url: '/api/connectors' });
       expect(resp.statusCode).toBe(200);
       const body = JSON.parse(resp.payload);
       expect(body.connectors).toHaveLength(1);
       expect(body.connectors[0].hasAppPage).toBe(true);
       expect(body.connectors[0].appRoute).toBe('/apps/timetracking');
+    });
+
+    it('enriches connectors with security flags from config', async () => {
+      (daemon.get as ReturnType<typeof vi.fn>)
+        .mockImplementation((path: string) => {
+          if (path === '/api/connectors') {
+            return Promise.resolve({
+              ok: true,
+              connectors: [
+                { key: 'timetracking/report', description: 'test', access: 'read', domains: [], capabilities: ['navigate', 'js_evaluate'] },
+                { key: 'safe/connector', description: 'safe', access: 'read', domains: [], capabilities: ['navigate'] },
+              ],
+            });
+          }
+          if (path === '/api/config') {
+            return Promise.resolve({
+              ok: true,
+              config: {
+                security: {
+                  highRiskCapabilities: ['js_evaluate', 'cookie_write'],
+                  approvedHighRisk: ['timetracking/report'],
+                  autoApproveConnectors: ['timetracking/report'],
+                },
+              },
+            });
+          }
+          return Promise.resolve({ ok: true });
+        });
+      const resp = await app.inject({ method: 'GET', url: '/api/connectors' });
+      const body = JSON.parse(resp.payload);
+      expect(body.connectors[0].isHighRisk).toBe(true);
+      expect(body.connectors[0].isApproved).toBe(true);
+      expect(body.connectors[0].isAutoApproved).toBe(true);
+      expect(body.connectors[1].isHighRisk).toBe(false);
+      expect(body.connectors[1].isApproved).toBe(false);
+      expect(body.connectors[1].isAutoApproved).toBe(false);
     });
   });
 

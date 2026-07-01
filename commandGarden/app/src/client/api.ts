@@ -35,6 +35,9 @@ export interface Connector {
   capabilities: string[];
   hasAppPage: boolean;
   appRoute: string | null;
+  isHighRisk: boolean;
+  isApproved: boolean;
+  isAutoApproved: boolean;
 }
 
 export interface ConnectorDetail {

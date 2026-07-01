@@ -8,12 +8,28 @@ const APP_ROUTES: Record<string, string> = {
 
 export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): void {
   app.get('/api/connectors', async () => {
-    const data = await daemon.get<{ ok: boolean; connectors: Record<string, unknown>[] }>('/api/connectors');
-    const enriched = data.connectors.map((c: Record<string, unknown>) => ({
-      ...c,
-      hasAppPage: (c.key as string) in APP_ROUTES,
-      appRoute: APP_ROUTES[c.key as string] ?? null,
-    }));
+    const [connectorData, configData] = await Promise.all([
+      daemon.get<{ ok: boolean; connectors: Record<string, unknown>[] }>('/api/connectors'),
+      daemon.get<{ ok: boolean; config: Record<string, Record<string, unknown>> }>('/api/config'),
+    ]);
+
+    const security = (configData.config?.security ?? {}) as Record<string, unknown>;
+    const highRiskCaps = new Set((security.highRiskCapabilities as string[] | undefined) ?? ['js_evaluate', 'cookie_write']);
+    const approvedHighRisk = new Set((security.approvedHighRisk as string[] | undefined) ?? []);
+    const autoApproveConnectors = new Set((security.autoApproveConnectors as string[] | undefined) ?? []);
+
+    const enriched = connectorData.connectors.map((c: Record<string, unknown>) => {
+      const key = c.key as string;
+      const capabilities = (c.capabilities as string[]) ?? [];
+      return {
+        ...c,
+        hasAppPage: key in APP_ROUTES,
+        appRoute: APP_ROUTES[key] ?? null,
+        isHighRisk: capabilities.some(cap => highRiskCaps.has(cap)),
+        isApproved: approvedHighRisk.has(key),
+        isAutoApproved: autoApproveConnectors.has(key),
+      };
+    });
     return { ok: true, connectors: enriched };
   });
 
