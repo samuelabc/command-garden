@@ -31,11 +31,16 @@ export class WsRelay {
   private pending = new Map<string, PendingRequest>();
   private pendingApprovals = new Map<string, PendingApproval>();
   private approvalHandler: ApprovalRequestHandler | null = null;
+  private approvalResolvedHandler: ((id: string, approved: boolean, req: ApprovalRequest) => void) | null = null;
 
   get connected(): boolean { return this.ws !== null; }
 
   onApprovalRequest(handler: ApprovalRequestHandler): void {
     this.approvalHandler = handler;
+  }
+
+  onApprovalResolved(handler: (id: string, approved: boolean, req: ApprovalRequest) => void): void {
+    this.approvalResolvedHandler = handler;
   }
 
   attach(ws: SocketLike): void {
@@ -59,6 +64,9 @@ export class WsRelay {
         // without sending response back to extension (it came from there)
         const entry = this.pendingApprovals.get(data.approvalId);
         if (entry) {
+          if (this.approvalResolvedHandler) {
+            this.approvalResolvedHandler(data.approvalId, data.approved, entry.request);
+          }
           clearTimeout(entry.timer);
           this.pendingApprovals.delete(data.approvalId);
           entry.resolve(data.approved);

@@ -115,6 +115,18 @@ export async function createServer(deps: ServerDeps) {
     deps.wsRelay.registerApproval(request, deps.config.security.approvalTimeoutMs);
   });
 
+  deps.wsRelay.onApprovalResolved((approvalId, approved, request) => {
+    try {
+      deps.auditStore.insert(createAuditEvent({
+        type: approved ? 'approval.granted' : 'approval.rejected',
+        connector: request.connectorKey,
+        user,
+        source: 'extension',
+        correlationId: request.requestId,
+      }));
+    } catch { /* audit best-effort */ }
+  });
+
   app.get('/api/run/events/:requestId', async (req, reply) => {
     const { requestId } = req.params as { requestId: string };
     reply.raw.writeHead(200, {
@@ -137,10 +149,21 @@ export async function createServer(deps: ServerDeps) {
     if (!body.approvalId || typeof body.approved !== 'boolean') {
       reply.code(400).send({ ok: false, error: 'Missing approvalId or approved field' }); return;
     }
+    // Look up pending approval BEFORE resolving (resolve deletes the entry)
+    const pending = deps.wsRelay.getPendingApproval(body.approvalId);
     const resolved = deps.wsRelay.resolveApproval(body.approvalId, body.approved);
     if (!resolved) {
       reply.code(404).send({ ok: false, error: 'No pending approval with that ID' }); return;
     }
+    try {
+      deps.auditStore.insert(createAuditEvent({
+        type: body.approved ? 'approval.granted' : 'approval.rejected',
+        connector: pending?.request.connectorKey ?? '',
+        user,
+        source: 'cli',
+        correlationId: pending?.request.requestId,
+      }));
+    } catch { /* audit best-effort for approvals */ }
     return { ok: true };
   });
 

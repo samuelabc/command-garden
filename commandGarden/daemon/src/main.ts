@@ -1,6 +1,7 @@
 // src/main.ts
 import { join } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
+import { createAuditEvent } from '@commandgarden/shared';
 import { loadConfig, expandHome } from './config.js';
 import { generateSessionToken, writeSessionToken } from './auth.js';
 import { AuditStore } from './audit-store.js';
@@ -22,7 +23,15 @@ async function main() {
   const dbPath = expandHome(config.audit.dbPath);
   const auditStore = new AuditStore(dbPath);
   const pruned = auditStore.prune(config.audit.retentionDays);
-  if (pruned > 0) console.log(`Pruned ${pruned} old audit events`);
+  if (pruned > 0) {
+    console.log(`Pruned ${pruned} old audit events`);
+    auditStore.insert(createAuditEvent({
+      type: 'config.changed', connector: '_system/prune', user: userInfo().username,
+      source: 'audit.prune',
+      previousValue: String(pruned), newValue: '0',
+      args: { retentionDays: String(config.audit.retentionDays) },
+    }));
+  }
 
   // Connector registry
   const connectorPaths = config.connectors.paths.map(expandHome);
