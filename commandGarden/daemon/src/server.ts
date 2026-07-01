@@ -11,6 +11,7 @@ import type { AuditStore } from './audit-store.js';
 import { WsRelay } from './ws-relay.js';
 import { validateCommand } from './validator.js';
 import { validateToken } from './auth.js';
+import { SseManager } from './sse-manager.js';
 
 export interface ServerDeps {
   config: DaemonConfig;
@@ -71,9 +72,8 @@ export async function createServer(deps: ServerDeps) {
     return { ok: true, events, count: events.length };
   });
 
-  // SSE streams indexed by requestId
-  const sseClients = new Map<string, (event: string, data: unknown) => void>();
-  const sseReadyResolvers = new Map<string, () => void>();
+  const SSE_CONNECT_TIMEOUT_MS = 30_000;
+  const sse = new SseManager();
 
   function buildApprovalConfig(): ApprovalConfig {
     return {
@@ -94,10 +94,7 @@ export async function createServer(deps: ServerDeps) {
   }
 
   deps.wsRelay.onApprovalRequest((request: ApprovalRequest) => {
-    const sendSse = sseClients.get(request.requestId);
-    if (sendSse) {
-      sendSse('approval', request);
-    }
+    sse.send(request.requestId, 'approval', request);
     deps.wsRelay.registerApproval(request, deps.config.security.approvalTimeoutMs);
   });
 
@@ -109,21 +106,12 @@ export async function createServer(deps: ServerDeps) {
       'Connection': 'keep-alive',
     });
 
-    const sendSse = (event: string, data: unknown) => {
+    sse.register(requestId, (event, data) => {
       reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    };
-
-    sseClients.set(requestId, sendSse);
-
-    // Signal that SSE is ready — unblocks the pipeline start
-    const resolver = sseReadyResolvers.get(requestId);
-    if (resolver) {
-      sseReadyResolvers.delete(requestId);
-      resolver();
-    }
+    });
 
     req.raw.on('close', () => {
-      sseClients.delete(requestId);
+      sse.remove(requestId);
     });
   });
 
@@ -198,17 +186,20 @@ export async function createServer(deps: ServerDeps) {
 
     if (requiresApproval) {
       const requestId = randomUUID();
-      // Wait for SSE connection before starting pipeline to avoid race condition
-      const sseConnected = new Promise<void>(resolve => {
-        sseReadyResolvers.set(requestId, resolve);
-      });
-      sseConnected.then(() => runPipeline(requestId)).then(result => {
-        const sendSse = sseClients.get(requestId);
-        if (sendSse) {
-          sendSse('result', result);
-          sseClients.delete(requestId);
-        }
-      });
+      sse.waitForConnection(requestId, SSE_CONNECT_TIMEOUT_MS)
+        .then(() => runPipeline(requestId))
+        .then(result => {
+          sse.send(requestId, 'result', result);
+          sse.remove(requestId);
+        })
+        .catch((err) => {
+          const durationMs = Date.now() - startTime;
+          deps.auditStore.insert(createAuditEvent({
+            type: 'command.error', connector: body.connector, user,
+            args: body.args as Record<string, string>, durationMs,
+            error: err instanceof Error ? err.message : 'SSE timeout',
+          }));
+        });
       reply.code(202).send({
         ok: true, requestId, requiresApproval: true,
         connector: body.connector,
