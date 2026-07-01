@@ -300,9 +300,11 @@ export async function createServer(deps: ServerDeps) {
 
     if (!configObj[section]) configObj[section] = {};
     let parsed: unknown = body.value;
-    if (body.value === 'true') parsed = true;
-    else if (body.value === 'false') parsed = false;
-    else if (!isNaN(Number(body.value)) && body.value !== '') parsed = Number(body.value);
+    try { parsed = JSON.parse(body.value); } catch {
+      if (body.value === 'true') parsed = true;
+      else if (body.value === 'false') parsed = false;
+      else if (!isNaN(Number(body.value)) && body.value !== '') parsed = Number(body.value);
+    }
     configObj[section][prop] = parsed;
 
     mkdirSync(dirname(deps.configPath), { recursive: true });

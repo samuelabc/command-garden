@@ -246,6 +246,22 @@ describe('server', () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it('POST /api/config stores JSON array values as arrays', async () => {
+    const app = await createServer(deps);
+    const res = await app.inject({
+      method: 'POST', url: '/api/config',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+      payload: { key: 'security.approvedHighRisk', value: '["timetracking/report"]' },
+    });
+    expect(res.statusCode).toBe(200);
+    const configRes = await app.inject({
+      method: 'GET', url: '/api/config',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    const body = JSON.parse(configRes.payload);
+    expect(body.config.security.approvedHighRisk).toEqual(['timetracking/report']);
+  });
+
   it('POST /api/config logs config.changed audit event', async () => {
     const app = await createServer(deps);
     const res = await app.inject({
