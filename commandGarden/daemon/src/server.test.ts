@@ -259,4 +259,48 @@ describe('server', () => {
     expect(events[0].source).toBe('audit.retentionDays');
     expect(events[0].newValue).toBe('180');
   });
+
+  describe('GET /api/config', () => {
+    it('returns parsed config when file exists', async () => {
+      const configPath = join(tmpDir, 'config.yaml');
+      writeFileSync(configPath, 'daemon:\n  port: 19825\nsecurity:\n  extensionId: "test-ext"\n');
+
+      const app = await createServer(deps);
+      const resp = await app.inject({
+        method: 'GET',
+        url: '/api/config',
+        headers: { authorization: `Bearer test-token-abc`, 'x-commandgarden': '1' },
+      });
+
+      expect(resp.statusCode).toBe(200);
+      const body = JSON.parse(resp.payload);
+      expect(body.ok).toBe(true);
+      expect(body.config.daemon.port).toBe(19825);
+      expect(body.config.security.extensionId).toBe('test-ext');
+    });
+
+    it('returns empty config when file does not exist', async () => {
+      const nonExistentDeps = {
+        ...deps,
+        configPath: join(tmpDir, 'nonexistent-config.yaml'),
+      };
+      const app = await createServer(nonExistentDeps);
+      const resp = await app.inject({
+        method: 'GET',
+        url: '/api/config',
+        headers: { authorization: `Bearer test-token-abc`, 'x-commandgarden': '1' },
+      });
+
+      expect(resp.statusCode).toBe(200);
+      const body = JSON.parse(resp.payload);
+      expect(body.ok).toBe(true);
+      expect(body.config).toEqual({});
+    });
+
+    it('requires auth', async () => {
+      const app = await createServer(deps);
+      const resp = await app.inject({ method: 'GET', url: '/api/config' });
+      expect(resp.statusCode).toBe(403);
+    });
+  });
 });

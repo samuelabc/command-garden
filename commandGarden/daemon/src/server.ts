@@ -90,6 +90,16 @@ export async function createServer(deps: ServerDeps) {
     return { ok: true, event };
   });
 
+  app.get('/api/config', async () => {
+    const { readFileSync, existsSync } = await import('node:fs');
+    const { parse: parseYaml } = await import('yaml');
+    let config: Record<string, unknown> = {};
+    if (existsSync(deps.configPath)) {
+      config = (parseYaml(readFileSync(deps.configPath, 'utf-8')) as Record<string, unknown>) ?? {};
+    }
+    return { ok: true, config };
+  });
+
   const SSE_CONNECT_TIMEOUT_MS = 30_000;
   const sse = new SseManager();
 
