@@ -1,5 +1,5 @@
-import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { exec } from 'node:child_process';
 import { parse as parseYaml } from 'yaml';
@@ -37,20 +37,23 @@ export async function executeGuiStart(
   mkdirSync(cgHome, { recursive: true });
 
   if (opts.background) {
-    const child = spawn('node', [appScript], { detached: true, stdio: 'ignore' });
+    const logPath = join(cgHome, 'app.log');
+    const logFd = openSync(logPath, 'a');
+    const child = spawn('node', [appScript], { detached: true, stdio: ['ignore', logFd, logFd] });
+    closeSync(logFd);
     if (child.pid) writeFileSync(pidPath, String(child.pid));
     child.unref();
     if (!opts.noOpen) {
-      // Wait for the app server to be ready before opening the browser
       const appUrl = `http://127.0.0.1:${appPort}`;
-      for (let i = 0; i < 20; i++) {
-        try {
-          await fetch(appUrl);
-          break;
-        } catch { /* not ready yet */ }
-        await new Promise((r) => setTimeout(r, 250));
+      const ready = await waitForServer(appUrl, child);
+      if (ready) {
+        openBrowser(appUrl);
+      } else {
+        // Clean up the process and PID file since the server never became reachable
+        if (child.pid) try { process.kill(child.pid, 'SIGTERM'); } catch { /* already dead */ }
+        if (existsSync(pidPath)) unlinkSync(pidPath);
+        return `GUI failed to start. Check ${logPath} for errors.`;
       }
-      openBrowser(appUrl);
     }
     return `GUI started (PID: ${child.pid ?? 'unknown'}).`;
   }
@@ -59,14 +62,8 @@ export async function executeGuiStart(
   const child = spawn('node', [appScript], { stdio: 'inherit' });
   if (!opts.noOpen) {
     const appUrl = `http://127.0.0.1:${appPort}`;
-    for (let i = 0; i < 20; i++) {
-      try {
-        await fetch(appUrl);
-        break;
-      } catch { /* not ready yet */ }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-    openBrowser(appUrl);
+    const ready = await waitForServer(appUrl, child);
+    if (ready) openBrowser(appUrl);
   }
   await new Promise<void>((resolve) => child.on('exit', () => resolve()));
   return 'GUI stopped.';
@@ -93,6 +90,19 @@ export function executeGuiStatus(cgHome: string): string {
   try { process.kill(pid, 0); return `GUI: running (PID: ${pid}).`; } catch {
     return 'GUI: not running (stale PID file).';
   }
+}
+
+async function waitForServer(url: string, child: ChildProcess): Promise<boolean> {
+  for (let i = 0; i < 40; i++) {
+    // Check if process died
+    try { if (child.pid) process.kill(child.pid, 0); } catch { return false; }
+    try {
+      await fetch(url);
+      return true;
+    } catch { /* not ready yet */ }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
 }
 
 function openBrowser(url: string): void {
