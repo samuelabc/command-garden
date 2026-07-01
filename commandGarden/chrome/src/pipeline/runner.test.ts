@@ -148,7 +148,7 @@ describe('PipelineRunner', () => {
   it('calls approval gate before step with matching capability', async () => {
     const adapter = mockAdapter();
     const gate = vi.fn().mockResolvedValue(true);
-    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [] };
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [], approvalTimeoutMs: 120_000 };
     const runner = new PipelineRunner(adapter, gate, approvalConfig);
     const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
     await runner.run(connector, {});
@@ -159,7 +159,7 @@ describe('PipelineRunner', () => {
   it('aborts pipeline when approval gate rejects', async () => {
     const adapter = mockAdapter();
     const gate = vi.fn().mockResolvedValue(false);
-    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [] };
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [], approvalTimeoutMs: 120_000 };
     const runner = new PipelineRunner(adapter, gate, approvalConfig);
     const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
     const result = await runner.run(connector, {});
@@ -171,7 +171,7 @@ describe('PipelineRunner', () => {
   it('skips approval gate for steps without matching capability', async () => {
     const adapter = mockAdapter();
     const gate = vi.fn().mockResolvedValue(true);
-    const approvalConfig = { approvalRequired: ['js_evaluate'], autoApproveConnectors: [] };
+    const approvalConfig = { approvalRequired: ['js_evaluate'], autoApproveConnectors: [], approvalTimeoutMs: 120_000 };
     const runner = new PipelineRunner(adapter, gate, approvalConfig);
     const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
     await runner.run(connector, {});
@@ -181,7 +181,7 @@ describe('PipelineRunner', () => {
   it('skips approval gate for auto-approved connectors', async () => {
     const adapter = mockAdapter();
     const gate = vi.fn().mockResolvedValue(true);
-    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: ['test/cmd'] };
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: ['test/cmd'], approvalTimeoutMs: 120_000 };
     const runner = new PipelineRunner(adapter, gate, approvalConfig, 'test/cmd');
     const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
     await runner.run(connector, {});
@@ -193,7 +193,7 @@ describe('PipelineRunner', () => {
       executeInContent: vi.fn().mockResolvedValue([{ name: 'A', score: 5 }]),
     });
     const gate = vi.fn().mockResolvedValue(true);
-    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [] };
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [], approvalTimeoutMs: 120_000 };
     const runner = new PipelineRunner(adapter, gate, approvalConfig);
     const connector = makeConnector([
       { step: 'navigate', url: 'https://example.com' },

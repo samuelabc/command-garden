@@ -1,4 +1,6 @@
 // src/background/service-worker.ts
+declare function setTimeout(cb: () => void, ms: number): number;
+declare function clearTimeout(id: number): void;
 import type { ExtensionRequest, ApprovalRequest, ApprovalResponse } from '@commandgarden/shared';
 import { WsClient } from './ws-client.js';
 import { PipelineRunner } from '../pipeline/runner.js';
@@ -46,7 +48,7 @@ client.onApprovalResponse((response: ApprovalResponse) => {
   resolveApproval(response.approvalId, response.approved);
 });
 
-function createApprovalGate(requestId: string, connectorKey: string): ApprovalGate {
+function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: number): ApprovalGate {
   return async (stepType, stepIndex, capability, description) => {
     const approvalId = `${requestId}-step-${stepIndex}`;
 
@@ -69,9 +71,16 @@ function createApprovalGate(requestId: string, connectorKey: string): ApprovalGa
     };
     client.sendApprovalRequest(approvalRequest);
 
-    // Wait for either CLI or popup to resolve
+    // Wait for either CLI or popup to resolve, with safety-net timeout
+    // (daemon normally resolves first; this catches lost WS messages)
     return new Promise<boolean>((resolve) => {
-      pendingApprovalResolvers.set(approvalId, resolve);
+      const timer = setTimeout(() => {
+        resolveApproval(approvalId, false);
+      }, timeoutMs + 5_000);
+      pendingApprovalResolvers.set(approvalId, (approved) => {
+        clearTimeout(timer);
+        resolve(approved);
+      });
     });
   };
 }
@@ -80,7 +89,7 @@ client.onRequest(async (request: ExtensionRequest) => {
   const adapter = new RealChromeAdapter();
   const connectorKey = `${request.connector.site}/${request.connector.name}`;
   const approvalGate = request.approvalConfig
-    ? createApprovalGate(request.id, connectorKey)
+    ? createApprovalGate(request.id, connectorKey, request.approvalConfig.approvalTimeoutMs)
     : undefined;
   const runner = new PipelineRunner(adapter, approvalGate, request.approvalConfig, connectorKey);
   let ok = false;

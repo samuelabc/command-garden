@@ -27,6 +27,7 @@ export interface RunCommandResponse {
 export interface ApprovalConfig {
   approvalRequired: string[];
   autoApproveConnectors: string[];
+  approvalTimeoutMs: number;
 }
 
 export interface ExtensionRequest {

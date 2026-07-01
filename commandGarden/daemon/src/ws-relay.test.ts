@@ -75,7 +75,7 @@ describe('WsRelay', () => {
   it('includes approvalConfig in sent request when provided', async () => {
     relay.attach(socket as any);
     const connector = { site: 'test', name: 'cmd' } as any;
-    const approvalConfig = { approvalRequired: ['js_evaluate'], autoApproveConnectors: [] };
+    const approvalConfig = { approvalRequired: ['js_evaluate'], autoApproveConnectors: [], approvalTimeoutMs: 120_000 };
     const promise = relay.send(connector, {}, approvalConfig, 5000);
     const sent = JSON.parse(socket.sent[0]);
     expect(sent.approvalConfig).toEqual(approvalConfig);

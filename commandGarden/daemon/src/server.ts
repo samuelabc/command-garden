@@ -79,6 +79,7 @@ export async function createServer(deps: ServerDeps) {
     return {
       approvalRequired: deps.config.security.approvalRequired,
       autoApproveConnectors: deps.config.security.autoApproveConnectors,
+      approvalTimeoutMs: deps.config.security.approvalTimeoutMs,
     };
   }
 
