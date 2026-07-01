@@ -13,7 +13,8 @@
     }
     .header {
       padding: 12px 16px;
-      font-size: 14px;
+      font-family: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+      font-size: 13px;
       font-weight: 600;
       color: #e0e0e0;
       border-bottom: 1px solid #333;
@@ -81,6 +82,10 @@
       gap: 8px;
       padding: 8px 16px;
       border-bottom: 1px solid #2a2a2a;
+      transition: background 0.1s;
+    }
+    .activity-item:hover {
+      background: #252525;
     }
     .activity-icon { font-size: 12px; flex-shrink: 0; }
     .activity-icon.ok { color: #4caf50; }
@@ -93,6 +98,85 @@
       color: #666;
       font-style: italic;
     }
+    /* Approval section */
+    .approval-section {
+      border-bottom: 1px solid #333;
+      background: #252525;
+    }
+    .approval-header {
+      padding: 10px 16px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ccc;
+    }
+    .approval-count {
+      display: inline-block;
+      font-size: 10px;
+      min-width: 16px;
+      text-align: center;
+      padding: 0 5px;
+      line-height: 16px;
+      border-radius: 8px;
+      background: rgba(245, 158, 11, 0.18);
+      color: #F59E0B;
+      font-weight: 700;
+      margin-left: 6px;
+      vertical-align: 1px;
+    }
+    .approval-card {
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .approval-card + .approval-card {
+      border-top: 1px solid #2a2a2a;
+    }
+    .approval-connector {
+      font-family: monospace;
+      font-size: 12px;
+      color: #e0e0e0;
+    }
+    .approval-detail {
+      font-size: 11px;
+      color: #999;
+    }
+    .approval-cap {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: rgba(245, 158, 11, 0.15);
+      color: #F59E0B;
+      font-family: monospace;
+    }
+    .approval-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .btn-approve, .btn-reject {
+      font-size: 11px;
+      padding: 4px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-approve {
+      background: #4caf50;
+      color: #fff;
+    }
+    .btn-approve:hover { background: #43a047; }
+    .btn-approve:active { background: #388e3c; }
+    .btn-reject {
+      background: transparent;
+      color: #999;
+      border: 1px solid #555;
+    }
+    .btn-reject:hover { background: #333; color: #ccc; }
+    .btn-reject:active { background: #2a2a2a; }
   </style>
 </head>
 <body>
@@ -106,6 +190,7 @@
       <div class="toggle-knob"></div>
     </label>
   </div>
+  <div id="approvals"></div>
   <div id="activity" class="activity-list"></div>
   <script src="popup.js"></script>
 </body>

@@ -289,6 +289,42 @@ If a high-risk connector is not approved, running it will return:
 Error: Connector "<key>" uses high-risk capabilities [js_evaluate] but is not approved
 ```
 
+### Step approval (confirmation gate)
+
+Pipeline steps can be configured to require user approval before execution. This is useful for sensitive operations — each step pauses and waits for confirmation before proceeding.
+
+**Configuration** is per-capability in `~/.commandgarden/config.yaml`:
+
+```yaml
+security:
+  approvalRequired:
+    - js_evaluate
+    - dom_write
+  autoApproveConnectors:
+    - "timetracking/report"
+  approvalTimeoutMs: 120000
+```
+
+- **`approvalRequired`** — list of capabilities that require user confirmation. Any pipeline step using one of these capabilities will pause for approval.
+- **`autoApproveConnectors`** — list of trusted connector keys (`site/name`) that skip approval entirely.
+- **`approvalTimeoutMs`** — how long to wait for approval before aborting (default: 120s).
+
+**How it works:**
+
+When a pipeline hits a step requiring approval, the user is prompted simultaneously in two places:
+
+1. **CLI terminal** — a `y/n` prompt appears inline:
+   ```
+   ⚠  Step 3 [js_evaluate] in teams/room-availability requires approval.
+      Capability: js_evaluate
+      js_evaluate step (requires js_evaluate)
+      Approve? (y/n):
+   ```
+
+2. **Chrome extension** — a notification with **Approve** / **Reject** buttons.
+
+Whichever surface responds first resolves the approval. If rejected, the entire pipeline aborts. Multiple concurrent pipelines are supported without conflict — each approval is tracked by a unique ID.
+
 ---
 
 ## Running Tests
@@ -313,6 +349,76 @@ The CLI is published as a single npm package. The `@commandgarden/shared` worksp
 ```bash
 npm run build
 cd cli && npm publish --access public
+```
+
+---
+
+## Development
+
+### Building
+
+```bash
+# From the commandGarden/ directory
+npm install
+npm run build          # all workspaces: shared → daemon → cli → chrome
+
+# Or build individual packages
+npm run build -w shared
+npm run build -w daemon
+npm run build -w cli
+npm run build -w chrome
+```
+
+### Starting the daemon (without `cg`)
+
+During development, the `cg` CLI may not be globally linked. Start the daemon directly:
+
+```bash
+# After building
+node daemon/dist/main.js
+```
+
+Or using the workspace script:
+
+```bash
+npm start -w daemon
+```
+
+The daemon will:
+- Bind to `127.0.0.1:19825`
+- Write a session token to `~/.commandgarden/session-token`
+- Load connectors from `./connectors` and `~/.commandgarden/connectors`
+
+To verify it's running, hit the status endpoint:
+
+```bash
+curl http://127.0.0.1:19825/api/status
+```
+
+### Running the CLI from source (without global link)
+
+```bash
+node cli/dist/main.js daemon status
+node cli/dist/main.js list
+node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
+node cli/dist/main.js run timetracking/report --month 2026-06 --format json
+```
+
+### Linking globally (optional)
+
+To make `cg` / `commandgarden` available on PATH:
+
+```bash
+npm link --workspace=cli
+```
+
+After linking, use `cg` commands as documented in the [Setup](#setup) section.
+
+### Watch mode for tests
+
+```bash
+npm run test:watch -w daemon    # re-runs on file changes
+npm run test:watch -w chrome
 ```
 
 ---

@@ -1,13 +1,56 @@
 // src/popup/popup.ts
-import type { PopupStatusResponse } from './popup-types.js';
+import type { PopupStatusResponse, ApprovalInfo } from './popup-types.js';
 import { timeAgo } from './time-ago.js';
 
 const dot = document.getElementById('dot')!;
 const statusText = document.getElementById('status-text')!;
 const toggleInput = document.getElementById('toggle-input') as HTMLInputElement;
 const activityEl = document.getElementById('activity')!;
+const approvalsEl = document.getElementById('approvals')!;
 
 let currentEnabled = true;
+
+function escapeHtml(text: string): string {
+  const el = document.createElement('span');
+  el.textContent = text;
+  return el.innerHTML;
+}
+
+function renderApprovals(approvals: ApprovalInfo[]): void {
+  if (approvals.length === 0) {
+    approvalsEl.innerHTML = '';
+    return;
+  }
+
+  const cards = approvals.map(a =>
+    `<div class="approval-card" data-id="${escapeHtml(a.approvalId)}">
+      <div class="approval-connector">${escapeHtml(a.connectorKey)}</div>
+      <div class="approval-detail">Step ${a.stepIndex + 1} [${escapeHtml(a.stepType)}] <span class="approval-cap">${escapeHtml(a.capability)}</span></div>
+      <div class="approval-actions">
+        <button class="btn-approve" data-approval-id="${escapeHtml(a.approvalId)}" data-approved="true">Approve</button>
+        <button class="btn-reject" data-approval-id="${escapeHtml(a.approvalId)}" data-approved="false">Reject</button>
+      </div>
+    </div>`
+  ).join('');
+
+  approvalsEl.innerHTML =
+    `<div class="approval-section">
+      <div class="approval-header">Pending approvals <span class="approval-count">${approvals.length}</span></div>
+      ${cards}
+    </div>`;
+
+  approvalsEl.querySelectorAll('[data-approval-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const approvalId = (btn as HTMLElement).dataset.approvalId!;
+      const approved = (btn as HTMLElement).dataset.approved === 'true';
+      (btn as HTMLButtonElement).disabled = true;
+      chrome.runtime.sendMessage(
+        { type: 'approvalDecision', approvalId, approved },
+        () => { fetchStatus(); },
+      );
+    });
+  });
+}
 
 function render(status: PopupStatusResponse): void {
   currentEnabled = status.enabled;
@@ -24,6 +67,8 @@ function render(status: PopupStatusResponse): void {
     statusText.textContent = 'Disconnected';
   }
 
+  renderApprovals(status.pendingApprovals ?? []);
+
   if (status.recentActivity.length === 0) {
     activityEl.innerHTML = '<div class="empty">No recent activity</div>';
     return;
@@ -38,12 +83,6 @@ function render(status: PopupStatusResponse): void {
       return `<div class="activity-item">${icon}<span class="activity-name">${escapeHtml(entry.connector)}</span><span class="activity-time">${timeAgo(entry.timestamp, now)}</span></div>`;
     })
     .join('');
-}
-
-function escapeHtml(text: string): string {
-  const el = document.createElement('span');
-  el.textContent = text;
-  return el.innerHTML;
 }
 
 function fetchStatus(): void {
@@ -70,3 +109,4 @@ toggleInput.addEventListener('change', () => {
 });
 
 fetchStatus();
+setInterval(fetchStatus, 2000);

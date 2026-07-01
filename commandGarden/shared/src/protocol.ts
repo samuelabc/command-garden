@@ -1,4 +1,6 @@
 import type { ConnectorDef } from './connector.js';
+import type { PipelineStepType } from './pipeline.js';
+import type { Capability } from './capabilities.js';
 
 // ---------- CLI → Daemon ----------
 
@@ -16,14 +18,22 @@ export interface RunCommandResponse {
   data: Record<string, unknown>[];
   error?: string;
   durationMs: number;
+  requestId?: string;
+  requiresApproval?: boolean;
 }
 
 // ---------- Daemon → Extension ----------
+
+export interface ApprovalConfig {
+  approvalRequired: string[];
+  autoApproveConnectors: string[];
+}
 
 export interface ExtensionRequest {
   id: string;
   connector: ConnectorDef;
   args: Record<string, string | number | boolean>;
+  approvalConfig?: ApprovalConfig;
 }
 
 export interface ExtensionResponse {
@@ -31,6 +41,25 @@ export interface ExtensionResponse {
   ok: boolean;
   data: Record<string, unknown>[];
   error?: string;
+}
+
+// ---------- Approval protocol ----------
+
+export interface ApprovalRequest {
+  type: 'approval.request';
+  approvalId: string;
+  requestId: string;
+  connectorKey: string;
+  stepIndex: number;
+  stepType: PipelineStepType;
+  capability: Capability;
+  description: string;
+}
+
+export interface ApprovalResponse {
+  type: 'approval.response';
+  approvalId: string;
+  approved: boolean;
 }
 
 // ---------- Type guards ----------
@@ -45,4 +74,16 @@ export function isExtensionResponse(value: unknown): value is ExtensionResponse 
   if (value == null || typeof value !== 'object') return false;
   const obj = value as Record<string, unknown>;
   return typeof obj.id === 'string' && typeof obj.ok === 'boolean' && Array.isArray(obj.data);
+}
+
+export function isApprovalRequest(value: unknown): value is ApprovalRequest {
+  if (value == null || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return obj.type === 'approval.request' && typeof obj.approvalId === 'string';
+}
+
+export function isApprovalResponse(value: unknown): value is ApprovalResponse {
+  if (value == null || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return obj.type === 'approval.response' && typeof obj.approvalId === 'string';
 }

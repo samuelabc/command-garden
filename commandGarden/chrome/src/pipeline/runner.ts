@@ -1,5 +1,10 @@
 // src/pipeline/runner.ts
-import type { ConnectorDef, PipelineStep, ExtensionResponse } from '@commandgarden/shared';
+import type {
+  ConnectorDef, PipelineStep, PipelineStepType,
+  ExtensionResponse, ApprovalConfig,
+} from '@commandgarden/shared';
+import { STEP_CAPABILITY_MAP } from '@commandgarden/shared';
+import type { Capability } from '@commandgarden/shared';
 import { PipelineContext } from './context.js';
 
 export interface ChromeAdapter {
@@ -10,8 +15,34 @@ export interface ChromeAdapter {
   evaluateInPage(tabId: number, code: string): Promise<unknown>;
 }
 
+export type ApprovalGate = (
+  stepType: PipelineStepType,
+  stepIndex: number,
+  capability: Capability,
+  description: string,
+) => Promise<boolean>;
+
 export class PipelineRunner {
-  constructor(private adapter: ChromeAdapter) {}
+  constructor(
+    private adapter: ChromeAdapter,
+    private approvalGate?: ApprovalGate,
+    private approvalConfig?: ApprovalConfig,
+    private connectorKey?: string,
+  ) {}
+
+  private async checkApproval(step: PipelineStep, index: number): Promise<void> {
+    if (!this.approvalGate || !this.approvalConfig) return;
+    const cap = STEP_CAPABILITY_MAP[step.step];
+    if (!cap) return;
+    if (!this.approvalConfig.approvalRequired.includes(cap)) return;
+    if (this.connectorKey && this.approvalConfig.autoApproveConnectors.includes(this.connectorKey)) return;
+
+    const description = `${step.step} step (requires ${cap})`;
+    const approved = await this.approvalGate(step.step, index, cap, description);
+    if (!approved) {
+      throw new Error(`Step ${index + 1} [${step.step}] was rejected by user`);
+    }
+  }
 
   async run(
     connector: ConnectorDef,
@@ -21,7 +52,9 @@ export class PipelineRunner {
     let tabId = -1;
 
     try {
-      for (const step of connector.pipeline) {
+      for (let i = 0; i < connector.pipeline.length; i++) {
+        const step = connector.pipeline[i];
+        await this.checkApproval(step, i);
         switch (step.step) {
           case 'navigate': {
             const url = ctx.interpolate(step.url);

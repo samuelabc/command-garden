@@ -14,6 +14,9 @@ export const configSchema = z.object({
     extensionId: z.string().default(''),
     highRiskCapabilities: z.array(z.string()).default(['js_evaluate', 'cookie_write']),
     approvedHighRisk: z.array(z.string()).default([]),
+    approvalRequired: z.array(z.string()).default([]),
+    autoApproveConnectors: z.array(z.string()).default([]),
+    approvalTimeoutMs: z.number().int().positive().default(120_000),
   }).default({}),
   connectors: z.object({
     paths: z.array(z.string()).default(['./connectors', '~/.commandgarden/connectors']),

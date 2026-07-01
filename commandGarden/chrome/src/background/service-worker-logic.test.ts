@@ -102,6 +102,7 @@ describe('buildStatusResponse', () => {
       enabled: true,
       connected: true,
       recentActivity: [],
+      pendingApprovals: [],
     });
   });
 
@@ -114,6 +115,7 @@ describe('buildStatusResponse', () => {
       enabled: true,
       connected: false,
       recentActivity: [],
+      pendingApprovals: [],
     });
   });
 });

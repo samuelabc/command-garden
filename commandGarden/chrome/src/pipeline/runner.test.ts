@@ -144,4 +144,64 @@ describe('PipelineRunner', () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain('Tab error');
   });
+
+  it('calls approval gate before step with matching capability', async () => {
+    const adapter = mockAdapter();
+    const gate = vi.fn().mockResolvedValue(true);
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [] };
+    const runner = new PipelineRunner(adapter, gate, approvalConfig);
+    const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
+    await runner.run(connector, {});
+    expect(gate).toHaveBeenCalledWith('navigate', 0, 'navigate', expect.any(String));
+    expect(adapter.navigateTab).toHaveBeenCalled();
+  });
+
+  it('aborts pipeline when approval gate rejects', async () => {
+    const adapter = mockAdapter();
+    const gate = vi.fn().mockResolvedValue(false);
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [] };
+    const runner = new PipelineRunner(adapter, gate, approvalConfig);
+    const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('rejected');
+    expect(adapter.navigateTab).not.toHaveBeenCalled();
+  });
+
+  it('skips approval gate for steps without matching capability', async () => {
+    const adapter = mockAdapter();
+    const gate = vi.fn().mockResolvedValue(true);
+    const approvalConfig = { approvalRequired: ['js_evaluate'], autoApproveConnectors: [] };
+    const runner = new PipelineRunner(adapter, gate, approvalConfig);
+    const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
+    await runner.run(connector, {});
+    expect(gate).not.toHaveBeenCalled();
+  });
+
+  it('skips approval gate for auto-approved connectors', async () => {
+    const adapter = mockAdapter();
+    const gate = vi.fn().mockResolvedValue(true);
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: ['test/cmd'] };
+    const runner = new PipelineRunner(adapter, gate, approvalConfig, 'test/cmd');
+    const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
+    await runner.run(connector, {});
+    expect(gate).not.toHaveBeenCalled();
+  });
+
+  it('skips approval gate for steps with null capability', async () => {
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue([{ name: 'A', score: 5 }]),
+    });
+    const gate = vi.fn().mockResolvedValue(true);
+    const approvalConfig = { approvalRequired: ['navigate'], autoApproveConnectors: [] };
+    const runner = new PipelineRunner(adapter, gate, approvalConfig);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'extract', selector: 'tr', fields: { name: 'td' } },
+      { step: 'map', fields: { title: '${{ row.name }}' } },
+    ]);
+    await runner.run(connector, {});
+    // navigate requires approval, map has null capability so no approval
+    expect(gate).toHaveBeenCalledTimes(1);
+  });
 });
