@@ -17,14 +17,14 @@ const EVENT_TYPES = [
 const PAGE_SIZE = 20;
 
 const typeBadge: Record<string, string> = {
-  'command.success': 'badge-success',
+  'command.success': 'badge-success badge-outline',
   'command.error': 'badge-error',
   'command.denied': 'badge-error',
   'command.start': 'badge-ghost',
   'auth.failed': 'badge-warning',
-  'approval.granted': 'badge-success',
+  'approval.granted': 'badge-success badge-outline',
   'approval.rejected': 'badge-error',
-  'config.changed': 'badge-info',
+  'config.changed': 'badge-ghost',
 };
 
 export default function Audit() {
@@ -104,13 +104,13 @@ export default function Audit() {
                 <tbody>
                   {paged.map((e) => (
                     <>
-                      <tr key={e.id} className="cursor-pointer hover" onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}>
+                      <tr key={e.id} className="cursor-pointer hover" onClick={() => setExpandedId(expandedId === e.id ? null : e.id)} role="button" aria-expanded={expandedId === e.id} tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExpandedId(expandedId === e.id ? null : e.id); } }}>
                         <td className="text-sm">{new Date(e.timestamp).toLocaleString()}</td>
                         <td><span className={`badge badge-sm ${typeBadge[e.type] ?? 'badge-ghost'}`}>{e.type}</span></td>
                         <td className="font-mono text-sm">{e.connector || '\u2014'}</td>
                         <td className="text-sm">{e.user}</td>
                         <td className="text-sm">{e.durationMs ? `${(e.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
-                        <td className="text-xs opacity-40">{expandedId === e.id ? '\u25B2' : '\u25BC'}</td>
+                        <td className="text-xs opacity-40" aria-hidden="true">{expandedId === e.id ? '\u25B2' : '\u25BC'}</td>
                       </tr>
                       {expandedId === e.id && (
                         <tr key={`${e.id}-detail`}>

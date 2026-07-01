@@ -96,7 +96,7 @@ export function RoomCombobox({ value, onChange }: RoomComboboxProps) {
     <div ref={containerRef} className="relative w-full">
       <input
         className="input input-bordered w-full"
-        placeholder="Search or type a room name\u2026"
+        placeholder="Search or type a room name…"
         value={value}
         onChange={(e) => {
           onChange(e.target.value);

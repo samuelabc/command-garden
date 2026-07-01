@@ -81,54 +81,59 @@ export default function Config() {
       <h2 className="text-2xl font-bold mb-6">Configuration</h2>
 
       {sections.length === 0 ? (
-        <p className="text-sm opacity-50">No configuration found. The daemon may not be running.</p>
-      ) : (
-        <div className="space-y-6">
-          {sections.map((section) => (
-            <div key={section} className="bg-base-200 rounded-lg p-5">
-              <h3 className="font-semibold mb-4 capitalize">{section}</h3>
-              <div className="space-y-3">
-                {Object.entries(edited[section]).map(([key, value]) => (
-                  <div key={key} className="flex items-start gap-3">
-                    <label className="text-sm font-mono w-48 pt-2 shrink-0">{key}</label>
-                    {Array.isArray(value) ? (
-                      <div className="flex-1">
-                        <div className="flex flex-wrap gap-1 mb-1">
-                          {value.map((item, i) => (
-                            <span key={i} className="badge badge-sm gap-1">
-                              {String(item)}
-                              <button className="text-xs opacity-50 hover:opacity-100" onClick={() => handleArrayRemove(section, key, i)}>&times;</button>
-                            </span>
-                          ))}
-                        </div>
-                        <button className="btn btn-xs btn-ghost" onClick={() => handleArrayAdd(section, key)}>+ Add</button>
-                      </div>
-                    ) : (
-                      <input
-                        type={typeof value === 'number' ? 'number' : 'text'}
-                        className="input input-bordered input-sm flex-1"
-                        value={String(value ?? '')}
-                        onChange={(e) => handleChange(section, key, e.target.value)}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="bg-base-200 rounded-lg p-6 text-center">
+          <p className="text-sm opacity-60 mb-2">No configuration found.</p>
+          <p className="text-xs opacity-40">Make sure the daemon is running. Configuration will appear here automatically.</p>
         </div>
-      )}
+      ) : (
+        <>
+          <div className="space-y-6">
+            {sections.map((section) => (
+              <div key={section} className="bg-base-200 rounded-lg p-5">
+                <h3 className="font-semibold mb-4 capitalize">{section}</h3>
+                <div className="space-y-3">
+                  {Object.entries(edited[section]).map(([key, value]) => (
+                    <div key={key} className="flex items-start gap-3">
+                      <label className="text-sm font-mono w-48 pt-2 shrink-0">{key}</label>
+                      {Array.isArray(value) ? (
+                        <div className="flex-1">
+                          <div className="flex flex-wrap gap-1 mb-1">
+                            {value.map((item, i) => (
+                              <span key={i} className="badge badge-sm gap-1">
+                                {String(item)}
+                                <button className="text-xs opacity-50 hover:opacity-100" onClick={() => handleArrayRemove(section, key, i)}>&times;</button>
+                              </span>
+                            ))}
+                          </div>
+                          <button className="btn btn-xs btn-ghost" onClick={() => handleArrayAdd(section, key)}>+ Add</button>
+                        </div>
+                      ) : (
+                        <input
+                          type={typeof value === 'number' ? 'number' : 'text'}
+                          className="input input-bordered input-sm flex-1"
+                          value={String(value ?? '')}
+                          onChange={(e) => handleChange(section, key, e.target.value)}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
 
-      <div className="mt-6 flex items-center gap-3">
-        <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save changes'}
-        </button>
-        {toast && (
-          <span className={`text-sm ${toast.type === 'success' ? 'text-success' : 'text-error'}`}>
-            {toast.msg}
-          </span>
-        )}
-      </div>
+          <div className="mt-6 flex items-center gap-3">
+            <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+            {toast && (
+              <span className={`text-sm ${toast.type === 'success' ? 'text-success' : 'text-error'}`}>
+                {toast.msg}
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

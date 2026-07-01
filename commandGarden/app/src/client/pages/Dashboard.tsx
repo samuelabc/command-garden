@@ -27,43 +27,46 @@ export default function Dashboard() {
   }
 
   const typeBadge: Record<string, string> = {
-    'command.success': 'badge-success',
+    'command.success': 'badge-success badge-outline',
     'command.error': 'badge-error',
     'command.denied': 'badge-error',
     'command.start': 'badge-ghost',
     'auth.failed': 'badge-warning',
-    'approval.granted': 'badge-success',
+    'approval.granted': 'badge-success badge-outline',
     'approval.rejected': 'badge-error',
-    'config.changed': 'badge-info',
+    'config.changed': 'badge-ghost',
   };
 
   return (
     <div className="max-w-4xl">
       <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-base-200 rounded-lg p-4">
-          <div className="text-sm opacity-60 mb-1">Daemon</div>
+          <div className="text-xs font-medium text-base-content/60 mb-1">Daemon</div>
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${status?.ok ? 'bg-success' : 'bg-error'}`} />
+            <span className={`w-2 h-2 rounded-full ${status?.ok ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
             <span className="font-semibold">{status?.ok ? 'Running' : 'Offline'}</span>
           </div>
         </div>
         <div className="bg-base-200 rounded-lg p-4">
-          <div className="text-sm opacity-60 mb-1">Chrome Extension</div>
+          <div className="text-xs font-medium text-base-content/60 mb-1">Chrome Extension</div>
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${status?.extensionConnected ? 'bg-success' : 'bg-error'}`} />
+            <span className={`w-2 h-2 rounded-full ${status?.extensionConnected ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
             <span className="font-semibold">{status?.extensionConnected ? 'Connected' : 'Disconnected'}</span>
           </div>
         </div>
         <div className="bg-base-200 rounded-lg p-4">
-          <div className="text-sm opacity-60 mb-1">Connectors</div>
+          <div className="text-xs font-medium text-base-content/60 mb-1">Connectors</div>
           <div className="font-semibold">{status?.connectorCount ?? 0} loaded</div>
         </div>
       </div>
 
       <h3 className="text-lg font-semibold mb-3">Recent activity</h3>
       {events.length === 0 ? (
-        <p className="text-sm opacity-50">No recent events.</p>
+        <div className="bg-base-200 rounded-lg p-6 text-center">
+          <p className="text-sm opacity-60 mb-1">No recent activity</p>
+          <p className="text-xs opacity-40">Run a connector to see events here.</p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="table table-sm">

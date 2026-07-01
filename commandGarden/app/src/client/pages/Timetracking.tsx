@@ -104,21 +104,21 @@ export default function Timetracking() {
 
       {result && rows.length > 0 && (
         <>
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-sm opacity-60 mb-1">Total hours</div>
+              <div className="text-xs font-medium text-base-content/60 mb-1">Total hours</div>
               <div className="text-2xl font-bold">{totalHours.toFixed(1)}</div>
             </div>
             <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-sm opacity-60 mb-1">Working days</div>
+              <div className="text-xs font-medium text-base-content/60 mb-1">Working days</div>
               <div className="text-2xl font-bold">{workingDays.size}</div>
             </div>
             <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-sm opacity-60 mb-1">Projects</div>
+              <div className="text-xs font-medium text-base-content/60 mb-1">Projects</div>
               <div className="text-2xl font-bold">{groups.size}</div>
             </div>
             <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-sm opacity-60 mb-1">Draft entries</div>
+              <div className="text-xs font-medium text-base-content/60 mb-1">Draft entries</div>
               <div className="text-2xl font-bold">{draftCount}</div>
             </div>
           </div>
