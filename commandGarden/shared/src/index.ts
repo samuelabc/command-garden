@@ -78,5 +78,7 @@ export {
   AUDIT_EVENT_TYPES,
   type AuditEvent,
   type AuditEventType,
+  type StepSummary,
   createAuditEvent,
+  redactArgs,
 } from './events.js';
