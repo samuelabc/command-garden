@@ -76,4 +76,20 @@ describe('ConnectorRegistry', () => {
     expect(reg.keys()).toHaveLength(2);
     rmSync(dir2, { recursive: true, force: true });
   });
+
+  it('getWithMeta returns connector, yamlContent, and filePath', () => {
+    const reg = new ConnectorRegistry([tmpDir]);
+    reg.load();
+    const meta = reg.getWithMeta('test/cmd');
+    expect(meta).toBeDefined();
+    expect(meta!.connector.site).toBe('test');
+    expect(meta!.yamlContent).toContain('site: test');
+    expect(meta!.filePath).toContain('valid.yaml');
+  });
+
+  it('getWithMeta returns undefined for unknown key', () => {
+    const reg = new ConnectorRegistry([tmpDir]);
+    reg.load();
+    expect(reg.getWithMeta('no/such')).toBeUndefined();
+  });
 });
