@@ -1,13 +1,13 @@
 {
   "name": "@commandgarden/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Enterprise browser automation CLI",
   "type": "module",
   "license": "MIT",
   "main": "./dist/main.js",
   "bin": {
-    "commandgarden": "./dist/main.js",
-    "cg": "./dist/main.js"
+    "commandgarden": "dist/main.js",
+    "cg": "dist/main.js"
   },
   "files": [
     "dist"
