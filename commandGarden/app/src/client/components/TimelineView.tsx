@@ -1,3 +1,5 @@
+import { Badge, type BadgeVariant } from './Badge';
+
 interface TimelineRow {
   start?: string;
   end?: string;
@@ -5,12 +7,12 @@ interface TimelineRow {
   durationMin?: number;
 }
 
-const STATE_BADGE: Record<string, string> = {
-  free: 'badge-success',
-  busy: 'badge-error',
-  tentative: 'badge-warning',
-  oof: 'badge-secondary',
-  elsewhere: 'badge-info',
+const STATE_BADGE: Record<string, BadgeVariant> = {
+  free: 'success',
+  busy: 'error',
+  tentative: 'warning',
+  oof: 'secondary',
+  elsewhere: 'info',
 };
 
 const STATE_COLOR: Record<string, string> = {
@@ -53,7 +55,7 @@ export function TimelineView({ rows }: { rows: TimelineRow[] }) {
               <tr key={i}>
                 <td>{r.start}</td>
                 <td>{r.end}</td>
-                <td><span className={`badge badge-sm ${STATE_BADGE[r.state ?? ''] ?? 'badge-ghost'}`}>{r.state}</span></td>
+                <td><Badge variant={STATE_BADGE[r.state ?? ''] ?? 'neutral'}>{r.state}</Badge></td>
                 <td className="text-right">{r.durationMin}</td>
               </tr>
             ))}

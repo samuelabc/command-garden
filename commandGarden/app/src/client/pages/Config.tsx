@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
+import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 export default function Config() {
@@ -99,10 +100,12 @@ export default function Config() {
                         <div className="flex-1">
                           <div className="flex flex-wrap gap-1 mb-1">
                             {value.map((item, i) => (
-                              <span key={i} className="badge badge-sm gap-1">
-                                {String(item)}
-                                <button className="text-xs opacity-50 hover:opacity-100" onClick={() => handleArrayRemove(section, key, i)}>&times;</button>
-                              </span>
+                              <Badge key={i} variant="neutral">
+                                <span className="flex items-center gap-1">
+                                  {String(item)}
+                                  <button className="opacity-50 hover:opacity-100 ml-0.5" onClick={() => handleArrayRemove(section, key, i)}>&times;</button>
+                                </span>
+                              </Badge>
                             ))}
                           </div>
                           <button className="btn btn-xs btn-ghost" onClick={() => handleArrayAdd(section, key)}>+ Add</button>

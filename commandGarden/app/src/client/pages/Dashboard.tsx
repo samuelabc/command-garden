@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, type AuditEvent } from '../api';
+import { Badge, type BadgeVariant } from '../components/Badge';
 
 export default function Dashboard() {
   const [status, setStatus] = useState<{ ok: boolean; extensionConnected: boolean; connectorCount: number } | null>(null);
@@ -26,15 +27,15 @@ export default function Dashboard() {
     return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  const typeBadge: Record<string, string> = {
-    'command.success': 'badge-success badge-outline',
-    'command.error': 'badge-error',
-    'command.denied': 'badge-error',
-    'command.start': 'badge-ghost',
-    'auth.failed': 'badge-warning',
-    'approval.granted': 'badge-success badge-outline',
-    'approval.rejected': 'badge-error',
-    'config.changed': 'badge-ghost',
+  const typeBadge: Record<string, BadgeVariant> = {
+    'command.success': 'success',
+    'command.error': 'error',
+    'command.denied': 'error',
+    'command.start': 'neutral',
+    'auth.failed': 'warning',
+    'approval.granted': 'success',
+    'approval.rejected': 'error',
+    'config.changed': 'neutral',
   };
 
   return (
@@ -76,7 +77,7 @@ export default function Dashboard() {
                 <tr key={e.id}>
                   <td className="opacity-60 text-sm">{timeAgo(e.timestamp)}</td>
                   <td className="font-mono text-sm">{e.connector}</td>
-                  <td><span className={`badge badge-sm ${typeBadge[e.type] ?? 'badge-ghost'}`}>{e.type}</span></td>
+                  <td><Badge variant={typeBadge[e.type] ?? 'neutral'}>{e.type}</Badge></td>
                   <td className="text-sm">{e.durationMs ? `${(e.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
                 </tr>
               ))}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Connector } from '../api';
+import { Badge } from '../components/Badge';
 
 interface CheckItem {
   label: string;
@@ -94,7 +95,7 @@ export default function Guide() {
                 {item.ok ? '\u2713' : (i + 1)}
               </span>
               <span className="font-semibold flex-1">{item.label}</span>
-              <span className={`badge badge-sm ${item.ok ? 'badge-success' : 'badge-warning'}`}>{item.detail}</span>
+              <Badge variant={item.ok ? 'success' : 'warning'}>{item.detail}</Badge>
             </summary>
             <div className="px-4 pb-4 text-sm opacity-70">{item.instructions}</div>
           </details>

@@ -2,6 +2,7 @@ import daisyui from 'daisyui';
 
 export default {
   content: ['./index.html', './src/client/**/*.{ts,tsx}'],
+  darkMode: ['selector', '[data-theme="dark"]'],
   plugins: [daisyui],
   daisyui: {
     themes: [

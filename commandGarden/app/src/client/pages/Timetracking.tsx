@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { api, type RunResponse } from '../api';
+import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 
@@ -154,9 +155,9 @@ export default function Timetracking() {
                       <td>{String(r.activity ?? '')}</td>
                       <td className="text-right">{Number(r.hours ?? 0).toFixed(1)}</td>
                       <td>
-                        <span className={`badge badge-xs ${String(r.status) === 'posted' ? 'badge-success' : 'badge-warning'}`}>
+                        <Badge variant={String(r.status) === 'posted' ? 'success' : 'warning'} size="xs">
                           {String(r.status ?? '')}
-                        </span>
+                        </Badge>
                       </td>
                     </tr>
                   ))}

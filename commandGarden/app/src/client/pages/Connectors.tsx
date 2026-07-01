@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Connector } from '../api';
+import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 export default function Connectors() {
@@ -33,9 +34,9 @@ export default function Connectors() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-mono font-semibold">{c.key}</span>
-                    <span className="badge badge-sm">{c.access}</span>
+                    <Badge variant="neutral">{c.access}</Badge>
                     {c.capabilities.map((cap) => (
-                      <span key={cap} className="badge badge-warning badge-sm">{cap}</span>
+                      <Badge key={cap} variant="info">{cap}</Badge>
                     ))}
                   </div>
                   <p className="text-sm opacity-60 mt-1">{c.description}</p>

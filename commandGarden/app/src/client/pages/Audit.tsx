@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, type AuditEvent, type Connector } from '../api';
+import { Badge, type BadgeVariant } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 const TIME_RANGES = [
@@ -16,15 +17,15 @@ const EVENT_TYPES = [
 
 const PAGE_SIZE = 20;
 
-const typeBadge: Record<string, string> = {
-  'command.success': 'badge-success badge-outline',
-  'command.error': 'badge-error',
-  'command.denied': 'badge-error',
-  'command.start': 'badge-ghost',
-  'auth.failed': 'badge-warning',
-  'approval.granted': 'badge-success badge-outline',
-  'approval.rejected': 'badge-error',
-  'config.changed': 'badge-ghost',
+const typeBadge: Record<string, BadgeVariant> = {
+  'command.success': 'success',
+  'command.error': 'error',
+  'command.denied': 'error',
+  'command.start': 'neutral',
+  'auth.failed': 'warning',
+  'approval.granted': 'success',
+  'approval.rejected': 'error',
+  'config.changed': 'neutral',
 };
 
 export default function Audit() {
@@ -106,7 +107,7 @@ export default function Audit() {
                     <>
                       <tr key={e.id} className="cursor-pointer hover" onClick={() => setExpandedId(expandedId === e.id ? null : e.id)} role="button" aria-expanded={expandedId === e.id} tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExpandedId(expandedId === e.id ? null : e.id); } }}>
                         <td className="text-sm">{new Date(e.timestamp).toLocaleString()}</td>
-                        <td><span className={`badge badge-sm ${typeBadge[e.type] ?? 'badge-ghost'}`}>{e.type}</span></td>
+                        <td><Badge variant={typeBadge[e.type] ?? 'neutral'}>{e.type}</Badge></td>
                         <td className="font-mono text-sm">{e.connector || '\u2014'}</td>
                         <td className="text-sm">{e.user}</td>
                         <td className="text-sm">{e.durationMs ? `${(e.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
@@ -158,7 +159,7 @@ export default function Audit() {
               Previous
             </button>
             <span className="text-sm opacity-50">
-              Showing {offset + 1}\u2013{Math.min(offset + PAGE_SIZE, events.length)} of {events.length}
+              Showing {offset + 1}{'\u2013'}{Math.min(offset + PAGE_SIZE, events.length)}{!hasMore ? ` of ${events.length}` : ''}
             </span>
             <button className="btn btn-sm btn-ghost" disabled={!hasMore} onClick={() => setOffset(offset + PAGE_SIZE)}>
               Next
