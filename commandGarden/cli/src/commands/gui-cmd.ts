@@ -40,13 +40,34 @@ export async function executeGuiStart(
     const child = spawn('node', [appScript], { detached: true, stdio: 'ignore' });
     if (child.pid) writeFileSync(pidPath, String(child.pid));
     child.unref();
-    if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`);
+    if (!opts.noOpen) {
+      // Wait for the app server to be ready before opening the browser
+      const appUrl = `http://127.0.0.1:${appPort}`;
+      for (let i = 0; i < 20; i++) {
+        try {
+          await fetch(appUrl);
+          break;
+        } catch { /* not ready yet */ }
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      openBrowser(appUrl);
+    }
     return `GUI started (PID: ${child.pid ?? 'unknown'}).`;
   }
 
   // Foreground — exec directly (this blocks)
-  if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`);
   const child = spawn('node', [appScript], { stdio: 'inherit' });
+  if (!opts.noOpen) {
+    const appUrl = `http://127.0.0.1:${appPort}`;
+    for (let i = 0; i < 20; i++) {
+      try {
+        await fetch(appUrl);
+        break;
+      } catch { /* not ready yet */ }
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    openBrowser(appUrl);
+  }
   await new Promise<void>((resolve) => child.on('exit', () => resolve()));
   return 'GUI stopped.';
 }
