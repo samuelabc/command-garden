@@ -51,11 +51,11 @@ export default function Guide() {
     let approvedOk = true;
     try {
       const cfg = await api.getConfig();
-      const approved = (cfg.config?.security?.autoApproveConnectors as string[]) ?? [];
+      const approved = (cfg.config?.security?.approvedHighRisk as string[]) ?? [];
       const connData = await api.getConnectors();
       setConnectors(connData.connectors);
       const highRisk = connData.connectors.filter((c) =>
-        c.capabilities.some((cap) => ['js_evaluate', 'write'].includes(cap)),
+        c.capabilities.some((cap) => ['js_evaluate', 'cookie_write'].includes(cap)),
       );
       const unapproved = highRisk.filter((c) => !approved.includes(c.key));
       approvedOk = unapproved.length === 0;
@@ -84,7 +84,7 @@ export default function Guide() {
   }, [poll]);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-3xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Setup Guide</h2>
 
       <div className="space-y-3 mb-8">

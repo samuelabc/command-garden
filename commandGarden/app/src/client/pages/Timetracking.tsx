@@ -75,7 +75,7 @@ export default function Timetracking() {
   const projectList = Array.from(groups.values()).sort((a, b) => b.totalHours - a.totalHours);
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Time Tracking</h2>
 
       <div className="flex items-end gap-4 mb-6">

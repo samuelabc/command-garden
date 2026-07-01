@@ -89,7 +89,7 @@ export default function ConnectorRun() {
   if (!connector) return <div className="text-error">Connector not found: {connectorKey}</div>;
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-2 mb-1">
         <Link to="/connectors" className="text-sm opacity-50 hover:opacity-80">Connectors</Link>
         <span className="text-sm opacity-30">/</span>

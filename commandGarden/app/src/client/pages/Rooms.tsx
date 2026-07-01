@@ -47,7 +47,7 @@ export default function Rooms() {
   const isAuthRequired = error?.includes('auth_required') || error?.includes('sign in');
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Room Availability</h2>
 
       <div className="flex items-end gap-4 mb-6">

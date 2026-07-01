@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Connector } from '../api';
+import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 export default function Connectors() {
@@ -40,7 +41,7 @@ export default function Connectors() {
   if (loading) return <Spinner label="Loading connectors..." />;
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Connectors</h2>
       {connectors.length === 0 ? (
         <div className="bg-base-200 rounded-lg p-6 text-center">
@@ -56,15 +57,15 @@ export default function Connectors() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-mono font-semibold">{c.key}</span>
-                    <span className="badge badge-sm">{c.access}</span>
+                    <Badge size="sm">{c.access}</Badge>
                     {c.capabilities.map((cap) => (
-                      <span key={cap} className="badge badge-warning badge-sm">{cap}</span>
+                      <Badge key={cap} size="sm">{cap}</Badge>
                     ))}
                     {c.isHighRisk && c.isApproved && (
-                      <span className="badge badge-success badge-sm badge-outline">Approved</span>
+                      <Badge variant="success" size="sm">Approved</Badge>
                     )}
                     {c.isHighRisk && !c.isApproved && (
-                      <span className="badge badge-warning badge-sm">Blocked — requires approval</span>
+                      <Badge variant="warning" size="sm">Blocked — requires approval</Badge>
                     )}
                   </div>
                   <p className="text-sm opacity-60 mt-1">{c.description}</p>

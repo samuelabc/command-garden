@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
-import { api, type AuditEvent, type Connector } from '../api';
-import { Badge, type BadgeVariant } from '../components/Badge';
+import { Fragment, useEffect, useState, useCallback } from 'react';
+import { api, type AuditEvent, type Connector, EVENT_TYPE_BADGE } from '../api';
+import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 const TIME_RANGES = [
@@ -17,16 +17,6 @@ const EVENT_TYPES = [
 
 const PAGE_SIZE = 20;
 
-const typeBadge: Record<string, BadgeVariant> = {
-  'command.success': 'success',
-  'command.error': 'error',
-  'command.denied': 'error',
-  'command.start': 'neutral',
-  'auth.failed': 'warning',
-  'approval.granted': 'success',
-  'approval.rejected': 'error',
-  'config.changed': 'neutral',
-};
 
 export default function Audit() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
@@ -66,7 +56,7 @@ export default function Audit() {
   const hasMore = events.length > offset + PAGE_SIZE;
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Audit Log</h2>
 
       <div className="flex flex-wrap items-end gap-3 mb-6">
@@ -104,10 +94,10 @@ export default function Audit() {
                 </thead>
                 <tbody>
                   {paged.map((e) => (
-                    <>
+                    <Fragment key={e.id}>
                       <tr key={e.id} className="cursor-pointer hover" onClick={() => setExpandedId(expandedId === e.id ? null : e.id)} role="button" aria-expanded={expandedId === e.id} tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExpandedId(expandedId === e.id ? null : e.id); } }}>
                         <td className="text-sm">{new Date(e.timestamp).toLocaleString()}</td>
-                        <td><Badge variant={typeBadge[e.type] ?? 'neutral'}>{e.type}</Badge></td>
+                        <td><Badge variant={EVENT_TYPE_BADGE[e.type] ?? 'neutral'}>{e.type}</Badge></td>
                         <td className="font-mono text-sm">{e.connector || '\u2014'}</td>
                         <td className="text-sm">{e.user}</td>
                         <td className="text-sm">{e.durationMs ? `${(e.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
@@ -147,7 +137,7 @@ export default function Audit() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

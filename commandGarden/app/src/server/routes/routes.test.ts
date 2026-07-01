@@ -132,5 +132,17 @@ describe('routes', () => {
       expect(resp.statusCode).toBe(200);
       expect(JSON.parse(resp.payload).ok).toBe(true);
     });
+
+    it('returns 502 with error message when daemon throws', async () => {
+      (daemon.post as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Extension not connected'));
+      const resp = await app.inject({
+        method: 'POST', url: '/api/run',
+        payload: { connector: 'test/cmd', args: {} },
+      });
+      expect(resp.statusCode).toBe(502);
+      const body = JSON.parse(resp.payload);
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe('Extension not connected');
+    });
   });
 });

@@ -64,6 +64,19 @@ export interface RunResponse {
   connector?: string;
 }
 
+export type BadgeVariant = 'success' | 'error' | 'warning' | 'info' | 'secondary' | 'neutral';
+
+export const EVENT_TYPE_BADGE: Record<string, BadgeVariant> = {
+  'command.success': 'success',
+  'command.error': 'error',
+  'command.denied': 'error',
+  'command.start': 'neutral',
+  'auth.failed': 'warning',
+  'approval.granted': 'success',
+  'approval.rejected': 'error',
+  'config.changed': 'neutral',
+};
+
 export interface AuditEvent {
   id: string;
   type: string;

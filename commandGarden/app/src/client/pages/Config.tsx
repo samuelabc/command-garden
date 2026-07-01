@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 import { api, type Connector } from '../api';
+import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 const RESTART_REQUIRED_KEYS = new Set(['daemon.host', 'daemon.port', 'app.port']);
@@ -69,16 +70,17 @@ export default function Config() {
   const [rawError, setRawError] = useState('');
 
   useEffect(() => {
-    const configP = api.getConfig().catch(() => ({ ok: false, config: {} }) as { ok: boolean; config: Record<string, Record<string, unknown>> });
-    const connP = api.getConnectors().catch(() => ({ ok: false, connectors: [] }) as { ok: boolean; connectors: Connector[] });
-    Promise.all([configP, connP])
+    Promise.all([api.getConfig(), api.getConnectors()])
       .then(([configRes, connRes]) => {
         const state = configFromRaw(configRes.config);
         setSaved(state);
         setEdited(structuredClone(state));
         setConnectors(connRes.connectors);
       })
-      .catch(() => {})
+      .catch(() => {
+        setSaved(null);
+        setEdited(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -192,7 +194,7 @@ export default function Config() {
 
   if (!edited || !saved) {
     return (
-      <div className="max-w-3xl">
+      <div className="max-w-3xl mx-auto">
         <h2 className="text-2xl font-bold mb-6">Configuration</h2>
         <div className="bg-base-200 rounded-lg p-6 text-center">
           <p className="text-sm opacity-60 mb-2">No configuration found.</p>
@@ -203,7 +205,7 @@ export default function Config() {
   }
 
   return (
-    <div className="max-w-3xl pb-20">
+    <div className="max-w-3xl mx-auto pb-20">
       <h2 className="text-2xl font-bold mb-6">Configuration</h2>
 
       {restartBanner && (
@@ -213,7 +215,7 @@ export default function Config() {
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         <ServerSection config={edited} set={set} />
         <ConnectorSecuritySection config={edited} connectors={connectors} set={set} addToArray={addToArray} removeFromArray={removeFromArray} />
         <ConnectorSourcesSection config={edited} addToArray={addToArray} removeFromArray={removeFromArray} />
@@ -222,7 +224,7 @@ export default function Config() {
       </div>
 
       {/* Raw Config Editor */}
-      <div className="mt-6">
+      <div className="mt-8">
         <button className="btn btn-sm btn-ghost gap-1" onClick={handleRawOpen}>
           {rawOpen ? '▾' : '▸'} Raw Configuration (YAML)
         </button>
@@ -242,7 +244,7 @@ export default function Config() {
 
       {/* Sticky save footer */}
       {isDirty && (
-        <div className="fixed bottom-0 left-60 right-0 bg-base-200 border-t border-base-300 px-6 py-3 flex items-center justify-between z-50">
+        <div className="fixed bottom-0 left-0 md:left-60 right-0 bg-base-200 border-t border-base-300 px-6 py-3 flex items-center justify-between z-50">
           <span className="text-sm opacity-60">{changedCount} unsaved {changedCount === 1 ? 'change' : 'changes'}</span>
           <div className="flex items-center gap-3">
             {toast && (
@@ -261,10 +263,10 @@ export default function Config() {
 
 function SectionCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="bg-base-200 rounded-lg p-5">
+    <div className="bg-base-200 rounded-lg p-6">
       <h3 className="font-semibold mb-1">{title}</h3>
-      <p className="text-xs opacity-50 mb-4">{description}</p>
-      <div className="space-y-3">{children}</div>
+      <p className="text-xs opacity-50 mb-5">{description}</p>
+      <div className="space-y-4">{children}</div>
     </div>
   );
 }
@@ -308,6 +310,33 @@ function ServerSection({ config, set }: {
   );
 }
 
+function TagEditor({ values, onAdd, onRemove, placeholder }: {
+  values: string[];
+  onAdd: (value: string) => void;
+  onRemove: (value: string) => void;
+  placeholder: string;
+}) {
+  const [input, setInput] = useState('');
+  return (
+    <>
+      <div className="flex flex-wrap gap-1 mb-1">
+        {values.map(v => (
+          <Badge key={v} size="sm" className="gap-1">
+            {v}
+            <button className="text-xs opacity-50 hover:opacity-100" onClick={() => onRemove(v)}>&times;</button>
+          </Badge>
+        ))}
+      </div>
+      <div className="flex gap-1">
+        <input type="text" className="input input-bordered input-xs flex-1" placeholder={placeholder}
+          value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && input.trim()) { onAdd(input.trim()); setInput(''); } }} />
+        <button className="btn btn-xs btn-ghost" onClick={() => { if (input.trim()) { onAdd(input.trim()); setInput(''); } }}>Add</button>
+      </div>
+    </>
+  );
+}
+
 function ConnectorSecuritySection({ config, connectors, set, addToArray, removeFromArray }: {
   config: ConfigState;
   connectors: Connector[];
@@ -315,9 +344,6 @@ function ConnectorSecuritySection({ config, connectors, set, addToArray, removeF
   addToArray: (section: keyof ConfigState, key: string, value: string) => void;
   removeFromArray: (section: keyof ConfigState, key: string, value: string) => void;
 }) {
-  const [addCapInput, setAddCapInput] = useState('');
-  const [addApprovalInput, setAddApprovalInput] = useState('');
-
   const highRiskCaps = new Set(config.security.highRiskCapabilities);
 
   return (
@@ -346,11 +372,11 @@ function ConnectorSecuritySection({ config, connectors, set, addToArray, removeF
                     <td>
                       <div className="flex flex-wrap gap-1">
                         {c.capabilities.map(cap => (
-                          <span key={cap} className={`badge badge-xs ${highRiskCaps.has(cap) ? 'badge-warning' : ''}`}>{cap}</span>
+                          <Badge key={cap} variant={highRiskCaps.has(cap) ? 'warning' : 'neutral'} size="xs">{cap}</Badge>
                         ))}
                       </div>
                     </td>
-                    <td>{isHighRisk ? <span className="badge badge-warning badge-xs">High</span> : <span className="opacity-40">—</span>}</td>
+                    <td>{isHighRisk ? <Badge variant="warning" size="xs">High</Badge> : <span className="opacity-40">—</span>}</td>
                     <td>
                       {isHighRisk ? (
                         <input type="checkbox" className="toggle toggle-sm toggle-success" checked={isApproved}
@@ -376,37 +402,21 @@ function ConnectorSecuritySection({ config, connectors, set, addToArray, removeF
 
       {/* Capability-level policy */}
       <Field label="High-Risk Capabilities" help="Capabilities that require connector-level approval before first use">
-        <div className="flex flex-wrap gap-1 mb-1">
-          {config.security.highRiskCapabilities.map(cap => (
-            <span key={cap} className="badge badge-sm gap-1">
-              {cap}
-              <button className="text-xs opacity-50 hover:opacity-100" onClick={() => removeFromArray('security', 'highRiskCapabilities', cap)}>&times;</button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          <input type="text" className="input input-bordered input-xs flex-1" placeholder="Capability name"
-            value={addCapInput} onChange={e => setAddCapInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && addCapInput.trim()) { addToArray('security', 'highRiskCapabilities', addCapInput.trim()); setAddCapInput(''); } }} />
-          <button className="btn btn-xs btn-ghost" onClick={() => { if (addCapInput.trim()) { addToArray('security', 'highRiskCapabilities', addCapInput.trim()); setAddCapInput(''); } }}>Add</button>
-        </div>
+        <TagEditor
+          values={config.security.highRiskCapabilities}
+          onAdd={v => addToArray('security', 'highRiskCapabilities', v)}
+          onRemove={v => removeFromArray('security', 'highRiskCapabilities', v)}
+          placeholder="Capability name"
+        />
       </Field>
 
       <Field label="Step Approval Required" help="Capabilities that pause for user confirmation at each pipeline step">
-        <div className="flex flex-wrap gap-1 mb-1">
-          {config.security.approvalRequired.map(cap => (
-            <span key={cap} className="badge badge-sm gap-1">
-              {cap}
-              <button className="text-xs opacity-50 hover:opacity-100" onClick={() => removeFromArray('security', 'approvalRequired', cap)}>&times;</button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-1">
-          <input type="text" className="input input-bordered input-xs flex-1" placeholder="Capability name"
-            value={addApprovalInput} onChange={e => setAddApprovalInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && addApprovalInput.trim()) { addToArray('security', 'approvalRequired', addApprovalInput.trim()); setAddApprovalInput(''); } }} />
-          <button className="btn btn-xs btn-ghost" onClick={() => { if (addApprovalInput.trim()) { addToArray('security', 'approvalRequired', addApprovalInput.trim()); setAddApprovalInput(''); } }}>Add</button>
-        </div>
+        <TagEditor
+          values={config.security.approvalRequired}
+          onAdd={v => addToArray('security', 'approvalRequired', v)}
+          onRemove={v => removeFromArray('security', 'approvalRequired', v)}
+          placeholder="Capability name"
+        />
       </Field>
 
       <Field label="Approval Timeout (seconds)" help="How long to wait for approval before aborting the pipeline">
