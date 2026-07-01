@@ -1,6 +1,7 @@
 // src/server.ts
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
+import { randomUUID } from 'node:crypto';
 import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP } from '@commandgarden/shared';
 import type { ApprovalRequest, ApprovalConfig } from '@commandgarden/shared';
 import { userInfo } from 'node:os';
@@ -195,7 +196,6 @@ export async function createServer(deps: ServerDeps) {
     };
 
     if (requiresApproval) {
-      const { randomUUID } = await import('node:crypto');
       const requestId = randomUUID();
       // Wait for SSE connection before starting pipeline to avoid race condition
       const sseConnected = new Promise<void>(resolve => {
