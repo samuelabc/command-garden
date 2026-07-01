@@ -1,19 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Connector } from '../api';
-import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 
 export default function Connectors() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [approvingKey, setApprovingKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.getConnectors()
-      .then((d) => setConnectors(d.connectors))
+  const load = useCallback(() => {
+    Promise.all([api.getConnectors(), api.getConfig()])
+      .then(([connRes, configRes]) => {
+        setConnectors(connRes.connectors);
+        const security = (configRes.config.security ?? {}) as Record<string, unknown>;
+        setApprovedHighRisk((security.approvedHighRisk as string[]) ?? []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleApprove = useCallback(async (connectorKey: string) => {
+    setApprovingKey(connectorKey);
+    try {
+      const updated = [...approvedHighRisk, connectorKey];
+      await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
+      load();
+    } catch {
+      // error is shown via connector state not updating
+    } finally {
+      setApprovingKey(null);
+    }
+  }, [approvedHighRisk, load]);
 
   if (loading) return <Spinner label="Loading connectors..." />;
 
@@ -34,10 +54,16 @@ export default function Connectors() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-mono font-semibold">{c.key}</span>
-                    <Badge variant="neutral">{c.access}</Badge>
+                    <span className="badge badge-sm">{c.access}</span>
                     {c.capabilities.map((cap) => (
-                      <Badge key={cap} variant="info">{cap}</Badge>
+                      <span key={cap} className="badge badge-warning badge-sm">{cap}</span>
                     ))}
+                    {c.isHighRisk && c.isApproved && (
+                      <span className="badge badge-success badge-sm badge-outline">Approved</span>
+                    )}
+                    {c.isHighRisk && !c.isApproved && (
+                      <span className="badge badge-warning badge-sm">Blocked — requires approval</span>
+                    )}
                   </div>
                   <p className="text-sm opacity-60 mt-1">{c.description}</p>
                   {c.domains.length > 0 && (
@@ -45,6 +71,15 @@ export default function Connectors() {
                   )}
                 </div>
                 <div className="flex gap-2 ml-4 shrink-0">
+                  {c.isHighRisk && !c.isApproved && (
+                    <button
+                      className="btn btn-sm btn-warning btn-outline"
+                      disabled={approvingKey === c.key}
+                      onClick={() => handleApprove(c.key)}
+                    >
+                      {approvingKey === c.key ? 'Approving...' : 'Approve'}
+                    </button>
+                  )}
                   {c.hasAppPage && c.appRoute && (
                     <Link to={c.appRoute} className="btn btn-sm btn-primary">Open App</Link>
                   )}
