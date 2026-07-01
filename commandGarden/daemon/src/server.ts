@@ -191,7 +191,7 @@ export async function createServer(deps: ServerDeps) {
           type: 'command.error', connector: body.connector, user,
           args: body.args as Record<string, string>, durationMs, error,
         }));
-        return { ok: false, error, durationMs, requestId, requiresApproval };
+        return { ok: false, data: [], error, durationMs, requestId, requiresApproval };
       }
     };
 
@@ -214,11 +214,10 @@ export async function createServer(deps: ServerDeps) {
       });
     } else {
       const result = await runPipeline('');
-      if (!result.ok && !result.data) {
-        reply.code(500).send(result);
-      } else {
-        return result;
+      if (!result.ok) {
+        reply.code(500).send(result); return;
       }
+      return result;
     }
   });
 
