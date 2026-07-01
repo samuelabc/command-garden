@@ -195,10 +195,10 @@ export default function Config() {
   if (!edited || !saved) {
     return (
       <div className="max-w-3xl mx-auto">
-        <h2 className="text-2xl font-bold mb-6">Configuration</h2>
-        <div className="bg-base-200 rounded-lg p-6 text-center">
-          <p className="text-sm opacity-60 mb-2">No configuration found.</p>
-          <p className="text-xs opacity-40">Make sure the daemon is running. Configuration will appear here automatically.</p>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Configuration</h2>
+        <div className="border border-base-300 p-6 text-center">
+          <p className="text-sm opacity-50 mb-2">No configuration found.</p>
+          <p className="font-mono text-xs opacity-30">Make sure the daemon is running. Configuration will appear here automatically.</p>
         </div>
       </div>
     );
@@ -206,7 +206,7 @@ export default function Config() {
 
   return (
     <div className="max-w-3xl mx-auto pb-20">
-      <h2 className="text-2xl font-bold mb-6">Configuration</h2>
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Configuration</h2>
 
       {restartBanner && (
         <div className="alert alert-warning mb-6">
@@ -229,7 +229,7 @@ export default function Config() {
           {rawOpen ? '▾' : '▸'} Raw Configuration (YAML)
         </button>
         {rawOpen && (
-          <div className="mt-2 bg-base-200 rounded-lg p-4">
+          <div className="mt-2 border border-base-300 p-4">
             <textarea
               className="textarea textarea-bordered w-full font-mono text-sm"
               rows={16}
@@ -244,7 +244,7 @@ export default function Config() {
 
       {/* Sticky save footer */}
       {isDirty && (
-        <div className="fixed bottom-0 left-0 md:left-60 right-0 bg-base-200 border-t border-base-300 px-6 py-3 flex items-center justify-between z-50">
+        <div className="fixed bottom-0 left-0 md:left-56 right-0 bg-base-100 border-t border-base-300 px-6 py-3 flex items-center justify-between z-50">
           <span className="text-sm opacity-60">{changedCount} unsaved {changedCount === 1 ? 'change' : 'changes'}</span>
           <div className="flex items-center gap-3">
             {toast && (
@@ -263,9 +263,9 @@ export default function Config() {
 
 function SectionCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="bg-base-200 rounded-lg p-6">
-      <h3 className="font-semibold mb-1">{title}</h3>
-      <p className="text-xs opacity-50 mb-5">{description}</p>
+    <div className="border border-base-300 p-5">
+      <h3 className="font-display font-semibold mb-1">{title}</h3>
+      <p className="text-xs opacity-40 mb-5">{description}</p>
       <div className="space-y-4">{children}</div>
     </div>
   );
@@ -275,7 +275,7 @@ function Field({ label, help, restart, children }: { label: string; help: string
   return (
     <div className="flex items-start gap-3">
       <div className="w-48 shrink-0 pt-2">
-        <label className="text-sm font-medium">{label}</label>
+        <label className="font-mono text-[0.7rem] font-medium uppercase tracking-wide">{label}</label>
         {restart && (
           <span className="ml-1.5 tooltip tooltip-right" data-tip="Requires daemon restart">
             <span className="text-xs opacity-40">⟳</span>

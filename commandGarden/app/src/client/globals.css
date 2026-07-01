@@ -3,12 +3,60 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
   a, button, input, select, textarea {
-    @apply transition-colors duration-150;
+    @apply transition-colors duration-75;
   }
 
   details > summary {
-    @apply transition-colors duration-150;
+    @apply transition-colors duration-75;
+  }
+
+  /* Brutalist overrides — kill all rounding globally */
+  *, *::before, *::after {
+    border-radius: 0 !important;
+  }
+
+  /* Monospace for data elements */
+  code, pre, .font-mono, kbd, samp {
+    font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  }
+
+  /* Brutalist table styling — visible grid */
+  table {
+    border-collapse: collapse;
+  }
+  table th {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  table th, table td {
+    border: 1px solid var(--fallback-bc, oklch(var(--bc) / 0.12));
+  }
+
+  /* Brutalist scrollbar (webkit) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(var(--bc) / 0.2);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(var(--bc) / 0.35);
   }
 }
 

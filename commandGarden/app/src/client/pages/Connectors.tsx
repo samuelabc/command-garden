@@ -42,18 +42,18 @@ export default function Connectors() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Connectors</h2>
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Connectors</h2>
       {connectors.length === 0 ? (
-        <div className="bg-base-200 rounded-lg p-6 text-center">
-          <p className="text-sm opacity-60 mb-1">No connectors loaded</p>
-          <p className="text-xs opacity-40">Check the daemon is running and connectors are installed in ~/.commandgarden/connectors/</p>
+        <div className="border border-base-300 p-6 text-center">
+          <p className="text-sm opacity-50 mb-1">No connectors loaded</p>
+          <p className="font-mono text-xs opacity-30">Check the daemon is running and connectors are installed in ~/.commandgarden/connectors/</p>
         </div>
       ) : (
         <div className="space-y-3">
           {connectors.map((c) => {
             const [site, name] = c.key.split('/');
             return (
-              <div key={c.key} className="bg-base-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div key={c.key} className="border border-base-300 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-mono font-semibold">{c.key}</span>

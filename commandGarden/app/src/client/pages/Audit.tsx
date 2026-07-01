@@ -57,24 +57,24 @@ export default function Audit() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Audit Log</h2>
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Audit Log</h2>
 
       <div className="flex flex-wrap items-end gap-3 mb-6">
         <label className="form-control">
-          <span className="label-text mb-1 text-sm">Time range</span>
+          <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Time range</span>
           <select className="select select-bordered select-sm" value={timeRange} onChange={(e) => { setTimeRange(Number(e.target.value)); setOffset(0); }}>
             {TIME_RANGES.map((r) => <option key={r.hours} value={r.hours}>{r.label}</option>)}
           </select>
         </label>
         <label className="form-control">
-          <span className="label-text mb-1 text-sm">Event type</span>
+          <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Event type</span>
           <select className="select select-bordered select-sm" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setOffset(0); }}>
             <option value="">All types</option>
             {EVENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </label>
         <label className="form-control">
-          <span className="label-text mb-1 text-sm">Connector</span>
+          <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Connector</span>
           <select className="select select-bordered select-sm" value={connectorFilter} onChange={(e) => { setConnectorFilter(e.target.value); setOffset(0); }}>
             <option value="">All connectors</option>
             {connectors.map((c) => <option key={c.key} value={c.key}>{c.key}</option>)}
@@ -87,7 +87,7 @@ export default function Audit() {
           {paged.length === 0 ? (
             <p className="text-sm opacity-50">No events match the current filters.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto border border-base-300">
               <table className="table table-sm">
                 <thead>
                   <tr><th>Time</th><th>Type</th><th>Connector</th><th>User</th><th>Duration</th><th></th></tr>
@@ -95,17 +95,17 @@ export default function Audit() {
                 <tbody>
                   {paged.map((e) => (
                     <Fragment key={e.id}>
-                      <tr key={e.id} className="cursor-pointer hover" onClick={() => setExpandedId(expandedId === e.id ? null : e.id)} role="button" aria-expanded={expandedId === e.id} tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExpandedId(expandedId === e.id ? null : e.id); } }}>
-                        <td className="text-sm">{new Date(e.timestamp).toLocaleString()}</td>
+                      <tr key={e.id} className="cursor-pointer hover:bg-base-200" onClick={() => setExpandedId(expandedId === e.id ? null : e.id)} role="button" aria-expanded={expandedId === e.id} tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setExpandedId(expandedId === e.id ? null : e.id); } }}>
+                        <td className="text-sm font-mono">{new Date(e.timestamp).toLocaleString()}</td>
                         <td><Badge variant={EVENT_TYPE_BADGE[e.type] ?? 'neutral'}>{e.type}</Badge></td>
                         <td className="font-mono text-sm">{e.connector || '\u2014'}</td>
                         <td className="text-sm">{e.user}</td>
-                        <td className="text-sm">{e.durationMs ? `${(e.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
+                        <td className="text-sm font-mono">{e.durationMs ? `${(e.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
                         <td className="text-xs opacity-40" aria-hidden="true">{expandedId === e.id ? '\u25B2' : '\u25BC'}</td>
                       </tr>
                       {expandedId === e.id && (
                         <tr key={`${e.id}-detail`}>
-                          <td colSpan={6} className="bg-base-200 p-4">
+                          <td colSpan={6} className="bg-base-200/50 p-4">
                             <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                               <div><span className="opacity-50">ID:</span> <span className="font-mono text-xs">{e.id}</span></div>
                               <div><span className="opacity-50">Correlation:</span> <span className="font-mono text-xs">{e.correlationId ?? '\u2014'}</span></div>

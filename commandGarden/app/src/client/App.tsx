@@ -11,7 +11,7 @@ import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return `block px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive ? 'bg-base-300 font-semibold' : 'hover:bg-base-300'}`;
+  return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
 }
 
 function Layout() {
@@ -60,35 +60,35 @@ function Layout() {
         />
       )}
 
-      <aside className={`w-60 bg-base-200 border-r border-base-300 flex flex-col fixed top-0 left-0 bottom-0 z-40 transition-transform duration-200 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-base-300">
-          <h1 className="text-lg font-bold tracking-tight">commandGarden</h1>
-          <p className="text-xs opacity-50 mt-0.5">Browser automation platform</p>
+      <aside className={`w-56 bg-base-100 border-r border-base-300 flex flex-col fixed top-0 left-0 bottom-0 z-40 transition-transform duration-150 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="px-3 py-3 border-b border-base-300">
+          <h1 className="font-display text-base font-bold tracking-tight"><span className="font-normal opacity-60">command</span>Garden</h1>
+          <p className="font-mono text-[0.6rem] opacity-40 mt-0.5 uppercase tracking-widest">browser automation</p>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          <div className="px-2 pt-3 pb-1 text-xs font-semibold opacity-60 uppercase tracking-wider">Overview</div>
+        <nav className="flex-1 px-2 py-2 space-y-px overflow-y-auto">
+          <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Overview</div>
           <NavLink to="/" end className={navClass}>Dashboard</NavLink>
 
-          <div className="px-2 pt-4 pb-1 text-xs font-semibold opacity-60 uppercase tracking-wider">Apps</div>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Apps</div>
           <NavLink to="/apps/timetracking" className={navClass}>Time Tracking</NavLink>
           <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
 
-          <div className="px-2 pt-4 pb-1 text-xs font-semibold opacity-60 uppercase tracking-wider">Platform</div>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Platform</div>
           <NavLink to="/connectors" className={navClass}>Connectors</NavLink>
           <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
           <NavLink to="/config" className={navClass}>Configuration</NavLink>
 
-          <div className="px-2 pt-4 pb-1 text-xs font-semibold opacity-60 uppercase tracking-wider">Help</div>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Help</div>
           <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
         </nav>
-        <div className="p-3 border-t border-base-300">
-          <div className="flex items-center gap-2 text-xs">
-            <span className={`w-2 h-2 rounded-full ${daemonOk ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
-            <span className="opacity-60">{daemonOk ? 'Daemon connected' : 'Daemon offline'}</span>
+        <div className="px-3 py-2.5 border-t border-base-300">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className={`w-1.5 h-1.5 ${daemonOk ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
+            <span className="opacity-50 text-[0.65rem]">{daemonOk ? 'DAEMON OK' : 'DAEMON OFF'}</span>
           </div>
-          <div className="flex items-center gap-2 text-xs mt-1">
-            <span className={`w-2 h-2 rounded-full ${extensionOk ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
-            <span className="opacity-60">{extensionOk ? 'Extension linked' : 'Extension disconnected'}</span>
+          <div className="flex items-center gap-2 text-xs font-mono mt-1">
+            <span className={`w-1.5 h-1.5 ${extensionOk ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
+            <span className="opacity-50 text-[0.65rem]">{extensionOk ? 'EXTENSION LINKED' : 'EXTENSION OFF'}</span>
           </div>
           <button
             className="btn btn-ghost btn-xs mt-3 w-full justify-start gap-2 opacity-60 hover:opacity-100"
@@ -106,7 +106,7 @@ function Layout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 p-4 pt-14 md:pt-6 md:p-6 md:ml-60">
+      <main className="flex-1 p-4 pt-14 md:pt-5 md:p-5 md:ml-56">
         <Outlet />
       </main>
     </div>

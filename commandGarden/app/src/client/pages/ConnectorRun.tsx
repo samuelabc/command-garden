@@ -94,11 +94,11 @@ export default function ConnectorRun() {
         <Link to="/connectors" className="text-sm opacity-50 hover:opacity-80">Connectors</Link>
         <span className="text-sm opacity-30">/</span>
       </div>
-      <h2 className="text-2xl font-bold mb-2">{connectorKey}</h2>
-      <p className="text-sm opacity-60 mb-6">{connector.description}</p>
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-2">{connectorKey}</h2>
+      <p className="text-sm opacity-50 mb-5">{connector.description}</p>
 
-      <div className="bg-base-200 rounded-lg p-5 mb-6">
-        <h3 className="font-semibold mb-4">Arguments</h3>
+      <div className="border border-base-300 p-5 mb-6">
+        <h3 className="font-display font-semibold mb-4">Arguments</h3>
         <div className="flex flex-wrap items-end gap-4">
           {(connector.args ?? []).map((arg) => (
             <label key={arg.name} className="form-control">
@@ -148,7 +148,7 @@ export default function ConnectorRun() {
       )}
 
       {result && (
-        <div className="bg-base-200 rounded-lg p-5">
+        <div className="border border-base-300 p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold">Results</h3>
             <div className="text-xs opacity-40">

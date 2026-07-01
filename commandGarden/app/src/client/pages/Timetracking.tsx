@@ -22,26 +22,69 @@ export default function Timetracking() {
   const [result, setResult] = useState<RunResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
+  const [approvalPending, setApprovalPending] = useState(false);
+  const [approvalId, setApprovalId] = useState<string | null>(null);
 
   const handleRun = useCallback(async () => {
     setRunning(true);
     setError(null);
     setResult(null);
+    setApprovalPending(false);
+    setApprovalId(null);
     try {
       const args: Record<string, string> = {};
       if (month) args.month = month;
       const resp = await api.run('timetracking/report', args);
-      if (!resp.ok && resp.error) {
+      if (resp.requiresApproval && resp.requestId) {
+        setApprovalPending(true);
+        const es = new EventSource(`/api/run/events/${resp.requestId}`);
+        es.addEventListener('approval', (ev) => {
+          const data = JSON.parse(ev.data);
+          setApprovalId(data.approvalId);
+        });
+        es.addEventListener('result', (ev) => {
+          const data = JSON.parse(ev.data);
+          if (!data.ok && data.error) {
+            setError(data.error);
+          } else {
+            setResult(data);
+          }
+          setApprovalPending(false);
+          setRunning(false);
+          es.close();
+        });
+        es.onerror = () => {
+          setError('SSE connection lost');
+          setApprovalPending(false);
+          setRunning(false);
+          es.close();
+        };
+      } else if (!resp.ok && resp.error) {
         setError(resp.error);
+        setRunning(false);
       } else {
         setResult(resp);
+        setRunning(false);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
       setRunning(false);
     }
   }, [month]);
+
+  const handleApproval = useCallback(async (approved: boolean) => {
+    if (!approvalId) return;
+    try {
+      await api.approve(approvalId, approved);
+      if (!approved) {
+        setApprovalPending(false);
+        setRunning(false);
+        setError('Approval rejected');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Approval failed');
+    }
+  }, [approvalId]);
 
   const rows = result?.data ?? [];
   const isAuthRequired = error?.includes('auth_required') || error?.includes('sign in');
@@ -76,11 +119,11 @@ export default function Timetracking() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Time Tracking</h2>
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Time Tracking</h2>
 
       <div className="flex items-end gap-4 mb-6">
         <label className="form-control">
-          <span className="label-text mb-1 text-sm">Month</span>
+          <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Month</span>
           <input
             type="month"
             className="input input-bordered input-sm"
@@ -93,7 +136,21 @@ export default function Timetracking() {
         </button>
       </div>
 
-      {running && <Spinner label="Fetching timetracking data..." />}
+      {running && !approvalPending && <Spinner label="Fetching timetracking data..." />}
+
+      {approvalPending && (
+        <div className="alert alert-warning mb-4">
+          <span>This connector requires approval before proceeding.</span>
+          <div className="flex gap-2">
+            <button className="btn btn-sm btn-success" onClick={() => handleApproval(true)} disabled={!approvalId}>
+              Approve
+            </button>
+            <button className="btn btn-sm btn-error" onClick={() => handleApproval(false)} disabled={!approvalId}>
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
 
       {isAuthRequired && (
         <AuthRequiredCallout message="Sign in to the timetracking portal in Chrome, then try again." />
@@ -105,27 +162,27 @@ export default function Timetracking() {
 
       {result && rows.length > 0 && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-base-content/60 mb-1">Total hours</div>
-              <div className="text-2xl font-bold">{totalHours.toFixed(1)}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 border border-base-300 mb-6">
+            <div className="p-3 border-r border-b border-base-300 md:border-b-0">
+              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Total hours</div>
+              <div className="font-display text-xl font-bold">{totalHours.toFixed(1)}</div>
             </div>
-            <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-base-content/60 mb-1">Working days</div>
-              <div className="text-2xl font-bold">{workingDays.size}</div>
+            <div className="p-3 border-b border-base-300 md:border-r md:border-b-0">
+              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Working days</div>
+              <div className="font-display text-xl font-bold">{workingDays.size}</div>
             </div>
-            <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-base-content/60 mb-1">Projects</div>
-              <div className="text-2xl font-bold">{groups.size}</div>
+            <div className="p-3 border-r border-base-300">
+              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Projects</div>
+              <div className="font-display text-xl font-bold">{groups.size}</div>
             </div>
-            <div className="bg-base-200 rounded-lg p-4">
-              <div className="text-xs font-medium text-base-content/60 mb-1">Draft entries</div>
-              <div className="text-2xl font-bold">{draftCount}</div>
+            <div className="p-3">
+              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Draft entries</div>
+              <div className="font-display text-xl font-bold">{draftCount}</div>
             </div>
           </div>
 
-          <h3 className="text-lg font-semibold mb-3">By project</h3>
-          <div className="overflow-x-auto mb-6">
+          <h3 className="font-display text-base font-semibold mb-3">By project</h3>
+          <div className="overflow-x-auto border border-base-300 mb-6">
             <table className="table table-sm">
               <thead><tr><th>Project</th><th>Categories</th><th className="text-right">Hours</th><th className="text-right">Entries</th></tr></thead>
               <tbody>
