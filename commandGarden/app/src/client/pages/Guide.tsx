@@ -85,14 +85,14 @@ export default function Guide() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Setup Guide</h2>
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Setup Guide</h2>
 
       <div className="space-y-3 mb-8">
         {checks.map((item, i) => (
-          <details key={i} className="bg-base-200 rounded-lg">
+          <details key={i} className="border border-base-300">
             <summary className="p-4 cursor-pointer flex items-center gap-3">
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${item.ok ? 'bg-success text-success-content' : 'bg-base-300 text-base-content opacity-50'}`}>
-                {item.ok ? '\u2713' : (i + 1)}
+              <span className={`w-5 h-5 flex items-center justify-center rounded-sm font-mono text-xs font-bold ${item.ok ? 'bg-success text-success-content' : 'border border-base-300 text-base-content opacity-50'}`}>
+                {item.ok ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M20 6 9 17l-5-5" /></svg> : (i + 1)}
               </span>
               <span className="font-semibold flex-1">{item.label}</span>
               <Badge variant={item.ok ? 'success' : 'warning'}>{item.detail}</Badge>
@@ -104,7 +104,7 @@ export default function Guide() {
 
       {connectors.length > 0 && (
         <>
-          <h3 className="text-lg font-semibold mb-3">Try it out</h3>
+          <h3 className="font-display text-base font-semibold mb-3">Try it out</h3>
           <div className="flex flex-wrap gap-2">
             {connectors.map((c) => {
               const [site, name] = c.key.split('/');
