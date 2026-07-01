@@ -8,6 +8,7 @@ import { configSchema } from './config.js';
 import { ConnectorRegistry } from './registry.js';
 import { AuditStore } from './audit-store.js';
 import { WsRelay } from './ws-relay.js';
+import { createAuditEvent } from '@commandgarden/shared';
 
 const CONN_YAML = `
 site: test
@@ -182,5 +183,65 @@ describe('server', () => {
     });
     const body = JSON.parse(res.body);
     expect(body.events).toHaveLength(0);
+  });
+
+  it('logs auth.failed event for missing CSRF header', async () => {
+    const app = await createServer(deps);
+    await app.inject({
+      method: 'POST', url: '/api/run',
+      headers: { authorization: 'Bearer test-token-abc' },
+      payload: { connector: 'test/cmd', args: {} },
+    });
+    const events = deps.auditStore.list({ type: 'auth.failed' });
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('auth.failed');
+    expect(events[0].source).toBe('/api/run');
+  });
+
+  it('logs auth.failed event for invalid token', async () => {
+    const app = await createServer(deps);
+    await app.inject({
+      method: 'POST', url: '/api/run',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer wrong' },
+      payload: { connector: 'test/cmd', args: {} },
+    });
+    const events = deps.auditStore.list({ type: 'auth.failed' });
+    expect(events).toHaveLength(1);
+  });
+
+  it('GET /api/audit supports type filter', async () => {
+    const app = await createServer(deps);
+    deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user: 'u', source: '/api/run' }));
+    deps.auditStore.insert(createAuditEvent({ type: 'command.denied', connector: 'no/such', user: 'u' }));
+    const res = await app.inject({
+      method: 'GET', url: '/api/audit?type=auth.failed',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    const body = JSON.parse(res.body);
+    expect(body.events).toHaveLength(1);
+    expect(body.events[0].type).toBe('auth.failed');
+  });
+
+  it('GET /api/audit/:id returns single event', async () => {
+    const app = await createServer(deps);
+    const evt = createAuditEvent({ type: 'command.start', connector: 'a/b', user: 'u' });
+    deps.auditStore.insert(evt);
+    const res = await app.inject({
+      method: 'GET', url: `/api/audit/${evt.id}`,
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.event.id).toBe(evt.id);
+  });
+
+  it('GET /api/audit/:id returns 404 for unknown', async () => {
+    const app = await createServer(deps);
+    const res = await app.inject({
+      method: 'GET', url: '/api/audit/no-such-id',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });

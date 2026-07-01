@@ -1,7 +1,7 @@
 // src/server.ts
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP } from '@commandgarden/shared';
 import type { ApprovalRequest, ApprovalConfig } from '@commandgarden/shared';
 import { userInfo } from 'node:os';
@@ -30,10 +30,17 @@ export async function createServer(deps: ServerDeps) {
   app.addHook('preHandler', async (req, reply) => {
     if (req.url === '/api/status' || req.url === '/ws/extension') return;
     const csrf = req.headers['x-commandgarden'];
-    if (!csrf) { reply.code(403).send({ ok: false, error: 'Missing X-CommandGarden header' }); return; }
+    if (!csrf) {
+      try { deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user, source: req.url })); } catch { /* audit best-effort for auth failures */ }
+      reply.code(403).send({ ok: false, error: 'Missing X-CommandGarden header' }); return;
+    }
     const auth = req.headers.authorization;
-    if (!auth?.startsWith('Bearer ')) { reply.code(401).send({ ok: false, error: 'Unauthorized' }); return; }
+    if (!auth?.startsWith('Bearer ')) {
+      try { deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user, source: req.url })); } catch { /* audit best-effort */ }
+      reply.code(401).send({ ok: false, error: 'Unauthorized' }); return;
+    }
     if (!validateToken(auth.slice(7), deps.sessionToken)) {
+      try { deps.auditStore.insert(createAuditEvent({ type: 'auth.failed', connector: '', user, source: req.url })); } catch { /* audit best-effort */ }
       reply.code(401).send({ ok: false, error: 'Invalid token' }); return;
     }
   });
@@ -67,9 +74,19 @@ export async function createServer(deps: ServerDeps) {
     const query = req.query as Record<string, string>;
     const since = query.since ? new Date(query.since) : undefined;
     const connector = query.connector;
+    const type = query.type;
     const limit = query.limit ? parseInt(query.limit, 10) : 100;
-    const events = deps.auditStore.list({ since, connector, limit });
+    const events = deps.auditStore.list({ since, connector, type, limit });
     return { ok: true, events, count: events.length };
+  });
+
+  app.get('/api/audit/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const event = deps.auditStore.getById(id);
+    if (!event) {
+      reply.code(404).send({ ok: false, error: 'Event not found' }); return;
+    }
+    return { ok: true, event };
   });
 
   const SSE_CONNECT_TIMEOUT_MS = 30_000;
@@ -147,12 +164,22 @@ export async function createServer(deps: ServerDeps) {
     const connector = validation.connector!;
     const requiresApproval = connectorNeedsApproval(body.connector, connector);
     const approvalConfig = requiresApproval ? buildApprovalConfig() : undefined;
+    const correlationId = randomUUID();
+    const meta = deps.registry.getWithMeta(body.connector);
+    const connectorHash = meta
+      ? createHash('sha256').update(meta.yamlContent).digest('hex').slice(0, 16)
+      : undefined;
     const startTime = Date.now();
-    deps.auditStore.insert(createAuditEvent({
-      type: 'command.start', connector: body.connector, user,
-      args: body.args as Record<string, string>,
-      domains: connector.domains, capabilities: [...connector.capabilities],
-    }));
+    try {
+      deps.auditStore.insert(createAuditEvent({
+        type: 'command.start', connector: body.connector, user,
+        args: body.args as Record<string, string>,
+        domains: connector.domains, capabilities: [...connector.capabilities],
+        correlationId, connectorHash,
+      }));
+    } catch {
+      reply.code(500).send({ ok: false, error: 'Audit system unavailable \u2014 command blocked' }); return;
+    }
 
     const runPipeline = async (requestId: string) => {
       try {
@@ -166,6 +193,7 @@ export async function createServer(deps: ServerDeps) {
           rowCount: resp.data.length,
           columns: connector.columns?.map(c => c.name),
           durationMs, error: resp.error,
+          correlationId, connectorHash, steps: resp.steps,
         }));
         return {
           ok: resp.ok, connector: body.connector, rowCount: resp.data.length,
@@ -179,6 +207,7 @@ export async function createServer(deps: ServerDeps) {
         deps.auditStore.insert(createAuditEvent({
           type: 'command.error', connector: body.connector, user,
           args: body.args as Record<string, string>, durationMs, error,
+          correlationId, connectorHash,
         }));
         return { ok: false, data: [], error, durationMs, requestId, requiresApproval };
       }
