@@ -6,6 +6,7 @@ import type { AuditEvent } from '@commandgarden/shared';
 interface AuditFilter {
   since?: string;
   connector?: string;
+  type?: string;
   limit?: number;
 }
 
@@ -13,6 +14,7 @@ function buildQueryString(filter: AuditFilter): string {
   const params = new URLSearchParams();
   if (filter.since) params.set('since', filter.since);
   if (filter.connector) params.set('connector', filter.connector);
+  if (filter.type) params.set('type', filter.type);
   if (filter.limit) params.set('limit', String(filter.limit));
   const qs = params.toString();
   return qs ? `?${qs}` : '';
@@ -29,7 +31,7 @@ export async function executeAuditList(
     if (resp.events.length === 0) return 'No audit events found.';
 
     const table = new Table({
-      head: ['Timestamp', 'Type', 'Connector', 'User', 'Duration', 'Rows', 'Error'],
+      head: ['Timestamp', 'Type', 'Connector', 'User', 'Duration', 'Rows', 'Source', 'Error'],
       style: { head: ['cyan'] },
     });
     for (const e of resp.events) {
@@ -40,6 +42,7 @@ export async function executeAuditList(
         e.user,
         `${e.durationMs}ms`,
         e.rowCount?.toString() ?? '-',
+        e.source ?? '-',
         e.error ?? e.denialReason ?? '',
       ]);
     }
@@ -49,7 +52,11 @@ export async function executeAuditList(
   }
 }
 
-const AUDIT_COLUMNS = ['id', 'timestamp', 'type', 'user', 'connector', 'durationMs', 'rowCount', 'error', 'denialReason'];
+const AUDIT_COLUMNS = [
+  'id', 'timestamp', 'type', 'user', 'connector', 'durationMs', 'rowCount',
+  'error', 'denialReason', 'correlationId', 'connectorHash', 'source',
+  'args', 'domains', 'capabilities', 'steps',
+];
 
 export async function executeAuditExport(
   client: DaemonClient,
@@ -70,11 +77,68 @@ export async function executeAuditExport(
     const rows = resp.events.map(e =>
       AUDIT_COLUMNS.map(col => {
         const val = (e as unknown as Record<string, unknown>)[col];
-        const str = String(val ?? '');
-        return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+        let str: string;
+        if (val === null || val === undefined) {
+          str = '';
+        } else if (typeof val === 'object') {
+          str = JSON.stringify(val);
+        } else {
+          str = String(val);
+        }
+        return str.includes(',') || str.includes('"') || str.includes('\n')
+          ? `"${str.replace(/"/g, '""')}"` : str;
       }).join(','),
     );
     return [header, ...rows].join('\n') + '\n';
+  } catch (err) {
+    return `Error: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export async function executeAuditShow(
+  client: DaemonClient,
+  id: string,
+): Promise<string> {
+  try {
+    const resp = await client.get<{ ok: boolean; event: AuditEvent }>(`/api/audit/${id}`);
+    const e = resp.event;
+    const lines: string[] = [
+      `Event: ${e.id}`,
+      `Type: ${e.type}`,
+      `Connector: ${e.connector}${e.connectorHash ? ` (hash: ${e.connectorHash})` : ''}`,
+      `Correlation: ${e.correlationId ?? '-'}`,
+      `User: ${e.user}`,
+      `Timestamp: ${e.timestamp.replace('T', ' ').slice(0, 19)}`,
+      `Duration: ${e.durationMs}ms`,
+    ];
+    if (e.rowCount !== undefined) lines.push(`Rows: ${e.rowCount}`);
+    if (e.error) lines.push(`Error: ${e.error}`);
+    if (e.denialReason) lines.push(`Denial: ${e.denialReason}`);
+    if (e.source) lines.push(`Source: ${e.source}`);
+    if (e.previousValue !== undefined) lines.push(`Previous: ${e.previousValue}`);
+    if (e.newValue !== undefined) lines.push(`New: ${e.newValue}`);
+    if (Object.keys(e.args).length > 0) {
+      lines.push(`Args: ${JSON.stringify(e.args)}`);
+    }
+    if (e.steps && e.steps.length > 0) {
+      lines.push('');
+      lines.push('Pipeline Steps:');
+      const stepTable = new Table({
+        head: ['#', 'Step', 'Capability', 'Duration', 'Error'],
+        style: { head: ['cyan'] },
+      });
+      for (const s of e.steps) {
+        stepTable.push([
+          s.index + 1,
+          s.step,
+          s.capability ?? '-',
+          `${s.durationMs}ms`,
+          s.error ?? '',
+        ]);
+      }
+      lines.push(stepTable.toString());
+    }
+    return lines.join('\n');
   } catch (err) {
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
   }
