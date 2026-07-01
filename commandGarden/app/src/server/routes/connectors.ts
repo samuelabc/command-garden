@@ -10,7 +10,8 @@ export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): voi
   app.get('/api/connectors', async () => {
     const [connectorData, configData] = await Promise.all([
       daemon.get<{ ok: boolean; connectors: Record<string, unknown>[] }>('/api/connectors'),
-      daemon.get<{ ok: boolean; config: Record<string, Record<string, unknown>> }>('/api/config'),
+      daemon.get<{ ok: boolean; config: Record<string, Record<string, unknown>> }>('/api/config')
+        .catch(() => ({ ok: false, config: {} }) as { ok: boolean; config: Record<string, Record<string, unknown>> }),
     ]);
 
     const security = (configData.config?.security ?? {}) as Record<string, unknown>;
