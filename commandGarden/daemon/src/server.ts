@@ -319,6 +319,9 @@ export async function createServer(deps: ServerDeps) {
     mkdirSync(dirname(deps.configPath), { recursive: true });
     writeFileSync(deps.configPath, stringifyYaml(configObj), 'utf-8');
 
+    // Hot-reload: update in-memory config so changes take effect immediately
+    deps.config = validation.data;
+
     deps.auditStore.insert(createAuditEvent({
       type: 'config.changed', connector: '_system/config', user,
       source: body.key, previousValue, newValue: JSON.stringify(parsed),
