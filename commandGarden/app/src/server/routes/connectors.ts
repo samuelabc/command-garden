@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { DaemonClient } from '../daemon-client.js';
+import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 
 const APP_ROUTES: Record<string, string> = {
   'timetracking/report': '/apps/timetracking',
@@ -15,7 +16,7 @@ export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): voi
     ]);
 
     const security = (configData.config?.security ?? {}) as Record<string, unknown>;
-    const highRiskCaps = new Set((security.highRiskCapabilities as string[] | undefined) ?? ['js_evaluate', 'cookie_write']);
+    const highRiskCaps = new Set((security.highRiskCapabilities as string[] | undefined) ?? [...HIGH_RISK_CAPABILITIES]);
     const approvedHighRisk = new Set((security.approvedHighRisk as string[] | undefined) ?? []);
     const autoApproveConnectors = new Set((security.autoApproveConnectors as string[] | undefined) ?? []);
 

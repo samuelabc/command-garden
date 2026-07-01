@@ -50,20 +50,15 @@ export default function Guide() {
 
     let approvedOk = true;
     try {
-      const cfg = await api.getConfig();
-      const approved = (cfg.config?.security?.approvedHighRisk as string[]) ?? [];
       const connData = await api.getConnectors();
       setConnectors(connData.connectors);
-      const highRisk = connData.connectors.filter((c) =>
-        c.capabilities.some((cap) => ['js_evaluate', 'cookie_write'].includes(cap)),
-      );
-      const unapproved = highRisk.filter((c) => !approved.includes(c.key));
+      const unapproved = connData.connectors.filter((c) => c.isHighRisk && !c.isApproved);
       approvedOk = unapproved.length === 0;
       items.push({
         label: 'High-risk connectors approved',
         ok: approvedOk,
         detail: approvedOk ? 'all approved' : `${unapproved.length} pending`,
-        instructions: `Approve high-risk connectors in Configuration > security.autoApproveConnectors. Pending: ${unapproved.map((c) => c.key).join(', ')}`,
+        instructions: `Approve high-risk connectors in Configuration > Connector Security. Pending: ${unapproved.map((c) => c.key).join(', ')}`,
       });
     } catch {
       items.push({

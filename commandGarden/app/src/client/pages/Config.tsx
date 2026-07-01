@@ -3,8 +3,8 @@ import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
 import { api, type Connector } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
-
 const RESTART_REQUIRED_KEYS = new Set(['daemon.host', 'daemon.port', 'app.port']);
+const DEFAULT_HIGH_RISK_CAPABILITIES = ['js_evaluate', 'cookie_write'] as const;
 
 interface ConfigState {
   daemon: { host: string; port: number };
@@ -22,6 +22,12 @@ interface ConfigState {
   app: { port: number };
 }
 
+interface FormActions {
+  updateField: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
+  addToArray: (section: keyof ConfigState, key: string, value: string) => void;
+  removeFromArray: (section: keyof ConfigState, key: string, value: string) => void;
+}
+
 function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigState {
   const d = raw.daemon ?? {};
   const s = raw.security ?? {};
@@ -33,7 +39,7 @@ function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigStat
     daemon: { host: String(d.host ?? '127.0.0.1'), port: Number(d.port ?? 19825) },
     security: {
       extensionId: String(s.extensionId ?? ''),
-      highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? ['js_evaluate', 'cookie_write'],
+      highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? [...DEFAULT_HIGH_RISK_CAPABILITIES],
       approvedHighRisk: (s.approvedHighRisk as string[]) ?? [],
       approvalRequired: (s.approvalRequired as string[]) ?? [],
       autoApproveConnectors: (s.autoApproveConnectors as string[]) ?? [],
@@ -104,6 +110,10 @@ export default function Config() {
 
   const handleSave = useCallback(async () => {
     if (!saved || !edited) return;
+    if (!edited.daemon.host.trim()) {
+      setToast({ type: 'error', msg: 'Daemon host cannot be empty.' });
+      return;
+    }
     setSaving(true);
     setToast(null);
     let needsRestart = false;
@@ -164,7 +174,7 @@ export default function Config() {
     }
   }, [rawYaml]);
 
-  const set = useCallback(<S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][typeof key]) => {
+  const updateField = useCallback(<S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][typeof key]) => {
     setEdited(prev => {
       if (!prev) return prev;
       return { ...prev, [section]: { ...prev[section], [key]: value } };
@@ -189,6 +199,8 @@ export default function Config() {
       return { ...prev, [section]: { ...sectionObj, [key]: arr.filter(v => v !== value) } };
     });
   }, []);
+
+  const formActions = useMemo(() => ({ updateField, addToArray, removeFromArray }), [updateField, addToArray, removeFromArray]);
 
   if (loading) return <Spinner label="Loading configuration..." />;
 
@@ -216,11 +228,11 @@ export default function Config() {
       )}
 
       <div className="space-y-8">
-        <ServerSection config={edited} set={set} />
-        <ConnectorSecuritySection config={edited} connectors={connectors} set={set} addToArray={addToArray} removeFromArray={removeFromArray} />
-        <ConnectorSourcesSection config={edited} addToArray={addToArray} removeFromArray={removeFromArray} />
-        <AuditSection config={edited} set={set} />
-        <OutputSection config={edited} set={set} />
+        <ServerSection config={edited} actions={formActions} />
+        <ConnectorSecuritySection config={edited} connectors={connectors} actions={formActions} />
+        <ConnectorSourcesSection config={edited} actions={formActions} />
+        <AuditSection config={edited} actions={formActions} />
+        <OutputSection config={edited} actions={formActions} />
       </div>
 
       {/* Raw Config Editor */}
@@ -266,45 +278,45 @@ function SectionCard({ title, description, children }: { title: string; descript
     <div className="border border-base-300 p-5">
       <h3 className="font-display font-semibold mb-1">{title}</h3>
       <p className="text-xs opacity-40 mb-5">{description}</p>
-      <div className="space-y-4">{children}</div>
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }
 
 function Field({ label, help, restart, children }: { label: string; help: string; restart?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="w-48 shrink-0 pt-2">
-        <label className="font-mono text-[0.7rem] font-medium uppercase tracking-wide">{label}</label>
-        {restart && (
-          <span className="ml-1.5 tooltip tooltip-right" data-tip="Requires daemon restart">
-            <span className="text-xs opacity-40">⟳</span>
-          </span>
-        )}
-        <p className="text-xs opacity-40 mt-0.5">{help}</p>
+    <div>
+      <div className="flex items-center gap-4">
+        <div className="w-48 shrink-0">
+          <label className="font-mono text-[0.7rem] font-medium uppercase tracking-wide">{label}</label>
+          {restart && (
+            <span className="ml-1.5 tooltip tooltip-right" data-tip="Requires daemon restart">
+              <span className="text-xs opacity-40">⟳</span>
+            </span>
+          )}
+        </div>
+        <div className="flex-1">{children}</div>
       </div>
-      <div className="flex-1">{children}</div>
+      <p className="text-xs opacity-40 mt-1 max-w-[12rem]">{help}</p>
     </div>
   );
 }
 
-function ServerSection({ config, set }: {
-  config: ConfigState;
-  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
-}) {
+function ServerSection({ config, actions }: { config: ConfigState; actions: FormActions }) {
+  const { updateField } = actions;
   return (
     <SectionCard title="Server" description="Daemon and app server binding configuration">
       <Field label="Daemon Host" help="IP address the daemon binds to" restart>
-        <input type="text" className="input input-bordered input-sm w-full" value={config.daemon.host}
-          onChange={e => set('daemon', 'host', e.target.value)} />
+        <input type="text" className="input input-bordered input-sm w-full" required value={config.daemon.host}
+          onChange={e => updateField('daemon', 'host', e.target.value)} />
       </Field>
       <Field label="Daemon Port" help="Port the daemon listens on" restart>
         <input type="number" className="input input-bordered input-sm w-full" min={1024} max={65535}
-          value={config.daemon.port} onChange={e => set('daemon', 'port', Number(e.target.value))} />
+          value={config.daemon.port} onChange={e => updateField('daemon', 'port', Number(e.target.value))} />
       </Field>
       <Field label="GUI Port" help="Port the GUI app server listens on" restart>
         <input type="number" className="input input-bordered input-sm w-full" min={1024} max={65535}
-          value={config.app.port} onChange={e => set('app', 'port', Number(e.target.value))} />
+          value={config.app.port} onChange={e => updateField('app', 'port', Number(e.target.value))} />
       </Field>
     </SectionCard>
   );
@@ -337,13 +349,12 @@ function TagEditor({ values, onAdd, onRemove, placeholder }: {
   );
 }
 
-function ConnectorSecuritySection({ config, connectors, set, addToArray, removeFromArray }: {
+function ConnectorSecuritySection({ config, connectors, actions }: {
   config: ConfigState;
   connectors: Connector[];
-  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
-  addToArray: (section: keyof ConfigState, key: string, value: string) => void;
-  removeFromArray: (section: keyof ConfigState, key: string, value: string) => void;
+  actions: FormActions;
 }) {
+  const { updateField, addToArray, removeFromArray } = actions;
   const highRiskCaps = new Set(config.security.highRiskCapabilities);
 
   return (
@@ -422,22 +433,19 @@ function ConnectorSecuritySection({ config, connectors, set, addToArray, removeF
       <Field label="Approval Timeout (seconds)" help="How long to wait for approval before aborting the pipeline">
         <input type="number" className="input input-bordered input-sm w-full" min={1} max={600}
           value={Math.round(config.security.approvalTimeoutMs / 1000)}
-          onChange={e => set('security', 'approvalTimeoutMs', Number(e.target.value) * 1000)} />
+          onChange={e => updateField('security', 'approvalTimeoutMs', Number(e.target.value) * 1000)} />
       </Field>
 
       <Field label="Extension ID" help="Chrome extension ID for origin validation. Leave blank to accept any extension.">
         <input type="text" className="input input-bordered input-sm w-full" placeholder="Leave blank for any"
-          value={config.security.extensionId} onChange={e => set('security', 'extensionId', e.target.value)} />
+          value={config.security.extensionId} onChange={e => updateField('security', 'extensionId', e.target.value)} />
       </Field>
     </SectionCard>
   );
 }
 
-function ConnectorSourcesSection({ config, addToArray, removeFromArray }: {
-  config: ConfigState;
-  addToArray: (section: keyof ConfigState, key: string, value: string) => void;
-  removeFromArray: (section: keyof ConfigState, key: string, value: string) => void;
-}) {
+function ConnectorSourcesSection({ config, actions }: { config: ConfigState; actions: FormActions }) {
+  const { addToArray, removeFromArray } = actions;
   const [addPath, setAddPath] = useState('');
   return (
     <SectionCard title="Connector Sources" description="Directories to scan for connector YAML files">
@@ -460,33 +468,29 @@ function ConnectorSourcesSection({ config, addToArray, removeFromArray }: {
   );
 }
 
-function AuditSection({ config, set }: {
-  config: ConfigState;
-  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
-}) {
+function AuditSection({ config, actions }: { config: ConfigState; actions: FormActions }) {
+  const { updateField } = actions;
   return (
     <SectionCard title="Audit & Retention" description="Audit log storage and cleanup settings">
       <Field label="Retention Period" help="Days to keep audit log entries before cleanup">
         <input type="number" className="input input-bordered input-sm w-full" min={1} max={3650}
-          value={config.audit.retentionDays} onChange={e => set('audit', 'retentionDays', Number(e.target.value))} />
+          value={config.audit.retentionDays} onChange={e => updateField('audit', 'retentionDays', Number(e.target.value))} />
       </Field>
       <Field label="Database Path" help="Path to the audit SQLite database. Change only if you need a custom location.">
         <input type="text" className="input input-bordered input-sm w-full font-mono opacity-60"
-          value={config.audit.dbPath} onChange={e => set('audit', 'dbPath', e.target.value)} />
+          value={config.audit.dbPath} onChange={e => updateField('audit', 'dbPath', e.target.value)} />
       </Field>
     </SectionCard>
   );
 }
 
-function OutputSection({ config, set }: {
-  config: ConfigState;
-  set: <S extends keyof ConfigState>(section: S, key: keyof ConfigState[S], value: ConfigState[S][keyof ConfigState[S]]) => void;
-}) {
+function OutputSection({ config, actions }: { config: ConfigState; actions: FormActions }) {
+  const { updateField } = actions;
   return (
     <SectionCard title="Output Defaults" description="Default formatting for CLI output">
       <Field label="Default Output Format" help="Format used when no --format flag is specified">
         <select className="select select-bordered select-sm w-full" value={config.output.defaultFormat}
-          onChange={e => set('output', 'defaultFormat', e.target.value)}>
+          onChange={e => updateField('output', 'defaultFormat', e.target.value)}>
           <option value="table">table</option>
           <option value="json">json</option>
           <option value="csv">csv</option>

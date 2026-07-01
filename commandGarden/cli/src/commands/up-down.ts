@@ -2,7 +2,7 @@ import { executeDaemonStart, executeDaemonStop } from './daemon-cmd.js';
 import { executeGuiStart, executeGuiStop } from './gui-cmd.js';
 
 export async function executeUp(
-  baseUrl: string, cgHome: string, daemonScript: string, appScript: string,
+  baseUrl: string, cgHome: string, daemonScript: string, appScript: string, configPath: string,
 ): Promise<string> {
   const lines: string[] = [];
   lines.push(await executeDaemonStart(baseUrl, cgHome, daemonScript));
@@ -16,7 +16,7 @@ export async function executeUp(
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  lines.push(await executeGuiStart(baseUrl, cgHome, appScript, { background: true }));
+  lines.push(await executeGuiStart(baseUrl, cgHome, appScript, { background: true, configPath }));
   return lines.join('\n');
 }
 

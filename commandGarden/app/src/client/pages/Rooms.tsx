@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
-import { api, type RunResponse } from '../api';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 import { RoomCombobox } from '../components/RoomCombobox';
 import { TimelineView } from '../components/TimelineView';
+import { useApprovalRun } from '../hooks/useApprovalRun';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -28,30 +28,14 @@ function formatDateLabel(iso: string): string {
 export default function Rooms() {
   const [room, setRoom] = useState('');
   const [date, setDate] = useState(todayStr());
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<RunResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { running, result, error, approvalPending, approvalId, run, handleApproval } = useApprovalRun();
 
   const handleRun = useCallback(async () => {
     if (!room) return;
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    try {
-      const args: Record<string, string> = { room };
-      if (date) args.date = date;
-      const resp = await api.run('teams/room-availability', args);
-      if (!resp.ok && resp.error) {
-        setError(resp.error);
-      } else {
-        setResult(resp);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setRunning(false);
-    }
-  }, [room, date]);
+    const args: Record<string, string> = { room };
+    if (date) args.date = date;
+    await run('teams/room-availability', args);
+  }, [room, date, run]);
 
   const rows = (result?.data ?? []).map((r) => ({
     start: String(r.start ?? ''),
@@ -98,7 +82,21 @@ export default function Rooms() {
         </button>
       </div>
 
-      {running && <Spinner label="Checking room availability..." />}
+      {running && !approvalPending && <Spinner label="Checking room availability..." />}
+
+      {approvalPending && (
+        <div className="alert alert-warning mb-4">
+          <span>This connector requires approval before proceeding.</span>
+          <div className="flex gap-2">
+            <button className="btn btn-sm btn-success" onClick={() => handleApproval(true)} disabled={!approvalId}>
+              Approve
+            </button>
+            <button className="btn btn-sm btn-error" onClick={() => handleApproval(false)} disabled={!approvalId}>
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
 
       {isAuthRequired && (
         <AuthRequiredCallout message="Sign in to Microsoft Teams in Chrome, then try again." />

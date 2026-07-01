@@ -185,6 +185,7 @@ gui
     console.log(await executeGuiStart(BASE_URL, CG_HOME, APP_SCRIPT, {
       background: opts.background,
       noOpen: opts.open === false,
+      configPath: CONFIG_PATH,
     }));
   });
 
@@ -203,7 +204,7 @@ program
   .command('up')
   .description('Start daemon + GUI, open browser')
   .action(async () => {
-    console.log(await executeUp(BASE_URL, CG_HOME, DAEMON_SCRIPT, APP_SCRIPT));
+    console.log(await executeUp(BASE_URL, CG_HOME, DAEMON_SCRIPT, APP_SCRIPT, CONFIG_PATH));
   });
 
 program

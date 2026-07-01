@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import { registerRoutes } from './index.js';
 import { DaemonClient } from '../daemon-client.js';
 import { AppStore } from '../store.js';
+import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 
 function mockDaemon() {
   return {
@@ -53,7 +54,7 @@ describe('routes', () => {
           if (path === '/api/config') {
             return Promise.resolve({
               ok: true,
-              config: { security: { highRiskCapabilities: ['js_evaluate', 'cookie_write'], approvedHighRisk: [], autoApproveConnectors: [] } },
+              config: { security: { highRiskCapabilities: [...HIGH_RISK_CAPABILITIES], approvedHighRisk: [], autoApproveConnectors: [] } },
             });
           }
           return Promise.resolve({ ok: true });
@@ -83,7 +84,7 @@ describe('routes', () => {
               ok: true,
               config: {
                 security: {
-                  highRiskCapabilities: ['js_evaluate', 'cookie_write'],
+                  highRiskCapabilities: [...HIGH_RISK_CAPABILITIES],
                   approvedHighRisk: ['timetracking/report'],
                   autoApproveConnectors: ['timetracking/report'],
                 },

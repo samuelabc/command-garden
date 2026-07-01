@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { api, type RunResponse } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
+import { useApprovalRun } from '../hooks/useApprovalRun';
 
 interface ProjectGroup {
   projectId: string;
@@ -18,73 +18,14 @@ function currentMonth(): string {
 
 export default function Timetracking() {
   const [month, setMonth] = useState(currentMonth());
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<RunResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState(false);
-  const [approvalPending, setApprovalPending] = useState(false);
-  const [approvalId, setApprovalId] = useState<string | null>(null);
+  const { running, result, error, approvalPending, approvalId, run, handleApproval } = useApprovalRun();
 
   const handleRun = useCallback(async () => {
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    setApprovalPending(false);
-    setApprovalId(null);
-    try {
-      const args: Record<string, string> = {};
-      if (month) args.month = month;
-      const resp = await api.run('timetracking/report', args);
-      if (resp.requiresApproval && resp.requestId) {
-        setApprovalPending(true);
-        const es = new EventSource(`/api/run/events/${resp.requestId}`);
-        es.addEventListener('approval', (ev) => {
-          const data = JSON.parse(ev.data);
-          setApprovalId(data.approvalId);
-        });
-        es.addEventListener('result', (ev) => {
-          const data = JSON.parse(ev.data);
-          if (!data.ok && data.error) {
-            setError(data.error);
-          } else {
-            setResult(data);
-          }
-          setApprovalPending(false);
-          setRunning(false);
-          es.close();
-        });
-        es.onerror = () => {
-          setError('SSE connection lost');
-          setApprovalPending(false);
-          setRunning(false);
-          es.close();
-        };
-      } else if (!resp.ok && resp.error) {
-        setError(resp.error);
-        setRunning(false);
-      } else {
-        setResult(resp);
-        setRunning(false);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-      setRunning(false);
-    }
-  }, [month]);
-
-  const handleApproval = useCallback(async (approved: boolean) => {
-    if (!approvalId) return;
-    try {
-      await api.approve(approvalId, approved);
-      if (!approved) {
-        setApprovalPending(false);
-        setRunning(false);
-        setError('Approval rejected');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Approval failed');
-    }
-  }, [approvalId]);
+    const args: Record<string, string> = {};
+    if (month) args.month = month;
+    await run('timetracking/report', args);
+  }, [month, run]);
 
   const rows = result?.data ?? [];
   const isAuthRequired = error?.includes('auth_required') || error?.includes('sign in');

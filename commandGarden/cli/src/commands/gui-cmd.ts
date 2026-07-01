@@ -2,10 +2,23 @@ import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { exec } from 'node:child_process';
+import { parse as parseYaml } from 'yaml';
+
+function readAppPort(configPath: string): number {
+  try {
+    if (existsSync(configPath)) {
+      const config = parseYaml(readFileSync(configPath, 'utf-8')) as Record<string, Record<string, unknown>>;
+      const port = config?.app?.port;
+      if (typeof port === 'number') return port;
+    }
+  } catch { /* use default */ }
+  return 19826;
+}
 
 export async function executeGuiStart(
-  baseUrl: string, cgHome: string, appScript: string, opts: { background?: boolean; noOpen?: boolean },
+  baseUrl: string, cgHome: string, appScript: string, opts: { background?: boolean; noOpen?: boolean; configPath?: string },
 ): Promise<string> {
+  const appPort = opts.configPath ? readAppPort(opts.configPath) : 19826;
   // Check daemon first
   try {
     const resp = await fetch(`${baseUrl}/api/status`);
@@ -27,12 +40,12 @@ export async function executeGuiStart(
     const child = spawn('node', [appScript], { detached: true, stdio: 'ignore' });
     if (child.pid) writeFileSync(pidPath, String(child.pid));
     child.unref();
-    if (!opts.noOpen) openBrowser('http://127.0.0.1:19826');
+    if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`);
     return `GUI started (PID: ${child.pid ?? 'unknown'}).`;
   }
 
   // Foreground — exec directly (this blocks)
-  if (!opts.noOpen) openBrowser('http://127.0.0.1:19826');
+  if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`);
   const child = spawn('node', [appScript], { stdio: 'inherit' });
   await new Promise<void>((resolve) => child.on('exit', () => resolve()));
   return 'GUI stopped.';

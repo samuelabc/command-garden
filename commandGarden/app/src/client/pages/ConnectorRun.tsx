@@ -1,19 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api, type ConnectorDetail, type RunResponse } from '../api';
+import { api, type ConnectorDetail } from '../api';
 import { Spinner } from '../components/Spinner';
+import { useApprovalRun } from '../hooks/useApprovalRun';
 
 export default function ConnectorRun() {
   const { site, name } = useParams<{ site: string; name: string }>();
   const connectorKey = `${site}/${name}`;
   const [connector, setConnector] = useState<ConnectorDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
   const [args, setArgs] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<RunResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [approvalPending, setApprovalPending] = useState(false);
-  const [approvalId, setApprovalId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const { running, result, error, approvalPending, approvalId, run, handleApproval } = useApprovalRun();
 
   useEffect(() => {
     if (!site || !name) return;
@@ -26,67 +24,20 @@ export default function ConnectorRun() {
         }
         setArgs(defaults);
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => setLoadError(e.message))
       .finally(() => setLoading(false));
   }, [site, name]);
 
   const handleRun = useCallback(async () => {
-    setRunning(true);
-    setError(null);
-    setResult(null);
-    setApprovalPending(false);
-    setApprovalId(null);
-    try {
-      const filtered: Record<string, string> = {};
-      for (const [k, v] of Object.entries(args)) {
-        if (v) filtered[k] = v;
-      }
-      const resp = await api.run(connectorKey, filtered);
-      if (resp.requiresApproval && resp.requestId) {
-        setApprovalPending(true);
-        const es = new EventSource(`/api/run/events/${resp.requestId}`);
-        es.addEventListener('approval', (ev) => {
-          const data = JSON.parse(ev.data);
-          setApprovalId(data.approvalId);
-        });
-        es.addEventListener('result', (ev) => {
-          const data = JSON.parse(ev.data);
-          setResult(data);
-          setApprovalPending(false);
-          setRunning(false);
-          es.close();
-        });
-        es.onerror = () => {
-          setError('SSE connection lost');
-          setRunning(false);
-          es.close();
-        };
-      } else {
-        setResult(resp);
-        setRunning(false);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
-      setRunning(false);
+    const filtered: Record<string, string> = {};
+    for (const [k, v] of Object.entries(args)) {
+      if (v) filtered[k] = v;
     }
-  }, [args, connectorKey]);
-
-  const handleApproval = useCallback(async (approved: boolean) => {
-    if (!approvalId) return;
-    try {
-      await api.approve(approvalId, approved);
-      if (!approved) {
-        setApprovalPending(false);
-        setRunning(false);
-        setError('Approval rejected');
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Approval failed');
-    }
-  }, [approvalId]);
+    await run(connectorKey, filtered);
+  }, [args, connectorKey, run]);
 
   if (loading) return <Spinner label="Loading connector..." />;
-  if (!connector) return <div className="text-error">Connector not found: {connectorKey}</div>;
+  if (!connector) return <div className="text-error">{loadError ?? `Connector not found: ${connectorKey}`}</div>;
 
   return (
     <div className="max-w-4xl mx-auto">
