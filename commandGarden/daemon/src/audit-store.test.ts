@@ -1,7 +1,7 @@
 // src/audit-store.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AuditStore } from './audit-store.js';
-import { createAuditEvent } from '@commandgarden/shared';
+import { createAuditEvent, type StepSummary } from '@commandgarden/shared';
 
 describe('AuditStore', () => {
   let store: AuditStore;
@@ -71,5 +71,61 @@ describe('AuditStore', () => {
       store.insert(createAuditEvent({ type: 'command.start', connector: `a/${i}`, user: 'u' }));
     }
     expect(store.list({ limit: 3 })).toHaveLength(3);
+  });
+
+  it('inserts and retrieves new fields (correlationId, connectorHash, steps, source)', () => {
+    const steps: StepSummary[] = [
+      { step: 'navigate', index: 0, capability: 'navigate', durationMs: 200 },
+      { step: 'extract', index: 1, capability: 'dom_read', durationMs: 50 },
+    ];
+    const evt = createAuditEvent({
+      type: 'command.success', connector: 'a/b', user: 'alice',
+      correlationId: 'corr-1', connectorHash: 'sha256-abc', steps,
+      source: '/api/run', durationMs: 250,
+    });
+    store.insert(evt);
+    const [row] = store.list();
+    expect(row.correlationId).toBe('corr-1');
+    expect(row.connectorHash).toBe('sha256-abc');
+    expect(row.steps).toEqual(steps);
+    expect(row.source).toBe('/api/run');
+  });
+
+  it('inserts and retrieves config.changed fields', () => {
+    const evt = createAuditEvent({
+      type: 'config.changed', connector: '_system/config', user: 'alice',
+      source: 'security.approvedHighRisk', previousValue: '[]', newValue: '["a/b"]',
+    });
+    store.insert(evt);
+    const [row] = store.list();
+    expect(row.previousValue).toBe('[]');
+    expect(row.newValue).toBe('["a/b"]');
+  });
+
+  it('getById returns the event', () => {
+    const evt = createAuditEvent({ type: 'command.start', connector: 'a/b', user: 'u' });
+    store.insert(evt);
+    const found = store.getById(evt.id);
+    expect(found).toBeDefined();
+    expect(found!.id).toBe(evt.id);
+  });
+
+  it('getById returns undefined for unknown id', () => {
+    expect(store.getById('no-such-id')).toBeUndefined();
+  });
+
+  it('filters by type pattern', () => {
+    store.insert(createAuditEvent({ type: 'command.start', connector: 'a/b', user: 'u' }));
+    store.insert(createAuditEvent({ type: 'command.denied', connector: 'a/b', user: 'u' }));
+    store.insert(createAuditEvent({ type: 'auth.failed', connector: '', user: 'u' }));
+    expect(store.list({ type: 'command.*' })).toHaveLength(2);
+    expect(store.list({ type: 'auth.failed' })).toHaveLength(1);
+  });
+
+  it('combines type filter with connector filter', () => {
+    store.insert(createAuditEvent({ type: 'command.start', connector: 'a/b', user: 'u' }));
+    store.insert(createAuditEvent({ type: 'command.start', connector: 'x/y', user: 'u' }));
+    store.insert(createAuditEvent({ type: 'auth.failed', connector: '', user: 'u' }));
+    expect(store.list({ type: 'command.*', connector: 'a/*' })).toHaveLength(1);
   });
 });
