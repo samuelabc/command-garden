@@ -307,6 +307,15 @@ export async function createServer(deps: ServerDeps) {
     }
     configObj[section][prop] = parsed;
 
+    // Validate the entire config against the schema before writing
+    const { configSchema } = await import('./config.js');
+    const validation = configSchema.safeParse(configObj);
+    if (!validation.success) {
+      const issue = validation.error.issues[0];
+      reply.code(400).send({ ok: false, error: `Invalid config value: ${issue.path.join('.')} — ${issue.message}` });
+      return;
+    }
+
     mkdirSync(dirname(deps.configPath), { recursive: true });
     writeFileSync(deps.configPath, stringifyYaml(configObj), 'utf-8');
 
