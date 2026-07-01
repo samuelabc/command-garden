@@ -1,3 +1,56 @@
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api, type Connector } from '../api';
+import { Spinner } from '../components/Spinner';
+
 export default function Connectors() {
-  return <div><h2 className="text-2xl font-bold">Connectors</h2><p className="opacity-50">Loading...</p></div>;
+  const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getConnectors()
+      .then((d) => setConnectors(d.connectors))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner label="Loading connectors..." />;
+
+  return (
+    <div className="max-w-4xl">
+      <h2 className="text-2xl font-bold mb-6">Connectors</h2>
+      {connectors.length === 0 ? (
+        <p className="text-sm opacity-50">No connectors loaded. Check the daemon is running and connectors are installed.</p>
+      ) : (
+        <div className="space-y-3">
+          {connectors.map((c) => {
+            const [site, name] = c.key.split('/');
+            return (
+              <div key={c.key} className="bg-base-200 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-mono font-semibold">{c.key}</span>
+                    <span className="badge badge-sm">{c.access}</span>
+                    {c.capabilities.map((cap) => (
+                      <span key={cap} className="badge badge-warning badge-sm">{cap}</span>
+                    ))}
+                  </div>
+                  <p className="text-sm opacity-60 mt-1">{c.description}</p>
+                  {c.domains.length > 0 && (
+                    <div className="text-xs opacity-40 mt-1">Domains: {c.domains.join(', ')}</div>
+                  )}
+                </div>
+                <div className="flex gap-2 ml-4 shrink-0">
+                  {c.hasAppPage && c.appRoute && (
+                    <Link to={c.appRoute} className="btn btn-sm btn-primary">Open App</Link>
+                  )}
+                  <Link to={`/connectors/${site}/${name}`} className="btn btn-sm btn-ghost">Run</Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
