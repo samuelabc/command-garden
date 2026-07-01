@@ -28,6 +28,7 @@ function makeDeps(tmpDir: string): ServerDeps {
   registry.load();
   return {
     config: configSchema.parse({}),
+    configPath: join(tmpDir, 'config.yaml'),
     sessionToken: 'test-token-abc',
     registry,
     auditStore: new AuditStore(':memory:'),
@@ -243,5 +244,19 @@ describe('server', () => {
       headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
     });
     expect(res.statusCode).toBe(404);
+  });
+
+  it('POST /api/config logs config.changed audit event', async () => {
+    const app = await createServer(deps);
+    const res = await app.inject({
+      method: 'POST', url: '/api/config',
+      headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+      payload: { key: 'audit.retentionDays', value: '180' },
+    });
+    expect(res.statusCode).toBe(200);
+    const events = deps.auditStore.list({ type: 'config.changed' });
+    expect(events).toHaveLength(1);
+    expect(events[0].source).toBe('audit.retentionDays');
+    expect(events[0].newValue).toBe('180');
   });
 });

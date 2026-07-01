@@ -163,8 +163,9 @@ config
 config
   .command('set <key> <value>')
   .description('Set a configuration value (e.g. daemon.port 9999)')
-  .action((key: string, value: string) => {
-    console.log(executeConfigSet(CONFIG_PATH, key, value));
+  .action(async (key: string, value: string) => {
+    const client = createClient();
+    console.log(await executeConfigSet(client, key, value));
   });
 
 program.parse();

@@ -15,6 +15,7 @@ import { SseManager } from './sse-manager.js';
 
 export interface ServerDeps {
   config: DaemonConfig;
+  configPath: string;
   sessionToken: string;
   registry: ConnectorRegistry;
   auditStore: AuditStore;
@@ -263,6 +264,46 @@ export async function createServer(deps: ServerDeps) {
       }
       return result;
     }
+  });
+
+  app.post('/api/config', async (req, reply) => {
+    const body = req.body as { key?: string; value?: string };
+    if (!body.key || body.value === undefined) {
+      reply.code(400).send({ ok: false, error: 'Missing key or value' }); return;
+    }
+    const parts = body.key.split('.');
+    if (parts.length !== 2) {
+      reply.code(400).send({ ok: false, error: 'Key must be section.property' }); return;
+    }
+
+    const { readFileSync, writeFileSync, mkdirSync, existsSync } = await import('node:fs');
+    const { dirname } = await import('node:path');
+    const { parse: parseYaml, stringify: stringifyYaml } = await import('yaml');
+
+    let configObj: Record<string, Record<string, unknown>> = {};
+    if (existsSync(deps.configPath)) {
+      configObj = (parseYaml(readFileSync(deps.configPath, 'utf-8')) as Record<string, Record<string, unknown>>) ?? {};
+    }
+
+    const [section, prop] = parts;
+    const previousValue = JSON.stringify(configObj[section]?.[prop] ?? null);
+
+    if (!configObj[section]) configObj[section] = {};
+    let parsed: unknown = body.value;
+    if (body.value === 'true') parsed = true;
+    else if (body.value === 'false') parsed = false;
+    else if (!isNaN(Number(body.value)) && body.value !== '') parsed = Number(body.value);
+    configObj[section][prop] = parsed;
+
+    mkdirSync(dirname(deps.configPath), { recursive: true });
+    writeFileSync(deps.configPath, stringifyYaml(configObj), 'utf-8');
+
+    deps.auditStore.insert(createAuditEvent({
+      type: 'config.changed', connector: '_system/config', user,
+      source: body.key, previousValue, newValue: JSON.stringify(parsed),
+    }));
+
+    return { ok: true, key: body.key, value: body.value };
   });
 
   app.get('/ws/extension', { websocket: true }, (socket, req) => {

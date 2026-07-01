@@ -11,7 +11,8 @@ import { createServer } from './server.js';
 
 async function main() {
   const cgHome = join(homedir(), '.commandgarden');
-  const config = loadConfig();
+  const configPath = join(cgHome, 'config.yaml');
+  const config = loadConfig(configPath);
 
   // Auth token
   const sessionToken = generateSessionToken();
@@ -44,7 +45,7 @@ async function main() {
   const wsRelay = new WsRelay();
 
   // Server
-  const app = await createServer({ config, sessionToken, registry, auditStore, wsRelay });
+  const app = await createServer({ config, configPath, sessionToken, registry, auditStore, wsRelay });
   const address = await app.listen({ port: config.daemon.port, host: config.daemon.host });
   console.log(`Daemon listening on ${address}`);
 
