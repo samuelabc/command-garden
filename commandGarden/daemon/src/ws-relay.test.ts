@@ -132,6 +132,15 @@ describe('WsRelay', () => {
     expect(await promise).toBe(false);
   });
 
+  it('silently ignores ping messages', () => {
+    relay.attach(socket as any);
+    const handler = vi.fn();
+    relay.onApprovalRequest(handler);
+    socket.emit('message', JSON.stringify({ type: 'ping' }));
+    expect(handler).not.toHaveBeenCalled();
+    expect(socket.sent).toHaveLength(0);
+  });
+
   it('rejects pending approvals on socket close', async () => {
     relay.attach(socket as any);
     const request = {

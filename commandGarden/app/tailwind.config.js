@@ -1,0 +1,73 @@
+import daisyui from 'daisyui';
+
+export default {
+  content: ['./index.html', './src/client/**/*.{ts,tsx}'],
+  darkMode: ['selector', '[data-theme="dark"]'],
+  theme: {
+    extend: {
+      fontFamily: {
+        display: ['"Space Grotesk"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', '"Cascadia Code"', '"Source Code Pro"', 'monospace'],
+      },
+    },
+  },
+  plugins: [daisyui],
+  daisyui: {
+    themes: [
+      {
+        dark: {
+          'primary': '#4ade80',
+          'primary-content': '#0a0a0a',
+          'secondary': '#737373',
+          'secondary-content': '#e5e5e5',
+          'accent': '#4ade80',
+          'accent-content': '#0a0a0a',
+          'neutral': '#a3a3a3',
+          'neutral-content': '#0a0a0a',
+          'base-100': '#0a0a0a',
+          'base-200': '#171717',
+          'base-300': '#262626',
+          'base-content': '#e5e5e5',
+          'info': '#38bdf8',
+          'success': '#4ade80',
+          'warning': '#fbbf24',
+          'error': '#f87171',
+          '--rounded-box': '0',
+          '--rounded-btn': '0',
+          '--rounded-badge': '0',
+          '--animation-btn': '0.15s',
+          '--animation-input': '0.1s',
+          '--btn-focus-scale': '1',
+          '--tab-radius': '0',
+        },
+      },
+      {
+        light: {
+          'primary': '#16a34a',
+          'primary-content': '#ffffff',
+          'secondary': '#737373',
+          'secondary-content': '#ffffff',
+          'accent': '#16a34a',
+          'accent-content': '#ffffff',
+          'neutral': '#171717',
+          'neutral-content': '#fafafa',
+          'base-100': '#fafafa',
+          'base-200': '#f0f0f0',
+          'base-300': '#d4d4d4',
+          'base-content': '#171717',
+          'info': '#0284c7',
+          'success': '#16a34a',
+          'warning': '#d97706',
+          'error': '#dc2626',
+          '--rounded-box': '0',
+          '--rounded-btn': '0',
+          '--rounded-badge': '0',
+          '--animation-btn': '0.15s',
+          '--animation-input': '0.1s',
+          '--btn-focus-scale': '1',
+          '--tab-radius': '0',
+        },
+      },
+    ],
+  },
+};

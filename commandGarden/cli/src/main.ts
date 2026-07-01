@@ -13,10 +13,13 @@ import { executeValidate } from './commands/validate.js';
 import { executeDaemonStatus, executeDaemonStart, executeDaemonStop } from './commands/daemon-cmd.js';
 import { executeAuditList, executeAuditExport, executeAuditShow } from './commands/audit.js';
 import { executeConfigShow, executeConfigSet } from './commands/config-cmd.js';
+import { executeGuiStart, executeGuiStop, executeGuiStatus } from './commands/gui-cmd.js';
+import { executeUp, executeDown } from './commands/up-down.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const DAEMON_SCRIPT = join(__dirname, '..', '..', 'daemon', 'dist', 'main.js');
+const APP_SCRIPT = join(__dirname, '..', '..', 'app', 'dist', 'server', 'main.js');
 const CG_HOME = join(homedir(), '.commandgarden');
 const TOKEN_PATH = join(CG_HOME, 'session-token');
 const CONFIG_PATH = join(CG_HOME, 'config.yaml');
@@ -166,6 +169,49 @@ config
   .action(async (key: string, value: string) => {
     const client = createClient();
     console.log(await executeConfigSet(client, key, value));
+  });
+
+// --- gui ---
+const gui = program
+  .command('gui')
+  .description('Manage the GUI app server');
+
+gui
+  .command('start', { isDefault: true })
+  .description('Start the GUI (foreground by default)')
+  .option('-b, --background', 'Run in background')
+  .option('--no-open', 'Do not open browser')
+  .action(async (opts: { background?: boolean; open?: boolean }) => {
+    console.log(await executeGuiStart(BASE_URL, CG_HOME, APP_SCRIPT, {
+      background: opts.background,
+      noOpen: opts.open === false,
+      configPath: CONFIG_PATH,
+    }));
+  });
+
+gui
+  .command('stop')
+  .description('Stop the GUI')
+  .action(() => { console.log(executeGuiStop(CG_HOME)); });
+
+gui
+  .command('status')
+  .description('Check GUI status')
+  .action(() => { console.log(executeGuiStatus(CG_HOME)); });
+
+// --- up/down ---
+program
+  .command('up')
+  .description('Start daemon + GUI, open browser')
+  .action(async () => {
+    console.log(await executeUp(BASE_URL, CG_HOME, DAEMON_SCRIPT, APP_SCRIPT, CONFIG_PATH));
+  });
+
+program
+  .command('down')
+  .description('Stop GUI + daemon')
+  .action(async () => {
+    console.log(await executeDown(CG_HOME));
   });
 
 program.parse();

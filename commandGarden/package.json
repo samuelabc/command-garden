@@ -5,7 +5,8 @@
     "shared",
     "daemon",
     "cli",
-    "chrome"
+    "chrome",
+    "app"
   ],
   "scripts": {
     "test": "npm test --workspaces --if-present",

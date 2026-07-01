@@ -11,24 +11,27 @@ For the full design spec, see [`docs/superpowers/specs/2026-06-23-commandgarden-
 ## Architecture
 
 ```
-┌─────────────┐      HTTP       ┌──────────────┐    WebSocket    ┌───────────────────┐
-│  CLI Client  │ ──────────────→ │    Daemon    │ ←────────────→ │  Chrome Extension  │
-│  (Node.js)   │  localhost:19825│  (Fastify)   │                │  (MV3, TypeScript) │
-└─────────────┘                  └──────────────┘                └───────────────────┘
-       │                               │                                │
-       │  1. Send command               │  2. Validate token,           │  3. Execute pipeline
-       │     as HTTP POST               │     capabilities, domains     │     steps on page
-       │                               │     Log audit event           │
-       │                               │  4. Relay via WebSocket        │  4. Return structured
-       │                               │                               │     data
-       │                               ▼                               │
-       │                         ┌──────────────┐                      │
-       │  6. Receive response    │  Audit Log   │                      │
-       │     (table/json/csv)    │  (SQLite)    │  5. Relay response   │
-       │                         └──────────────┘     back to CLI      │
+┌─────────────┐                 ┌──────────────┐                 ┌───────────────────┐
+│  CLI Client  │      HTTP      │    Daemon    │    WebSocket    │  Chrome Extension  │
+│  (Node.js)   │ ─────────────→ │  (Fastify)   │ ←────────────→ │  (MV3, TypeScript) │
+└─────────────┘  localhost:19825└──────────────┘                 └───────────────────┘
+                                       ↑                                │
+┌─────────────┐      HTTP              │                                │
+│  GUI (React) │ ─→ ┌──────────────┐   │  Relay commands via HTTP       │  Execute pipeline
+│  SPA         │    │  App Server  │ ──┘                                │  steps on page
+└─────────────┘    │  (Fastify)   │                                    │
+                    │  :19826      │                                    │
+                    └──────────────┘                                    │
+                           │                                           │
+                     ┌──────────┐          ┌──────────────┐            │
+                     │  App DB  │          │  Audit Log   │            │
+                     │ (SQLite) │          │  (SQLite)    │            │
+                     └──────────┘          └──────────────┘            │
 ```
 
-**Data flow:** CLI sends a command → Daemon validates auth, domains, and capabilities → Daemon relays to the Chrome Extension via WebSocket → Extension runs the connector's pipeline steps on the target page → Structured data flows back through the Daemon to the CLI.
+**Data flow:** CLI or GUI sends a command → Daemon validates auth, domains, and capabilities → Daemon relays to the Chrome Extension via WebSocket → Extension runs the connector's pipeline steps on the target page → Structured data flows back through the Daemon to the CLI or GUI.
+
+The **App Server** (`:19826`) is the GUI's backend — it proxies daemon calls, enriches responses, and owns app-specific state (preferences, saved views). The GUI never talks to the daemon directly.
 
 ---
 
@@ -61,23 +64,35 @@ npm run build
 npm link --workspace=cli
 ```
 
-Build compiles all four workspace packages in dependency order: `shared` → `daemon` → `cli` → `chrome`.
+Build compiles all five workspace packages in dependency order: `shared` → `daemon` → `cli` → `chrome` → `app`.
 
 ---
 
 ## Setup
 
-### 1. Start the Daemon
+### 1. Quick start (daemon + GUI)
 
 ```bash
-# Option A: via the CLI
-cg daemon start
-
-# Option B: directly (from source builds)
-node daemon/dist/main.js
+cg up
 ```
 
-The daemon binds to `127.0.0.1:19825` by default and writes a session token to `~/.commandgarden/session-token`.
+This starts the daemon, starts the GUI app server, and opens the browser to `http://127.0.0.1:19826`. To stop everything: `cg down`.
+
+### 1b. Start components individually
+
+```bash
+# Daemon only
+cg daemon start
+
+# GUI only (requires daemon)
+cg gui --background
+
+# Or directly (from source builds)
+node daemon/dist/main.js
+node app/dist/server/main.js
+```
+
+The daemon binds to `127.0.0.1:19825` by default and writes a session token to `~/.commandgarden/session-token`. The GUI app server binds to `127.0.0.1:19826` (configurable via `app.port` in config.yaml).
 
 ### 2. Load the Chrome Extension
 
@@ -99,6 +114,21 @@ Expected output:
 ```
 Daemon is running on http://127.0.0.1:19825
 ```
+
+---
+
+## Web GUI
+
+The GUI provides a browser-based interface at `http://127.0.0.1:19826` with:
+
+- **Dashboard** — system health cards (daemon, extension, connectors) and recent activity
+- **Connectors** — browse all connectors with approval status badges, inline approve action for high-risk connectors, run any connector via an auto-generated form
+- **App pages** — dedicated UI for Time Tracking (month picker, summary cards, grouped-by-project table) and Room Availability (room combobox, timeline bar)
+- **Audit Log** — filterable, paginated event viewer with expandable pipeline step detail
+- **Configuration** — task-oriented settings page with Server, Connector Security (per-connector approval table with toggles), Connector Sources, Audit & Retention, and Output sections; includes a raw YAML editor and sticky save bar with dirty tracking
+- **Setup Guide** — interactive checklist with live status polling
+
+Start with `cg up` or `cg gui`. For the full design spec, see [`docs/superpowers/specs/2026-07-01-commandgarden-gui-design.md`](../docs/superpowers/specs/2026-07-01-commandgarden-gui-design.md).
 
 ---
 
@@ -318,9 +348,15 @@ cg config set daemon.port 9999
 cg config set audit.retentionDays 180
 ```
 
+Configuration can also be edited in the GUI at the **Configuration** page, which provides task-oriented sections with validation, a connector security table with per-connector approval toggles, and a raw YAML editor. Changes that affect the daemon host or port show a restart banner.
+
 ### Approving high-risk connectors
 
-Connectors that use `js_evaluate` or `cookie_write` are classified as **high-risk** and blocked by default. To allow a connector to run, add its key (`site/name`) to `security.approvedHighRisk` in `~/.commandgarden/config.yaml`:
+Connectors that use `js_evaluate` or `cookie_write` are classified as **high-risk** and blocked by default. There are three ways to approve a connector:
+
+1. **GUI — Configuration page:** Toggle the "Approved" switch in the Connector Security table
+2. **GUI — Connectors page:** Click the "Approve" button next to any blocked connector
+3. **CLI / config file:** Add its key (`site/name`) to `security.approvedHighRisk` in `~/.commandgarden/config.yaml`:
 
 ```yaml
 security:
@@ -384,6 +420,7 @@ npm test -w shared
 npm test -w daemon
 npm test -w cli
 npm test -w chrome
+npm test -w app
 ```
 
 ---
@@ -406,13 +443,14 @@ cd cli && npm publish --access public
 ```bash
 # From the commandGarden/ directory
 npm install
-npm run build          # all workspaces: shared → daemon → cli → chrome
+npm run build          # all workspaces: shared → daemon → cli → chrome → app
 
 # Or build individual packages
 npm run build -w shared
 npm run build -w daemon
 npm run build -w cli
 npm run build -w chrome
+npm run build -w app
 ```
 
 ### Starting the daemon (without `cg`)
@@ -460,11 +498,20 @@ npm link --workspace=cli
 
 After linking, use `cg` commands as documented in the [Setup](#setup) section.
 
+### GUI development
+
+```bash
+cd app && npm run dev
+```
+
+This starts Vite (HMR on `:5173`) and the app server (`tsx watch`) concurrently. The Vite dev server proxies `/api` requests to the app server on `:19826`.
+
 ### Watch mode for tests
 
 ```bash
 npm run test:watch -w daemon    # re-runs on file changes
 npm run test:watch -w chrome
+npm run test:watch -w app
 ```
 
 ---
@@ -480,10 +527,14 @@ commandGarden/
                  management, connector registry, capability validation,
                  audit store (SQLite), WebSocket relay to extension
   cli/           CLI client (Commander.js) — run, list, inspect, validate,
-                 daemon management, audit queries, config management
+                 daemon management, GUI management, audit queries, config
                  Published as @commandgarden/cli on npm
   chrome/        Chrome MV3 extension — service worker, content scripts,
                  domain guard, pipeline step execution engine
+  app/           Web GUI — Fastify app server (facade endpoints, SQLite
+                 store for preferences/views) + React SPA (Vite, Tailwind,
+                 DaisyUI) with 8 pages including custom app pages for
+                 timetracking and room availability
   connectors/    Built-in YAML connector definitions
   package.json   Workspace root (npm workspaces)
 ```

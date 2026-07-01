@@ -90,6 +90,16 @@ export async function createServer(deps: ServerDeps) {
     return { ok: true, event };
   });
 
+  app.get('/api/config', async () => {
+    const { readFileSync, existsSync } = await import('node:fs');
+    const { parse: parseYaml } = await import('yaml');
+    let config: Record<string, unknown> = {};
+    if (existsSync(deps.configPath)) {
+      config = (parseYaml(readFileSync(deps.configPath, 'utf-8')) as Record<string, unknown>) ?? {};
+    }
+    return { ok: true, config };
+  });
+
   const SSE_CONNECT_TIMEOUT_MS = 30_000;
   const sse = new SseManager();
 
@@ -290,13 +300,27 @@ export async function createServer(deps: ServerDeps) {
 
     if (!configObj[section]) configObj[section] = {};
     let parsed: unknown = body.value;
-    if (body.value === 'true') parsed = true;
-    else if (body.value === 'false') parsed = false;
-    else if (!isNaN(Number(body.value)) && body.value !== '') parsed = Number(body.value);
+    try { parsed = JSON.parse(body.value); } catch {
+      if (body.value === 'true') parsed = true;
+      else if (body.value === 'false') parsed = false;
+      else if (!isNaN(Number(body.value)) && body.value !== '') parsed = Number(body.value);
+    }
     configObj[section][prop] = parsed;
+
+    // Validate the entire config against the schema before writing
+    const { configSchema } = await import('./config.js');
+    const validation = configSchema.safeParse(configObj);
+    if (!validation.success) {
+      const issue = validation.error.issues[0];
+      reply.code(400).send({ ok: false, error: `Invalid config value: ${issue.path.join('.')} — ${issue.message}` });
+      return;
+    }
 
     mkdirSync(dirname(deps.configPath), { recursive: true });
     writeFileSync(deps.configPath, stringifyYaml(configObj), 'utf-8');
+
+    // Hot-reload: update in-memory config so changes take effect immediately
+    deps.config = validation.data;
 
     deps.auditStore.insert(createAuditEvent({
       type: 'config.changed', connector: '_system/config', user,
