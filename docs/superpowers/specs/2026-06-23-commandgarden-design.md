@@ -98,6 +98,53 @@ Seven capabilities a connector can declare:
 
 commandGarden never touches credentials. It reuses existing browser sessions via cookies. The extension reads cookies from Chrome's cookie store for declared domains only. Credentials never leave the browser.
 
+### 2.5 Step Approval (Confirmation Gate)
+
+Pipeline steps can require interactive user approval before execution. This is a runtime confirmation layer on top of the static `approvedHighRisk` config — even after a connector is approved to use a high-risk capability, individual steps can still pause for confirmation.
+
+**Configuration** (in `~/.commandgarden/config.yaml`, under `security`):
+
+| Field | Type | Description |
+|---|---|---|
+| `approvalRequired` | `string[]` | Capabilities that require user confirmation per step (e.g., `js_evaluate`, `dom_write`) |
+| `autoApproveConnectors` | `string[]` | Connector keys (`site/name`) that skip approval entirely |
+| `approvalTimeoutMs` | `number` | How long to wait for approval before aborting (default: 120000) |
+
+**Protocol**:
+
+1. Daemon checks if the connector's pipeline contains steps matching `approvalRequired` capabilities. If so, it returns HTTP 202 with a `requestId` and sets up an SSE stream at `/api/run/events/:requestId`.
+2. CLI connects to the SSE stream to receive approval events.
+3. Extension executes the pipeline. Before each step with a matching capability, it sends an `ApprovalRequest` to the daemon via WebSocket.
+4. Daemon fans out the request to the CLI (via SSE) and registers a pending approval with timeout.
+5. User approves/rejects via either:
+   - **CLI terminal** — interactive `y/n` prompt
+   - **Chrome extension popup** — Approve/Reject buttons
+6. Whichever surface responds first resolves the approval. The response propagates to both daemon and extension.
+7. If rejected, the pipeline aborts. If the timeout expires, the step is auto-rejected.
+
+**Message types**:
+
+```typescript
+interface ApprovalRequest {
+  type: 'approval.request';
+  approvalId: string;
+  requestId: string;
+  connectorKey: string;
+  stepIndex: number;
+  stepType: PipelineStepType;
+  capability: Capability;
+  description: string;
+}
+
+interface ApprovalResponse {
+  type: 'approval.response';
+  approvalId: string;
+  approved: boolean;
+}
+```
+
+**Relationship to `approvedHighRisk`**: `approvedHighRisk` is a static gate — connectors not on the list are blocked entirely from using high-risk capabilities. `approvalRequired` is a runtime gate — even approved connectors pause for per-step confirmation. Both can be active simultaneously.
+
 ---
 
 ## 3. Connector Format & Pipeline Engine
@@ -260,6 +307,9 @@ security:
     - js_evaluate
     - cookie_write
   approvedHighRisk: []              # connectors approved for high-risk capabilities
+  approvalRequired: []              # capabilities requiring per-step user confirmation
+  autoApproveConnectors: []         # connector keys that skip step approval
+  approvalTimeoutMs: 120000         # timeout before auto-rejecting (ms)
 
 connectors:
   paths:
