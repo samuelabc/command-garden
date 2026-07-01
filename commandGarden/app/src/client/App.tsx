@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import Dashboard from './pages/Dashboard';
@@ -61,10 +61,10 @@ function Layout() {
       )}
 
       <aside className={`w-56 bg-base-100 border-r border-base-300 flex flex-col fixed top-0 left-0 bottom-0 z-40 transition-transform duration-150 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="px-3 py-3 border-b border-base-300">
+        <Link to="/" className="block px-3 py-3 border-b border-base-300 hover:bg-base-200 transition-colors">
           <h1 className="font-display text-base font-bold tracking-tight"><span className="font-normal opacity-60">command</span>Garden</h1>
           <p className="font-mono text-[0.6rem] opacity-40 mt-0.5 uppercase tracking-widest">browser automation</p>
-        </div>
+        </Link>
         <nav className="flex-1 px-2 py-2 space-y-px overflow-y-auto">
           <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Overview</div>
           <NavLink to="/" end className={navClass}>Dashboard</NavLink>
