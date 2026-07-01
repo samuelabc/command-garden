@@ -122,10 +122,10 @@ Daemon is running on http://127.0.0.1:19825
 The GUI provides a browser-based interface at `http://127.0.0.1:19826` with:
 
 - **Dashboard** — system health cards (daemon, extension, connectors) and recent activity
-- **Connectors** — browse all connectors, run any connector via an auto-generated form
+- **Connectors** — browse all connectors with approval status badges, inline approve action for high-risk connectors, run any connector via an auto-generated form
 - **App pages** — dedicated UI for Time Tracking (month picker, summary cards, grouped-by-project table) and Room Availability (room combobox, timeline bar)
 - **Audit Log** — filterable, paginated event viewer with expandable pipeline step detail
-- **Configuration** — inline editor for all config sections
+- **Configuration** — task-oriented settings page with Server, Connector Security (per-connector approval table with toggles), Connector Sources, Audit & Retention, and Output sections; includes a raw YAML editor and sticky save bar with dirty tracking
 - **Setup Guide** — interactive checklist with live status polling
 
 Start with `cg up` or `cg gui`. For the full design spec, see [`docs/superpowers/specs/2026-07-01-commandgarden-gui-design.md`](../docs/superpowers/specs/2026-07-01-commandgarden-gui-design.md).
@@ -348,11 +348,15 @@ cg config set daemon.port 9999
 cg config set audit.retentionDays 180
 ```
 
-Configuration can also be edited in the GUI at the **Configuration** page.
+Configuration can also be edited in the GUI at the **Configuration** page, which provides task-oriented sections with validation, a connector security table with per-connector approval toggles, and a raw YAML editor. Changes that affect the daemon host or port show a restart banner.
 
 ### Approving high-risk connectors
 
-Connectors that use `js_evaluate` or `cookie_write` are classified as **high-risk** and blocked by default. To allow a connector to run, add its key (`site/name`) to `security.approvedHighRisk` in `~/.commandgarden/config.yaml`:
+Connectors that use `js_evaluate` or `cookie_write` are classified as **high-risk** and blocked by default. There are three ways to approve a connector:
+
+1. **GUI — Configuration page:** Toggle the "Approved" switch in the Connector Security table
+2. **GUI — Connectors page:** Click the "Approve" button next to any blocked connector
+3. **CLI / config file:** Add its key (`site/name`) to `security.approvedHighRisk` in `~/.commandgarden/config.yaml`:
 
 ```yaml
 security:
