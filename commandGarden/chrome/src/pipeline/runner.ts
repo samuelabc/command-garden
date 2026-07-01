@@ -1,7 +1,7 @@
 // src/pipeline/runner.ts
 import type {
   ConnectorDef, PipelineStep, PipelineStepType,
-  ExtensionResponse, ApprovalConfig,
+  ExtensionResponse, ApprovalConfig, StepSummary,
 } from '@commandgarden/shared';
 import { STEP_CAPABILITY_MAP } from '@commandgarden/shared';
 import type { Capability } from '@commandgarden/shared';
@@ -50,11 +50,14 @@ export class PipelineRunner {
   ): Promise<ExtensionResponse> {
     const ctx = new PipelineContext(args);
     let tabId = -1;
+    const stepSummaries: StepSummary[] = [];
 
     try {
       for (let i = 0; i < connector.pipeline.length; i++) {
         const step = connector.pipeline[i];
         await this.checkApproval(step, i);
+        const stepStart = Date.now();
+        try {
         switch (step.step) {
           case 'navigate': {
             const url = ctx.interpolate(step.url);
@@ -127,10 +130,24 @@ export class PipelineRunner {
             ctx.applyFilter(step.field, step.operator, ctx.interpolate(step.value));
             break;
         }
+        stepSummaries.push({
+          step: step.step, index: i,
+          capability: STEP_CAPABILITY_MAP[step.step] ?? undefined,
+          durationMs: Date.now() - stepStart,
+        });
+        } catch (err) {
+          stepSummaries.push({
+            step: step.step, index: i,
+            capability: STEP_CAPABILITY_MAP[step.step] ?? undefined,
+            durationMs: Date.now() - stepStart,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          throw err;
+        }
       }
-      return { id: '', ok: true, data: ctx.getData() };
+      return { id: '', ok: true, data: ctx.getData(), steps: stepSummaries };
     } catch (err) {
-      return { id: '', ok: false, data: [], error: err instanceof Error ? err.message : String(err) };
+      return { id: '', ok: false, data: [], error: err instanceof Error ? err.message : String(err), steps: stepSummaries };
     }
   }
 }
