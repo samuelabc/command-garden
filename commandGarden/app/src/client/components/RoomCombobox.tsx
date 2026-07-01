@@ -95,7 +95,7 @@ export function RoomCombobox({ value, onChange }: RoomComboboxProps) {
   return (
     <div ref={containerRef} className="relative w-full">
       <input
-        className="input input-bordered w-full"
+        className="input input-bordered input-sm w-full"
         placeholder="Search or type a room name…"
         value={value}
         onChange={(e) => {
@@ -116,7 +116,7 @@ export function RoomCombobox({ value, onChange }: RoomComboboxProps) {
           ref={listRef}
           id="room-listbox"
           role="listbox"
-          className="menu dropdown-content bg-base-200 rounded-box z-10 mt-1 max-h-60 w-full overflow-y-auto shadow-lg absolute"
+          className="menu dropdown-content bg-base-200 z-10 mt-1 max-h-60 w-full overflow-y-auto border border-base-300 absolute"
         >
           {filtered.map((room, i) => (
             <li key={room} role="option" aria-selected={i === highlightIndex}>
