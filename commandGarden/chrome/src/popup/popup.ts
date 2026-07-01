@@ -108,5 +108,11 @@ toggleInput.addEventListener('change', () => {
   });
 });
 
+// Listen for push updates from the service worker (approval state changes)
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'approvalUpdate') {
+    renderApprovals(msg.pendingApprovals ?? []);
+  }
+});
+
 fetchStatus();
-setInterval(fetchStatus, 2000);

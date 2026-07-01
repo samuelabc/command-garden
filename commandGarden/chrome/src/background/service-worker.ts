@@ -36,11 +36,18 @@ function resolveApproval(approvalId: string, approved: boolean): void {
     pendingApprovalInfos.delete(approvalId);
     resolve(approved);
     updateBadge();
+    broadcastApprovalUpdate();
   }
 }
 
 function getPendingApprovalsList(): ApprovalInfo[] {
   return Array.from(pendingApprovalInfos.values());
+}
+
+function broadcastApprovalUpdate(): void {
+  chrome.runtime.sendMessage(
+    { type: 'approvalUpdate', pendingApprovals: getPendingApprovalsList() },
+  ).catch(() => { /* popup may not be open */ });
 }
 
 // Handle approval responses from daemon (user approved/rejected via CLI)
@@ -57,6 +64,7 @@ function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: 
       approvalId, connectorKey, stepIndex, stepType, capability,
     });
     updateBadge();
+    broadcastApprovalUpdate();
 
     // Send approval request to daemon (which fans it out to CLI via SSE)
     const approvalRequest: ApprovalRequest = {
