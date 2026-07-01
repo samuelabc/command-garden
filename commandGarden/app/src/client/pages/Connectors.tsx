@@ -10,7 +10,9 @@ export default function Connectors() {
   const [approvingKey, setApprovingKey] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    Promise.all([api.getConnectors(), api.getConfig()])
+    const connP = api.getConnectors();
+    const configP = api.getConfig().catch(() => ({ ok: false, config: {} }) as { ok: boolean; config: Record<string, Record<string, unknown>> });
+    Promise.all([connP, configP])
       .then(([connRes, configRes]) => {
         setConnectors(connRes.connectors);
         const security = (configRes.config.security ?? {}) as Record<string, unknown>;

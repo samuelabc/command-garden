@@ -69,7 +69,9 @@ export default function Config() {
   const [rawError, setRawError] = useState('');
 
   useEffect(() => {
-    Promise.all([api.getConfig(), api.getConnectors()])
+    const configP = api.getConfig().catch(() => ({ ok: false, config: {} }) as { ok: boolean; config: Record<string, Record<string, unknown>> });
+    const connP = api.getConnectors().catch(() => ({ ok: false, connectors: [] }) as { ok: boolean; connectors: Connector[] });
+    Promise.all([configP, connP])
       .then(([configRes, connRes]) => {
         const state = configFromRaw(configRes.config);
         setSaved(state);
