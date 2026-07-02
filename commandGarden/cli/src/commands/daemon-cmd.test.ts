@@ -10,6 +10,8 @@ vi.mock('node:fs', () => ({
   existsSync: vi.fn(),
   unlinkSync: vi.fn(),
   mkdirSync: vi.fn(),
+  openSync: vi.fn().mockReturnValue(3),
+  closeSync: vi.fn(),
 }));
 
 vi.mock('node:child_process', () => ({
@@ -45,31 +47,74 @@ describe('executeDaemonStatus', () => {
 
 describe('executeDaemonStart', () => {
   beforeEach(() => { vi.stubGlobal('fetch', vi.fn()); });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-  it('spawns daemon process', async () => {
-    const fakeChild = {
-      pid: 12345,
-      unref: vi.fn(),
-      on: vi.fn(),
-      stderr: { on: vi.fn() },
-    } as unknown as ChildProcess;
+  it('spawns daemon process and waits for ready', async () => {
+    const fakeChild = { pid: 12345, unref: vi.fn(), on: vi.fn(), stderr: { on: vi.fn() } } as unknown as ChildProcess;
     vi.mocked(spawn).mockReturnValue(fakeChild);
     vi.mocked(existsSync).mockReturnValue(false);
-    vi.mocked(globalThis.fetch).mockRejectedValue(new Error('ECONNREFUSED'));
 
-    const output = await executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
-    expect(output).toContain('started');
+    let fetchCount = 0;
+    vi.mocked(globalThis.fetch).mockImplementation(() => {
+      fetchCount++;
+      if (fetchCount <= 1) return Promise.reject(new Error('ECONNREFUSED'));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response);
+    });
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const result = await executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
+    expect(result.status).toBe('started');
+    expect(result.pid).toBe(12345);
+    expect(result.message).toContain('12345');
     expect(spawn).toHaveBeenCalled();
   });
 
-  it('reports if already running', async () => {
-    vi.mocked(globalThis.fetch).mockResolvedValue({
-      ok: true, json: () => Promise.resolve({ ok: true }),
-    } as Response);
+  it('reports failure when daemon process crashes', async () => {
+    const fakeChild = { pid: 12345, unref: vi.fn(), on: vi.fn(), stderr: { on: vi.fn() } } as unknown as ChildProcess;
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('EADDRINUSE: address already in use');
+    vi.mocked(globalThis.fetch).mockRejectedValue(new Error('ECONNREFUSED'));
+    vi.spyOn(process, 'kill').mockImplementation(() => { throw new Error('ESRCH'); });
 
-    const output = await executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
-    expect(output).toContain('already running');
+    const result = await executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
+    expect(result.status).toBe('failed');
+    expect(result.message).toContain('failed to start');
+    expect(result.message).toContain('EADDRINUSE');
+  });
+
+  it('reports unresponsive on timeout without crash', async () => {
+    vi.useFakeTimers();
+    const fakeChild = { pid: 12345, unref: vi.fn(), on: vi.fn(), stderr: { on: vi.fn() } } as unknown as ChildProcess;
+    vi.mocked(spawn).mockReturnValue(fakeChild);
+    vi.mocked(existsSync).mockReturnValue(false);
+    vi.mocked(globalThis.fetch).mockRejectedValue(new Error('ECONNREFUSED'));
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const resultPromise = executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+    expect(result.status).toBe('unresponsive');
+    expect(result.message).toContain('not responding');
+    vi.useRealTimers();
+  });
+
+  it('reports if already running', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response);
+    const result = await executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
+    expect(result.status).toBe('already-running');
+  });
+
+  it('returns locked status when another instance holds the lock', async () => {
+    vi.mocked(globalThis.fetch).mockRejectedValue(new Error('ECONNREFUSED'));
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('999');
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const result = await executeDaemonStart('http://127.0.0.1:19825', '/fake/home/.commandgarden', '/fake/daemon/main.js');
+    expect(result.status).toBe('locked');
+    expect(result.message).toContain('999');
+    expect(spawn).not.toHaveBeenCalled();
   });
 });
 
