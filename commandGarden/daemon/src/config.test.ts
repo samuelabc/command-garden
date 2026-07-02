@@ -1,7 +1,7 @@
 // src/config.test.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { tmpdir } from 'node:os';
 import { loadConfig, configSchema, expandHome } from './config.js';
 
@@ -30,6 +30,21 @@ describe('configSchema', () => {
 
   it('rejects invalid output format', () => {
     expect(configSchema.safeParse({ output: { defaultFormat: 'xml' } }).success).toBe(false);
+  });
+
+  it('includes an absolute, cwd-independent bundled connectors directory as the first default path', () => {
+    const originalCwd = process.cwd();
+    process.chdir(tmpdir());
+    try {
+      const c = configSchema.parse({});
+      expect(c.connectors.paths).toHaveLength(2);
+      expect(isAbsolute(c.connectors.paths[0])).toBe(true);
+      expect(c.connectors.paths[0]).toContain('connectors');
+      expect(c.connectors.paths[0]).not.toBe('./connectors');
+      expect(c.connectors.paths[1]).toBe('~/.commandgarden/connectors');
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 });
 
