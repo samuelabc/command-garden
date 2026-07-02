@@ -10,15 +10,15 @@ The CLI is a single published npm package that ships three private workspace pac
 
 | Package | Role | Bundled via |
 |---|---|---|
-| `@commandgarden/shared` | Types, schemas, utilities | `bundleDependencies` + tsup `noExternal` |
+| `@commandgarden/shared` | Types, schemas, utilities | `bundleDependencies` + tsup `noExternal` (inlined into CLI bundle) |
 | `@commandgarden/daemon` | Local HTTP/WS server (Fastify + SQLite) | `bundleDependencies` |
 | `@commandgarden/app` | Web GUI server + SPA assets | `bundleDependencies` |
 
-**Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining `@commandgarden/shared`.
+**Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining all JS dependencies the CLI imports (`commander`, `cli-table3`, `yaml`, `zod` via shared, `@commandgarden/shared`). Native addons (`better-sqlite3`) stay external. This makes the CLI self-contained for `npm link` and global installs.
 
 **Pack-time:** The `prepack` script (`scripts/prepare-bundle.mjs`) copies workspace packages into `cli/node_modules/@commandgarden/` so `npm pack` includes them via `bundleDependencies`.
 
-**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies (`fastify`, `better-sqlite3`, etc.) from the registry normally.
+**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies (`fastify`, `better-sqlite3`, etc.) from the registry normally. These deps are needed by the daemon and app child processes, not by the CLI bundle itself.
 
 **Run-time:** The CLI resolves the daemon and app entry points via `createRequire` from `node_modules/@commandgarden/daemon` and `@commandgarden/app`.
 
@@ -180,18 +180,20 @@ The daemon and app are private workspace packages that can't be installed from t
 
 The daemon and app run as **separate Node.js processes** (spawned via `child_process.spawn`). They can't be bundled into the CLI's main entry point. Additionally, `better-sqlite3` is a native addon that cannot be bundled by esbuild/tsup.
 
+Note: the CLI's own JS dependencies (commander, yaml, zod, etc.) ARE bundled into `dist/main.js` via tsup's `noExternal`. These same packages remain listed in `dependencies` because the daemon/app child processes need them installed in `node_modules/`.
+
 ### Dependency hoisting
 
 The CLI's `dependencies` includes all runtime dependencies needed by the daemon, app, and shared packages:
 
 ```
 CLI dependencies:
-  cli-table3, commander              ← CLI's own deps
-  fastify, @fastify/websocket        ← daemon deps
-  @fastify/static                    ← app deps
-  better-sqlite3                     ← daemon + app deps
-  yaml                               ← shared across all
-  zod                                ← shared's dep
+  cli-table3, commander              ← CLI's own deps (also bundled into dist/main.js)
+  fastify, @fastify/websocket        ← daemon deps (external, needed at install time)
+  @fastify/static                    ← app deps (external, needed at install time)
+  better-sqlite3                     ← daemon + app deps (native addon, always external)
+  yaml                               ← shared across all (bundled into CLI, installed for daemon/app)
+  zod                                ← shared's dep (bundled into CLI, installed for daemon/app)
 ```
 
 These are installed by npm at the top level, where Node's module resolution finds them when the daemon or app process imports them.

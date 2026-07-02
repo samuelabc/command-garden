@@ -24,8 +24,17 @@ export class DaemonClient {
   }
 
   async status(): Promise<{ ok: boolean; extensionConnected: boolean; connectorCount: number }> {
-    const resp = await this.rawFetch('/api/status', { method: 'GET' });
-    return resp.json() as Promise<{ ok: boolean; extensionConnected: boolean; connectorCount: number }>;
+    let resp: Response;
+    try {
+      resp = await this.rawFetch('/api/status', { method: 'GET' });
+    } catch {
+      throw new Error('Cannot connect to daemon. Is it running? Try: commandgarden daemon start');
+    }
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error((data as Record<string, string>).error ?? `HTTP ${resp.status}`);
+    }
+    return data as { ok: boolean; extensionConnected: boolean; connectorCount: number };
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {

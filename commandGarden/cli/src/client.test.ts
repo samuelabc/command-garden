@@ -89,4 +89,17 @@ describe('DaemonClient', () => {
     );
     expect(result.ok).toBe(true);
   });
+
+  it('status() throws on network error', async () => {
+    mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
+    await expect(client.status()).rejects.toThrow('Cannot connect to daemon');
+  });
+
+  it('status() throws on HTTP error', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false, status: 500,
+      json: () => Promise.resolve({ error: 'Internal error' }),
+    });
+    await expect(client.status()).rejects.toThrow('Internal error');
+  });
 });

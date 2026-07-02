@@ -1,7 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
-import { exec } from 'node:child_process';
 import { parse as parseYaml } from 'yaml';
 
 function readAppPort(configPath: string): number {
@@ -106,6 +105,10 @@ async function waitForServer(url: string, child: ChildProcess): Promise<boolean>
 }
 
 function openBrowser(url: string): void {
-  const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-  exec(`${cmd} ${url}`);
+  const child = process.platform === 'darwin'
+    ? spawn('open', [url], { stdio: 'ignore' })
+    : process.platform === 'win32'
+      ? spawn('cmd', ['/c', 'start', '', url], { stdio: 'ignore' })
+      : spawn('xdg-open', [url], { stdio: 'ignore' });
+  child.unref();
 }

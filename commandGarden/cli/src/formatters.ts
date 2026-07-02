@@ -18,7 +18,7 @@ export function formatJson(
   return JSON.stringify({ ok: true, connector, rowCount: data.length, columns, data }, null, 2);
 }
 
-function escapeCsvField(value: unknown): string {
+export function escapeCsvField(value: unknown): string {
   const str = String(value ?? '');
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;

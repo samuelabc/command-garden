@@ -1,6 +1,6 @@
 // src/formatters.test.ts
 import { describe, it, expect } from 'vitest';
-import { formatTable, formatJson, formatCsv, format } from './formatters.js';
+import { formatTable, formatJson, formatCsv, format, escapeCsvField } from './formatters.js';
 
 const DATA = [
   { date: '2026-06-01', project: 'Alpha', hours: 8 },
@@ -54,6 +54,29 @@ describe('formatCsv', () => {
   it('returns just header for empty data', () => {
     const out = formatCsv([], COLUMNS);
     expect(out.trim()).toBe('date,project,hours');
+  });
+});
+
+describe('escapeCsvField', () => {
+  it('returns plain string unchanged', () => {
+    expect(escapeCsvField('hello')).toBe('hello');
+  });
+
+  it('wraps and escapes commas', () => {
+    expect(escapeCsvField('a,b')).toBe('"a,b"');
+  });
+
+  it('wraps and escapes quotes', () => {
+    expect(escapeCsvField('say "hi"')).toBe('"say ""hi"""');
+  });
+
+  it('wraps newlines', () => {
+    expect(escapeCsvField('line1\nline2')).toBe('"line1\nline2"');
+  });
+
+  it('handles null/undefined', () => {
+    expect(escapeCsvField(null)).toBe('');
+    expect(escapeCsvField(undefined)).toBe('');
   });
 });
 

@@ -1,16 +1,129 @@
-import { describe, it, expect } from 'vitest';
-import { executeGuiStatus, executeGuiStop } from './gui-cmd.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdirSync, openSync, closeSync } from 'node:fs';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { executeGuiStart, executeGuiStop, executeGuiStatus } from './gui-cmd.js';
 
-describe('gui-cmd', () => {
-  describe('executeGuiStatus', () => {
-    it('reports not running when no PID file', () => {
-      expect(executeGuiStatus('/nonexistent')).toBe('GUI: not running (no PID file found).');
-    });
+vi.mock('node:fs', () => ({
+  readFileSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  existsSync: vi.fn(),
+  unlinkSync: vi.fn(),
+  mkdirSync: vi.fn(),
+  openSync: vi.fn().mockReturnValue(3),
+  closeSync: vi.fn(),
+}));
+
+vi.mock('node:child_process', () => ({
+  spawn: vi.fn(),
+}));
+
+function fakeChild(pid = 88888): ChildProcess {
+  const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
+  return {
+    pid,
+    unref: vi.fn(),
+    on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+      (listeners[event] ??= []).push(cb);
+    }),
+    stderr: { on: vi.fn() },
+  } as unknown as ChildProcess;
+}
+
+describe('executeGuiStatus', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('reports not running when no PID file', () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+    expect(executeGuiStatus('/fake/.cg')).toBe('GUI: not running (no PID file found).');
   });
 
-  describe('executeGuiStop', () => {
-    it('reports not running when no PID file', () => {
-      expect(executeGuiStop('/nonexistent')).toBe('GUI is not running (no PID file found).');
-    });
+  it('reports running when process is alive', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    expect(executeGuiStatus('/fake/.cg')).toContain('running (PID: 12345)');
+    killSpy.mockRestore();
+  });
+
+  it('reports stale PID when process is dead', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => { throw new Error('ESRCH'); });
+    expect(executeGuiStatus('/fake/.cg')).toContain('stale PID');
+    killSpy.mockRestore();
+  });
+});
+
+describe('executeGuiStop', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('reports not running when no PID file', () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+    expect(executeGuiStop('/fake/.cg')).toBe('GUI is not running (no PID file found).');
+  });
+
+  it('stops process via PID', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    const output = executeGuiStop('/fake/.cg');
+    expect(output).toContain('stopped');
+    expect(killSpy).toHaveBeenCalledWith(12345, 'SIGTERM');
+    killSpy.mockRestore();
+  });
+
+  it('cleans up stale PID file', () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => { throw new Error('ESRCH'); });
+    const output = executeGuiStop('/fake/.cg');
+    expect(output).toContain('stale PID');
+    expect(unlinkSync).toHaveBeenCalled();
+    killSpy.mockRestore();
+  });
+});
+
+describe('executeGuiStart', () => {
+  let mockFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+    vi.mocked(existsSync).mockReturnValue(false);
+    vi.mocked(spawn).mockReturnValue(fakeChild());
+  });
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+  it('returns error when daemon is not running', async () => {
+    mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
+    const output = await executeGuiStart(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true },
+    );
+    expect(output).toContain('Daemon is not running');
+  });
+
+  it('reports already running when PID is alive', async () => {
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const output = await executeGuiStart(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
+    );
+    expect(output).toContain('already running');
+    killSpy.mockRestore();
+  });
+
+  it('starts in background and writes PID', async () => {
+    // Daemon is running
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+
+    const output = await executeGuiStart(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
+    );
+    expect(output).toContain('started');
+    expect(spawn).toHaveBeenCalledWith('node', ['/fake/app.js'], expect.anything());
+    expect(writeFileSync).toHaveBeenCalled();
   });
 });

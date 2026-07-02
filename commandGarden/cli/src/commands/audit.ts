@@ -2,6 +2,7 @@
 import Table from 'cli-table3';
 import type { DaemonClient } from '../client.js';
 import type { AuditEvent } from '@commandgarden/shared';
+import { escapeCsvField } from '../formatters.js';
 
 interface AuditFilter {
   since?: string;
@@ -77,16 +78,9 @@ export async function executeAuditExport(
     const rows = resp.events.map(e =>
       AUDIT_COLUMNS.map(col => {
         const val = (e as unknown as Record<string, unknown>)[col];
-        let str: string;
-        if (val === null || val === undefined) {
-          str = '';
-        } else if (typeof val === 'object') {
-          str = JSON.stringify(val);
-        } else {
-          str = String(val);
-        }
-        return str.includes(',') || str.includes('"') || str.includes('\n')
-          ? `"${str.replace(/"/g, '""')}"` : str;
+        if (val === null || val === undefined) return '';
+        const raw = typeof val === 'object' ? JSON.stringify(val) : val;
+        return escapeCsvField(raw);
       }).join(','),
     );
     return [header, ...rows].join('\n') + '\n';
