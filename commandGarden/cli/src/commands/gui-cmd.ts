@@ -36,7 +36,7 @@ export async function executeGuiStart(
     const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
     if (isProcessAlive(pid)) {
       const message = 'GUI is already running.';
-      if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`);
+      if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`, cgHome);
       return opts.background ? { status: 'already-running', message } : message;
     }
     unlinkSync(pidPath);
@@ -77,7 +77,7 @@ export async function executeGuiStart(
       });
 
       if (outcome === 'ready') {
-        openBrowser(appUrl);
+        openBrowser(appUrl, cgHome);
         return { status: 'started', message: `GUI started (PID: ${child.pid ?? 'unknown'}).`, pid: child.pid };
       }
       if (child.pid) try { process.kill(child.pid, 'SIGTERM'); } catch { /* already dead */ }
@@ -93,7 +93,7 @@ export async function executeGuiStart(
   if (!opts.noOpen) {
     const appUrl = `http://127.0.0.1:${appPort}`;
     const ready = await waitForServer(appUrl, child);
-    if (ready) openBrowser(appUrl);
+    if (ready) openBrowser(appUrl, cgHome);
   }
   await new Promise<void>((resolve) => child.on('exit', () => resolve()));
   return 'GUI stopped.';
@@ -135,13 +135,24 @@ async function waitForServer(url: string, child: ChildProcess): Promise<boolean>
   return false;
 }
 
-function openBrowser(url: string): void {
+function openBrowser(url: string, cgHome: string): void {
   console.error('Opening browser...');
-  const child = process.platform === 'darwin'
-    ? spawn('open', [url], { stdio: 'ignore' })
+  const logPath = join(cgHome, 'browser.log');
+  const log = (line: string): void => {
+    try { writeFileSync(logPath, `[${new Date().toISOString()}] ${line}\n`, { flag: 'a' }); } catch { /* best-effort */ }
+  };
+
+  const [command, args]: [string, string[]] = process.platform === 'darwin'
+    ? ['open', [url]]
     : process.platform === 'win32'
-      ? spawn('cmd', ['/c', 'start', '', url], { stdio: 'ignore' })
-      : spawn('xdg-open', [url], { stdio: 'ignore' });
-  child.on('error', () => { /* best-effort; ignore if no browser opener is available */ });
+      ? ['cmd', ['/c', 'start', '', url]]
+      : ['xdg-open', [url]];
+  log(`platform=${process.platform} spawning: ${command} ${JSON.stringify(args)}`);
+
+  const child = spawn(command, args, { stdio: 'ignore', detached: true });
+  log(`spawned pid=${child.pid ?? 'unknown'}`);
+  child.on('spawn', () => log('event: spawn (process launched)'));
+  child.on('error', (err) => log(`event: error ${err instanceof Error ? err.stack ?? err.message : String(err)}`));
+  child.on('exit', (code, signal) => log(`event: exit code=${code} signal=${signal}`));
   child.unref();
 }
