@@ -45,7 +45,7 @@ export async function executeDaemonStart(baseUrl: string, cgHome: string, daemon
     console.error('Starting daemon...');
 
     const logFd = openSync(logPath, 'a');
-    const child = spawn('node', [daemonScript], { detached: true, stdio: ['ignore', logFd, logFd] });
+    const child = spawn('node', [daemonScript], { detached: true, stdio: ['ignore', logFd, logFd], cwd: cgHome });
     closeSync(logFd);
 
     let spawnFailed = false;

@@ -329,7 +329,6 @@ security:
 
 connectors:
   paths:
-    - "./connectors"
     - "~/.commandgarden/connectors"
 
 audit:
@@ -474,7 +473,7 @@ npm start -w daemon
 The daemon will:
 - Bind to `127.0.0.1:19825`
 - Write a session token to `~/.commandgarden/session-token`
-- Load connectors from `./connectors` and `~/.commandgarden/connectors`
+- Load connectors from `~/.commandgarden/connectors` (the daemon always runs with this as its working directory, regardless of where `cg` was launched from; add repo-relative or absolute paths to `connectors.paths` in `config.yaml` for monorepo-local development)
 
 To verify it's running, hit the status endpoint:
 

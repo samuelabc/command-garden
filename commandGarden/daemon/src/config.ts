@@ -19,7 +19,7 @@ export const configSchema = z.object({
     approvalTimeoutMs: z.number().int().positive().default(120_000),
   }).default({}),
   connectors: z.object({
-    paths: z.array(z.string()).default(['./connectors', '~/.commandgarden/connectors']),
+    paths: z.array(z.string()).default(['~/.commandgarden/connectors']),
   }).default({}),
   audit: z.object({
     retentionDays: z.number().int().positive().default(90),
