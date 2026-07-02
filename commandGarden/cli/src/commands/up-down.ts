@@ -1,22 +1,21 @@
 import { executeDaemonStart, executeDaemonStop } from './daemon-cmd.js';
 import { executeGuiStart, executeGuiStop } from './gui-cmd.js';
+import type { LifecycleStartResult } from './lifecycle-types.js';
 
 export async function executeUp(
   baseUrl: string, cgHome: string, daemonScript: string, appScript: string, configPath: string,
 ): Promise<string> {
   const lines: string[] = [];
-  lines.push(await executeDaemonStart(baseUrl, cgHome, daemonScript));
+  const daemonResult = await executeDaemonStart(baseUrl, cgHome, daemonScript);
+  lines.push(daemonResult.message);
 
-  // Wait for daemon to be ready
-  for (let i = 0; i < 10; i++) {
-    try {
-      const resp = await fetch(`${baseUrl}/api/status`);
-      if (resp.ok) break;
-    } catch { /* not ready yet */ }
-    await new Promise((r) => setTimeout(r, 500));
+  const canProceed = daemonResult.status === 'started' || daemonResult.status === 'already-running';
+  if (!canProceed) {
+    return lines.join('\n');
   }
 
-  lines.push(await executeGuiStart(baseUrl, cgHome, appScript, { background: true, configPath }));
+  const guiResult = await executeGuiStart(baseUrl, cgHome, appScript, { background: true, configPath });
+  lines.push(typeof guiResult === 'string' ? guiResult : (guiResult as LifecycleStartResult).message);
   return lines.join('\n');
 }
 

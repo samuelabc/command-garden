@@ -40,13 +40,14 @@ describe('executeUp', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it('starts daemon then GUI', async () => {
-    // Daemon start: first fetch fails (not running), subsequent succeed
     let fetchCount = 0;
     mockFetch.mockImplementation(() => {
       fetchCount++;
       if (fetchCount <= 1) return Promise.reject(new Error('ECONNREFUSED'));
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) });
     });
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+    vi.mocked(existsSync).mockReturnValue(false);
 
     const output = await executeUp(
       'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
@@ -56,15 +57,27 @@ describe('executeUp', () => {
   });
 
   it('reports daemon already running and still starts GUI', async () => {
-    // Daemon is already running (fetch succeeds immediately)
-    mockFetch.mockResolvedValue({
-      ok: true, json: () => Promise.resolve({ ok: true }),
-    } as Response);
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response);
+    vi.mocked(existsSync).mockReturnValue(false);
 
     const output = await executeUp(
       'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
     );
     expect(output).toContain('already running');
+  });
+
+  it('does not start GUI when daemon fails to start', async () => {
+    // Pre-check fails (not running); process dies immediately during poll
+    mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
+    vi.mocked(existsSync).mockReturnValue(false);
+    vi.spyOn(process, 'kill').mockImplementation(() => { throw new Error('ESRCH'); });
+
+    const output = await executeUp(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+    );
+    expect(output).toContain('failed to start');
+    // spawn was called once for the daemon attempt, never a second time for GUI
+    expect(spawn).toHaveBeenCalledTimes(1);
   });
 });
 
