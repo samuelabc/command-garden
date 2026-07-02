@@ -36,6 +36,7 @@ export async function executeGuiStart(
     const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
     if (isProcessAlive(pid)) {
       const message = 'GUI is already running.';
+      if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`);
       return opts.background ? { status: 'already-running', message } : message;
     }
     unlinkSync(pidPath);
@@ -135,10 +136,12 @@ async function waitForServer(url: string, child: ChildProcess): Promise<boolean>
 }
 
 function openBrowser(url: string): void {
+  console.error('Opening browser...');
   const child = process.platform === 'darwin'
     ? spawn('open', [url], { stdio: 'ignore' })
     : process.platform === 'win32'
       ? spawn('cmd', ['/c', 'start', '', url], { stdio: 'ignore' })
       : spawn('xdg-open', [url], { stdio: 'ignore' });
+  child.on('error', () => { /* best-effort; ignore if no browser opener is available */ });
   child.unref();
 }

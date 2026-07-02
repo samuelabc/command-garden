@@ -85,12 +85,14 @@ describe('executeGuiStop', () => {
 
 describe('executeGuiStart', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
+  let child: ReturnType<typeof fakeChild>;
 
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
     vi.mocked(existsSync).mockReturnValue(false);
-    vi.mocked(spawn).mockReturnValue(fakeChild());
+    child = fakeChild();
+    vi.mocked(spawn).mockReturnValue(child);
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -113,6 +115,55 @@ describe('executeGuiStart', () => {
       'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('already-running');
+    killSpy.mockRestore();
+  });
+
+  it('opens browser when already running and noOpen is not set', async () => {
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const result = await executeGuiStart(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true },
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
+    expect(result.status).toBe('already-running');
+    expect(spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([expect.stringContaining('19826')]),
+      expect.anything(),
+    );
+    killSpy.mockRestore();
+  });
+
+  it('does not throw when the browser-opener process errors', async () => {
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    await executeGuiStart('http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true });
+
+    const onMock = child.on as unknown as ReturnType<typeof vi.fn>;
+    const errorHandler = onMock.mock.calls.find(([event]: [string]) => event === 'error')?.[1];
+    expect(errorHandler).toBeDefined();
+    expect(() => errorHandler(new Error('ENOENT'))).not.toThrow();
+    killSpy.mockRestore();
+  });
+
+  it('opens browser after a fresh start becomes ready', async () => {
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const result = await executeGuiStart(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true },
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
+    expect(result.status).toBe('started');
+    expect(spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([expect.stringContaining('19826')]),
+      expect.anything(),
+    );
     killSpy.mockRestore();
   });
 

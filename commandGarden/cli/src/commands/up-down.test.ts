@@ -66,6 +66,57 @@ describe('executeUp', () => {
     expect(output).toContain('already running');
   });
 
+  it('opens browser by default when GUI is already running', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response);
+    vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith('app.pid'));
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    await executeUp(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+    );
+    expect(spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([expect.stringContaining('19826')]),
+      expect.anything(),
+    );
+  });
+
+  it('skips opening browser when noOpen is set, even when GUI is already running', async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response);
+    vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith('app.pid'));
+    vi.mocked(readFileSync).mockReturnValue('12345');
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    await executeUp(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      { noOpen: true },
+    );
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it('skips opening browser on fresh start when noOpen is set', async () => {
+    let fetchCount = 0;
+    mockFetch.mockImplementation(() => {
+      fetchCount++;
+      if (fetchCount <= 1) return Promise.reject(new Error('ECONNREFUSED'));
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) });
+    });
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    await executeUp(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      { noOpen: true },
+    );
+    // spawn called for daemon + app process, but never with a browser-open command containing the app URL
+    expect(spawn).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([expect.stringContaining('19826')]),
+      expect.anything(),
+    );
+  });
+
   it('does not start GUI when daemon fails to start', async () => {
     // Pre-check fails (not running); process dies immediately during poll
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));

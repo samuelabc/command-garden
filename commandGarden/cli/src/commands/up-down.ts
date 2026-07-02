@@ -4,6 +4,7 @@ import type { LifecycleStartResult } from './lifecycle-types.js';
 
 export async function executeUp(
   baseUrl: string, cgHome: string, daemonScript: string, appScript: string, configPath: string,
+  opts: { noOpen?: boolean } = {},
 ): Promise<string> {
   const lines: string[] = [];
   const daemonResult = await executeDaemonStart(baseUrl, cgHome, daemonScript);
@@ -14,7 +15,9 @@ export async function executeUp(
     return lines.join('\n');
   }
 
-  const guiResult = await executeGuiStart(baseUrl, cgHome, appScript, { background: true, configPath });
+  const guiResult = await executeGuiStart(baseUrl, cgHome, appScript, {
+    background: true, configPath, noOpen: opts.noOpen,
+  });
   lines.push(typeof guiResult === 'string' ? guiResult : (guiResult as LifecycleStartResult).message);
   return lines.join('\n');
 }

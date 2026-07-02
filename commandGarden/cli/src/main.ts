@@ -224,9 +224,12 @@ gui
 // --- up/down ---
 program
   .command('up')
-  .description('Start daemon + GUI, open browser')
-  .action(async () => {
-    console.log(await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), CONFIG_PATH));
+  .description('Start daemon + GUI, open browser (use --no-open to skip)')
+  .option('--no-open', 'Do not open browser')
+  .action(async (opts: { open?: boolean }) => {
+    console.log(await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), CONFIG_PATH, {
+      noOpen: opts.open === false,
+    }));
   });
 
 program
