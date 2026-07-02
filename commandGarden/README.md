@@ -434,6 +434,16 @@ npm run build
 cd cli && npm publish --access public
 ```
 
+### Known limitation: daemon and app resolution
+
+The CLI declares `@commandgarden/daemon` and `@commandgarden/app` as dependencies so that `createRequire` can resolve them when the CLI is globally linked from the monorepo (`npm link --workspace=cli`). This works for local development.
+
+For publishing to npm, additional work is needed — the daemon and app are `private: true` packages that won't be resolved from the registry. Options to address this:
+
+1. **`bundleDependencies`** — add `"bundleDependencies": ["@commandgarden/daemon", "@commandgarden/app"]` to the CLI's `package.json` and re-declare their transitive dependencies (`better-sqlite3`, `fastify`, etc.) in the CLI's own `dependencies`
+2. **Meta-package** — create a `@commandgarden/commandgarden` wrapper package that orchestrates installation
+3. **Full bundling** — bundle daemon and app server entry points into the CLI's `dist/` via tsup (complex due to native deps like `better-sqlite3`)
+
 ---
 
 ## Development

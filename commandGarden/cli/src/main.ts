@@ -1,11 +1,11 @@
 // src/main.ts
 import { Command } from 'commander';
-import { join, dirname } from 'node:path';
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { join, dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { DaemonClient, readToken } from './client.js';
+import { resolveScript } from './resolve-script.js';
 import { parseDuration } from './duration.js';
 import type { OutputFormat } from './formatters.js';
 import { executeRun, parseConnectorArgs } from './commands/run.js';
@@ -21,35 +21,23 @@ import { executeUp, executeDown } from './commands/up-down.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-function resolveScript(relativePath: string, packageName: string, entryPoint: string): string {
-  // 1. Relative path — works inside the monorepo
-  const relative = join(__dirname, relativePath);
-  if (existsSync(relative)) return relative;
-
-  // 2. Package resolution — works for global install (after npm link)
+const CLI_VERSION: string = (() => {
   try {
-    const require = createRequire(import.meta.url);
-    const pkgJsonPath = require.resolve(`${packageName}/package.json`);
-    const resolved = join(dirname(pkgJsonPath), entryPoint);
-    if (existsSync(resolved)) return resolved;
-  } catch { /* not resolvable */ }
-
-  // 3. Fail with actionable guidance
-  console.error(`Cannot find ${packageName} entry point.`);
-  console.error(`Looked at:\n  - ${relative}`);
-  console.error(`\nIf @commandgarden/cli is installed globally, also run:`);
-  console.error(`  cd <monorepo>/commandGarden/${packageName.split('/').pop()} && npm link`);
-  process.exit(1);
-}
+    const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 let _daemonScript: string | undefined;
 function getDaemonScript(): string {
-  return (_daemonScript ??= resolveScript('../../daemon/dist/main.js', '@commandgarden/daemon', 'dist/main.js'));
+  return (_daemonScript ??= resolveScript(__dirname, '../../daemon/dist/main.js', '@commandgarden/daemon', 'dist/main.js'));
 }
 
 let _appScript: string | undefined;
 function getAppScript(): string {
-  return (_appScript ??= resolveScript('../../app/dist/server/main.js', '@commandgarden/app', 'dist/server/main.js'));
+  return (_appScript ??= resolveScript(__dirname, '../../app/dist/server/main.js', '@commandgarden/app', 'dist/server/main.js'));
 }
 
 const CG_HOME = join(homedir(), '.commandgarden');
@@ -69,7 +57,7 @@ function createClient(): DaemonClient {
 const program = new Command();
 program
   .name('commandgarden')
-  .version('0.1.0')
+  .version(CLI_VERSION)
   .description('Enterprise browser automation CLI');
 
 // --- run ---
