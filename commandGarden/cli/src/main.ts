@@ -115,7 +115,8 @@ daemon
   .command('start')
   .description('Start the daemon in background')
   .action(async () => {
-    console.log(await executeDaemonStart(BASE_URL, CG_HOME, getDaemonScript()));
+    const result = await executeDaemonStart(BASE_URL, CG_HOME, getDaemonScript());
+    console.log(result.message);
   });
 
 daemon
@@ -202,11 +203,12 @@ gui
   .option('-b, --background', 'Run in background')
   .option('--no-open', 'Do not open browser')
   .action(async (opts: { background?: boolean; open?: boolean }) => {
-    console.log(await executeGuiStart(BASE_URL, CG_HOME, getAppScript(), {
+    const result = await executeGuiStart(BASE_URL, CG_HOME, getAppScript(), {
       background: opts.background,
       noOpen: opts.open === false,
       configPath: CONFIG_PATH,
-    }));
+    });
+    console.log(typeof result === 'string' ? result : result.message);
   });
 
 gui
