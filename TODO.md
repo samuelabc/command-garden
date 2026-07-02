@@ -11,5 +11,6 @@
 - [x] Bugfix: "Dynamic require of events is not supported" — added `createRequire` banner shim to `cli/tsup.config.ts`
 - [x] Bugfix: Replace `better-sqlite3` (native C++ addon) with `sql.js` (pure WASM) — fixes `npm install -g` failure on systems without C++ build tools
 - [x] Publish `@commandgarden/cli@1.1.4` to npm (patch: added `sql.js` type declarations for daemon/app builds)
+- [x] Bundle connectors with published CLI — `@commandgarden/cli@1.2.3` ships built-in connectors, zero-setup fresh install (88 daemon tests, 114 cli tests, all passing)
 
 See `TODO_ARCHIVE.md` for completed work.
