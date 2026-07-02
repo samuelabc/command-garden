@@ -427,22 +427,15 @@ npm test -w app
 
 ## Publishing
 
-The CLI is published as a single npm package. The `@commandgarden/shared` workspace is bundled into the CLI at build time via `tsup`, so only one package needs to be published.
+Only `@commandgarden/cli` is published to npm. The daemon, app, and shared packages are bundled into the tarball via `bundleDependencies` and ship as part of the CLI install.
 
 ```bash
 npm run build
+cd cli && npm pack --dry-run      # verify contents
 cd cli && npm publish --access public
 ```
 
-### Known limitation: daemon and app resolution
-
-The CLI declares `@commandgarden/daemon` and `@commandgarden/app` as dependencies so that `createRequire` can resolve them when the CLI is globally linked from the monorepo (`npm link --workspace=cli`). This works for local development.
-
-For publishing to npm, additional work is needed — the daemon and app are `private: true` packages that won't be resolved from the registry. Options to address this:
-
-1. **`bundleDependencies`** — add `"bundleDependencies": ["@commandgarden/daemon", "@commandgarden/app"]` to the CLI's `package.json` and re-declare their transitive dependencies (`better-sqlite3`, `fastify`, etc.) in the CLI's own `dependencies`
-2. **Meta-package** — create a `@commandgarden/commandgarden` wrapper package that orchestrates installation
-3. **Full bundling** — bundle daemon and app server entry points into the CLI's `dist/` via tsup (complex due to native deps like `better-sqlite3`)
+For the full publishing guide, versioning policy, and troubleshooting, see **[docs/PUBLISHING.md](docs/PUBLISHING.md)**.
 
 ---
 

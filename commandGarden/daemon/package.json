@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "main": "./dist/main.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/main.js",
