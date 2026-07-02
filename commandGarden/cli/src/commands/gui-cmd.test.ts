@@ -94,12 +94,13 @@ describe('executeGuiStart', () => {
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-  it('returns error when daemon is not running', async () => {
+  it('returns failed status when daemon is not running', async () => {
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
-    const output = await executeGuiStart(
+    const result = await executeGuiStart(
       'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true },
-    );
-    expect(output).toContain('Daemon is not running');
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
+    expect(result.status).toBe('failed');
+    expect(result.message).toContain('Daemon is not running');
   });
 
   it('reports already running when PID is alive', async () => {
@@ -108,22 +109,34 @@ describe('executeGuiStart', () => {
     vi.mocked(readFileSync).mockReturnValue('12345');
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
-    const output = await executeGuiStart(
+    const result = await executeGuiStart(
       'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
-    );
-    expect(output).toContain('already running');
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
+    expect(result.status).toBe('already-running');
     killSpy.mockRestore();
   });
 
   it('starts in background and writes PID', async () => {
-    // Daemon is running
     mockFetch.mockResolvedValue({ ok: true } as Response);
 
-    const output = await executeGuiStart(
+    const result = await executeGuiStart(
       'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
-    );
-    expect(output).toContain('started');
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
+    expect(result.status).toBe('started');
     expect(spawn).toHaveBeenCalledWith('node', ['/fake/app.js'], expect.anything());
     expect(writeFileSync).toHaveBeenCalled();
+  });
+
+  it('returns locked status when another instance holds the lock', async () => {
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+    vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith('app.lock'));
+    vi.mocked(readFileSync).mockReturnValue('999');
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
+
+    const result = await executeGuiStart(
+      'http://127.0.0.1:19825', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
+    expect(result.status).toBe('locked');
+    expect(spawn).not.toHaveBeenCalled();
   });
 });

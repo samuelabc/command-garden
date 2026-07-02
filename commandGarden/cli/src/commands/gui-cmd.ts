@@ -2,6 +2,10 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
+import { pollUntilReady } from '../poll.js';
+import { isProcessAlive } from '../process-alive.js';
+import { acquireLock, releaseLock } from '../lockfile.js';
+import type { LifecycleStartResult } from './lifecycle-types.js';
 
 function readAppPort(configPath: string): number {
   try {
@@ -16,45 +20,71 @@ function readAppPort(configPath: string): number {
 
 export async function executeGuiStart(
   baseUrl: string, cgHome: string, appScript: string, opts: { background?: boolean; noOpen?: boolean; configPath?: string },
-): Promise<string> {
+): Promise<LifecycleStartResult | string> {
   const appPort = opts.configPath ? readAppPort(opts.configPath) : 19826;
-  // Check daemon first
+
   try {
     const resp = await fetch(`${baseUrl}/api/status`);
     if (!resp.ok) throw new Error();
   } catch {
-    return 'Daemon is not running. Start it with: cg daemon start (or use cg up)';
+    const message = 'Daemon is not running. Start it with: cg daemon start (or use cg up)';
+    return opts.background ? { status: 'failed', message } : message;
   }
 
-  // Check if already running
   const pidPath = join(cgHome, 'app.pid');
   if (existsSync(pidPath)) {
     const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
-    try { process.kill(pid, 0); return 'GUI is already running.'; } catch { unlinkSync(pidPath); }
+    if (isProcessAlive(pid)) {
+      const message = 'GUI is already running.';
+      return opts.background ? { status: 'already-running', message } : message;
+    }
+    unlinkSync(pidPath);
   }
 
   mkdirSync(cgHome, { recursive: true });
 
   if (opts.background) {
-    const logPath = join(cgHome, 'app.log');
-    const logFd = openSync(logPath, 'a');
-    const child = spawn('node', [appScript], { detached: true, stdio: ['ignore', logFd, logFd] });
-    closeSync(logFd);
-    if (child.pid) writeFileSync(pidPath, String(child.pid));
-    child.unref();
-    if (!opts.noOpen) {
-      const appUrl = `http://127.0.0.1:${appPort}`;
-      const ready = await waitForServer(appUrl, child);
-      if (ready) {
-        openBrowser(appUrl);
-      } else {
-        // Clean up the process and PID file since the server never became reachable
-        if (child.pid) try { process.kill(child.pid, 'SIGTERM'); } catch { /* already dead */ }
-        if (existsSync(pidPath)) unlinkSync(pidPath);
-        return `GUI failed to start. Check ${logPath} for errors.`;
-      }
+    const lockPath = join(cgHome, 'app.lock');
+    const lock = acquireLock(lockPath);
+    if (!lock.acquired) {
+      return { status: 'locked', message: `Another cg up/gui start is already in progress (PID ${lock.holderPid}).` };
     }
-    return `GUI started (PID: ${child.pid ?? 'unknown'}).`;
+
+    try {
+      console.error('Starting GUI...');
+      const logPath = join(cgHome, 'app.log');
+      const logFd = openSync(logPath, 'a');
+      const child = spawn('node', [appScript], { detached: true, stdio: ['ignore', logFd, logFd] });
+      closeSync(logFd);
+
+      let spawnFailed = false;
+      child.on('error', () => { spawnFailed = true; });
+
+      if (child.pid) writeFileSync(pidPath, String(child.pid));
+      child.unref();
+
+      if (opts.noOpen) {
+        return { status: 'started', message: `GUI started (PID: ${child.pid ?? 'unknown'}).`, pid: child.pid };
+      }
+
+      const appUrl = `http://127.0.0.1:${appPort}`;
+      const outcome = await pollUntilReady({
+        checkReady: async () => { try { await fetch(appUrl); return true; } catch { return false; } },
+        isAlive: () => !spawnFailed && (!child.pid || isProcessAlive(child.pid)),
+        maxAttempts: 40,
+        intervalMs: 500,
+      });
+
+      if (outcome === 'ready') {
+        openBrowser(appUrl);
+        return { status: 'started', message: `GUI started (PID: ${child.pid ?? 'unknown'}).`, pid: child.pid };
+      }
+      if (child.pid) try { process.kill(child.pid, 'SIGTERM'); } catch { /* already dead */ }
+      if (existsSync(pidPath)) unlinkSync(pidPath);
+      return { status: 'failed', message: `GUI failed to start. Check ${logPath} for errors.` };
+    } finally {
+      releaseLock(lockPath);
+    }
   }
 
   // Foreground — exec directly (this blocks)
