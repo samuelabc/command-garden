@@ -8,5 +8,6 @@
 - [x] Plan 4: CLI client — implemented on `feat/commandgarden-cli` (60 tests, all passing)
 - [x] Plan 5: Sample connector — implemented on `feat/commandgarden-connectors` (16 new tests, 279 total, all passing)
 - [x] README — `commandGarden/README.md` with usage guide, happy-flow samples, and ASCII architecture diagram
+- [x] Bugfix: "Dynamic require of events is not supported" — added `createRequire` banner shim to `cli/tsup.config.ts`
 
 See `TODO_ARCHIVE.md` for completed work.

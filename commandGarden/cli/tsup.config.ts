@@ -14,7 +14,13 @@ export default defineConfig({
   // The daemon/app deps remain in package.json "dependencies" so npm
   // installs them for the separate daemon/app child processes.
   noExternal: [/^(?!better-sqlite3)/],
+  // CJS deps (commander, cli-table3, etc.) emit require() calls that fail in
+  // ESM because `require` is undefined. Injecting createRequire gives esbuild's
+  // __require shim a real require to delegate to, fixing all builtin/CJS interop.
   banner: {
-    js: '#!/usr/bin/env node',
+    js: [
+      '#!/usr/bin/env node',
+      'import { createRequire as __cjsRequire } from "module"; const require = __cjsRequire(import.meta.url);',
+    ].join('\n'),
   },
 });
