@@ -14,11 +14,11 @@ The CLI is a single published npm package that ships three private workspace pac
 | `@commandgarden/daemon` | Local HTTP/WS server (Fastify + SQLite) | `bundleDependencies` |
 | `@commandgarden/app` | Web GUI server + SPA assets | `bundleDependencies` |
 
-**Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining all JS dependencies the CLI imports (`commander`, `cli-table3`, `yaml`, `zod` via shared, `@commandgarden/shared`). Native addons (`better-sqlite3`) stay external. This makes the CLI self-contained for `npm link` and global installs.
+**Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining all JS dependencies the CLI imports (`commander`, `cli-table3`, `yaml`, `zod` via shared, `@commandgarden/shared`). Deps only used by the daemon/app child processes (`fastify`, `sql.js`, etc.) are not imported by the CLI and are tree-shaken out. This makes the CLI self-contained for `npm link` and global installs.
 
 **Pack-time:** The `prepack` script (`scripts/prepare-bundle.mjs`) copies workspace packages into `cli/node_modules/@commandgarden/` so `npm pack` includes them via `bundleDependencies`.
 
-**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies (`fastify`, `better-sqlite3`, etc.) from the registry normally. These deps are needed by the daemon and app child processes, not by the CLI bundle itself.
+**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies (`fastify`, `sql.js`, etc.) from the registry normally. These deps are needed by the daemon and app child processes, not by the CLI bundle itself.
 
 **Run-time:** The CLI resolves the daemon and app entry points via `createRequire` from `node_modules/@commandgarden/daemon` and `@commandgarden/app`.
 
@@ -132,19 +132,6 @@ node scripts/prepare-bundle.mjs   # manually stage bundled packages
 npm pack --dry-run                 # verify they appear in the tarball
 ```
 
-### `better-sqlite3` build fails on install
-
-`better-sqlite3` is a native Node.js addon compiled per-platform. If the install fails:
-
-```bash
-# Ensure build tools are available
-# macOS:  xcode-select --install
-# Ubuntu: sudo apt install build-essential python3
-# Windows: npm install -g windows-build-tools
-
-npm rebuild better-sqlite3
-```
-
 ### Tarball is too large
 
 Check that `daemon/package.json`, `app/package.json`, and `shared/package.json` all have `"files": ["dist"]`. Without this, source files and tests get bundled.
@@ -174,11 +161,11 @@ The daemon and app are private workspace packages that can't be installed from t
 - The bundled packages are packed into the tarball at publish time
 - At install time, they're unpacked from the tarball (not fetched from the registry)
 - Their runtime dependencies (listed in the CLI's `dependencies`) are installed normally
-- Native modules like `better-sqlite3` are compiled per-platform at install time
+- All runtime deps are pure JS/WASM (no native compilation required at install time)
 
 ### Why not bundle everything into one JS file?
 
-The daemon and app run as **separate Node.js processes** (spawned via `child_process.spawn`). They can't be bundled into the CLI's main entry point. Additionally, `better-sqlite3` is a native addon that cannot be bundled by esbuild/tsup.
+The daemon and app run as **separate Node.js processes** (spawned via `child_process.spawn`). They can't be bundled into the CLI's main entry point because they need their own `node_modules/` for runtime imports (Fastify, sql.js, etc.).
 
 Note: the CLI's own JS dependencies (commander, yaml, zod, etc.) ARE bundled into `dist/main.js` via tsup's `noExternal`. These same packages remain listed in `dependencies` because the daemon/app child processes need them installed in `node_modules/`.
 
@@ -191,7 +178,7 @@ CLI dependencies:
   cli-table3, commander              ← CLI's own deps (also bundled into dist/main.js)
   fastify, @fastify/websocket        ← daemon deps (external, needed at install time)
   @fastify/static                    ← app deps (external, needed at install time)
-  better-sqlite3                     ← daemon + app deps (native addon, always external)
+  sql.js                             ← daemon + app deps (pure WASM SQLite, no native build)
   yaml                               ← shared across all (bundled into CLI, installed for daemon/app)
   zod                                ← shared's dep (bundled into CLI, installed for daemon/app)
 ```

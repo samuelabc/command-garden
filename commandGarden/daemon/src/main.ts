@@ -22,7 +22,7 @@ async function main() {
 
   // Audit store
   const dbPath = expandHome(config.audit.dbPath);
-  const auditStore = new AuditStore(dbPath);
+  const auditStore = await AuditStore.create(dbPath);
   const pruned = auditStore.prune(config.audit.retentionDays);
   if (pruned > 0) {
     console.log(`Pruned ${pruned} old audit events`);

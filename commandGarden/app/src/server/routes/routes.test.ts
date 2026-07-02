@@ -21,7 +21,7 @@ describe('routes', () => {
   beforeEach(async () => {
     app = Fastify();
     daemon = mockDaemon();
-    store = new AppStore(':memory:');
+    store = await AppStore.create(':memory:');
     registerRoutes(app, daemon, store);
     await app.ready();
   });

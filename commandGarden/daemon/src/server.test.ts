@@ -22,7 +22,7 @@ pipeline:
     url: "https://example.com"
 `;
 
-function makeDeps(tmpDir: string): ServerDeps {
+async function makeDeps(tmpDir: string): Promise<ServerDeps> {
   writeFileSync(join(tmpDir, 'cmd.yaml'), CONN_YAML);
   const registry = new ConnectorRegistry([tmpDir]);
   registry.load();
@@ -31,7 +31,7 @@ function makeDeps(tmpDir: string): ServerDeps {
     configPath: join(tmpDir, 'config.yaml'),
     sessionToken: 'test-token-abc',
     registry,
-    auditStore: new AuditStore(':memory:'),
+    auditStore: await AuditStore.create(':memory:'),
     wsRelay: new WsRelay(),
   };
 }
@@ -40,9 +40,9 @@ describe('server', () => {
   let tmpDir: string;
   let deps: ServerDeps;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'cg-srv-'));
-    deps = makeDeps(tmpDir);
+    deps = await makeDeps(tmpDir);
   });
   afterEach(() => {
     deps.auditStore.close();

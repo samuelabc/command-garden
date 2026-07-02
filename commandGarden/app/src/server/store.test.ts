@@ -4,8 +4,8 @@ import { AppStore } from './store.js';
 describe('AppStore', () => {
   let store: AppStore;
 
-  beforeEach(() => {
-    store = new AppStore(':memory:');
+  beforeEach(async () => {
+    store = await AppStore.create(':memory:');
   });
 
   afterEach(() => {

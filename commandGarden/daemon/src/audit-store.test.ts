@@ -6,8 +6,8 @@ import { createAuditEvent, type StepSummary } from '@commandgarden/shared';
 describe('AuditStore', () => {
   let store: AuditStore;
 
-  beforeEach(() => {
-    store = new AuditStore(':memory:');
+  beforeEach(async () => {
+    store = await AuditStore.create(':memory:');
   });
   afterEach(() => { store.close(); });
 

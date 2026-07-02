@@ -36,7 +36,7 @@ async function start() {
   const port = readAppPort();
   const daemonUrl = 'http://127.0.0.1:19825';
   const daemon = new DaemonClient(daemonUrl, token);
-  const store = new AppStore(join(CG_HOME, 'app.db'));
+  const store = await AppStore.create(join(CG_HOME, 'app.db'));
   const app = Fastify();
 
   registerRoutes(app, daemon, store);
