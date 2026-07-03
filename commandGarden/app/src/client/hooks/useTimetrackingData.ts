@@ -5,7 +5,7 @@ interface ProjectGroup {
   projectId: string;
   totalHours: number;
   entryCount: number;
-  categories: Set<string>;
+  activities: Set<string>;
 }
 
 export function useTimetrackingData(month: string, result: RunResponse | null) {
@@ -141,17 +141,20 @@ export function useTimetrackingData(month: string, result: RunResponse | null) {
       const hours = Number(row.hours ?? 0);
       const date = String(row.date ?? '');
       const status = String(row.status ?? '');
-      const category = String(row.category ?? '');
+      const act = String(row.activity ?? '');
       total += hours;
       if (date) days.add(date);
       if (status === 'draft') drafts++;
       if (!groups.has(pid)) {
-        groups.set(pid, { projectId: pid, totalHours: 0, entryCount: 0, categories: new Set() });
+        groups.set(pid, { projectId: pid, totalHours: 0, entryCount: 0, activities: new Set() });
       }
       const g = groups.get(pid)!;
       g.totalHours += hours;
       g.entryCount++;
-      if (category) g.categories.add(category);
+      if (act) {
+        const name = activityNames.get(`${pid}\0${act}`) ?? act;
+        g.activities.add(name);
+      }
     }
     return {
       projectList: Array.from(groups.values()).sort((a, b) => b.totalHours - a.totalHours),
@@ -159,7 +162,7 @@ export function useTimetrackingData(month: string, result: RunResponse | null) {
       draftCount: drafts,
       workingDayCount: days.size,
     };
-  }, [rows]);
+  }, [rows, activityNames]);
 
   // Aggregate hours by (projectId, activity) for goal matching
   const activityHours = useMemo(() => {
