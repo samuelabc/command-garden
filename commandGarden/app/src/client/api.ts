@@ -1,9 +1,9 @@
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  };
-  if (body) init.body = JSON.stringify(body);
+  const init: RequestInit = { method };
+  if (body) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body);
+  }
   const resp = await fetch(path, init);
   const data = await resp.json();
   if (!resp.ok) throw new Error((data as Record<string, string>).error ?? `HTTP ${resp.status}`);
@@ -25,6 +25,13 @@ export const api = {
   setConfig: (key: string, value: string) => request('POST', '/api/config', { key, value }),
   getPreferences: () => request<{ ok: boolean; preferences: Record<string, string> }>('GET', '/api/preferences'),
   setPreference: (key: string, value: string) => request('PUT', '/api/preferences', { key, value }),
+  getGoals: (month: string) => request<{ ok: boolean; goals: Goal[] }>('GET', `/api/goals?month=${month}`),
+  upsertGoal: (body: { month: string; projectId: string; activity: string; targetDays: number }) => request<{ ok: boolean; goal: Goal }>('POST', '/api/goals', body),
+  deleteGoal: (id: number) => request<{ ok: boolean }>('DELETE', `/api/goals/${id}`),
+  getCachedReport: (month: string) => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', `/api/timetracking/cache?month=${month}`),
+  cacheReport: (month: string, data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/timetracking/cache', { month, data }),
+  getCachedProjects: () => request<{ ok: boolean; data: ProjectActivity[] | null; fetchedAt: string | null }>('GET', '/api/timetracking/projects'),
+  cacheProjects: (data: ProjectActivity[]) => request<{ ok: boolean }>('POST', '/api/timetracking/projects', { data }),
 };
 
 export interface Connector {
@@ -62,6 +69,26 @@ export interface RunResponse {
   requestId?: string;
   requiresApproval?: boolean;
   connector?: string;
+}
+
+export interface Goal {
+  id: number;
+  month: string;
+  projectId: string;
+  activity: string;
+  targetDays: number;
+  targetHours: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectActivity {
+  projectId: string;
+  projectName: string;
+  activityNumber: string;
+  activityName: string;
+  category: string;
+  linePropertyId: string;
 }
 
 export type BadgeVariant = 'success' | 'error' | 'warning' | 'info' | 'secondary' | 'neutral';

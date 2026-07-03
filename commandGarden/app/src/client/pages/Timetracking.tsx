@@ -2,18 +2,24 @@ import { useState, useCallback } from 'react';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
+import { GoalProgressGrid } from '../components/GoalProgressGrid';
+import { ManageGoals } from '../components/ManageGoals';
 import { useApprovalRun } from '../hooks/useApprovalRun';
-
-interface ProjectGroup {
-  projectId: string;
-  totalHours: number;
-  entryCount: number;
-  categories: Set<string>;
-}
+import { useTimetrackingData } from '../hooks/useTimetrackingData';
 
 function currentMonth(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 export default function Timetracking() {
@@ -21,42 +27,22 @@ export default function Timetracking() {
   const [showRaw, setShowRaw] = useState(false);
   const { running, result, error, approvalPending, approvalId, run, handleApproval } = useApprovalRun();
 
+  const {
+    goals, loadGoals, rows, isCached, cachedAt,
+    projectNames, activityNames, projectList,
+    totalHours, draftCount, workingDayCount,
+    activityHours, allCombos, todayStr,
+    refreshProjects, refreshingProjects,
+  } = useTimetrackingData(month, result);
+
+  const isAuthRequired = error?.includes('auth_required') || error?.includes('sign in');
+
   const handleRun = useCallback(async () => {
     const args: Record<string, string> = {};
     if (month) args.month = month;
     await run('timetracking/report', args);
-  }, [month, run]);
-
-  const rows = result?.data ?? [];
-  const isAuthRequired = error?.includes('auth_required') || error?.includes('sign in');
-
-  // Group by project
-  const groups = new Map<string, ProjectGroup>();
-  let totalHours = 0;
-  let draftCount = 0;
-  const workingDays = new Set<string>();
-
-  for (const row of rows) {
-    const pid = String(row.projectId ?? 'Unknown');
-    const hours = Number(row.hours ?? 0);
-    const date = String(row.date ?? '');
-    const status = String(row.status ?? '');
-    const category = String(row.category ?? '');
-
-    totalHours += hours;
-    if (date) workingDays.add(date);
-    if (status === 'draft') draftCount++;
-
-    if (!groups.has(pid)) {
-      groups.set(pid, { projectId: pid, totalHours: 0, entryCount: 0, categories: new Set() });
-    }
-    const g = groups.get(pid)!;
-    g.totalHours += hours;
-    g.entryCount++;
-    if (category) g.categories.add(category);
-  }
-
-  const projectList = Array.from(groups.values()).sort((a, b) => b.totalHours - a.totalHours);
+    await loadGoals();
+  }, [month, run, loadGoals]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -101,8 +87,13 @@ export default function Timetracking() {
         <div className="alert alert-error mb-4"><span>{error}</span></div>
       )}
 
-      {result && rows.length > 0 && (
+      {rows.length > 0 && (
         <>
+          {isCached && cachedAt && (
+            <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-2">
+              Showing cached data from {timeAgo(cachedAt)}
+            </div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 border border-base-300 mb-6">
             <div className="p-3 border-r border-b border-base-300 md:border-b-0">
               <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Total hours</div>
@@ -110,11 +101,11 @@ export default function Timetracking() {
             </div>
             <div className="p-3 border-b border-base-300 md:border-r md:border-b-0">
               <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Working days</div>
-              <div className="font-display text-xl font-bold">{workingDays.size}</div>
+              <div className="font-display text-xl font-bold">{workingDayCount}</div>
             </div>
             <div className="p-3 border-r border-base-300">
               <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Projects</div>
-              <div className="font-display text-xl font-bold">{groups.size}</div>
+              <div className="font-display text-xl font-bold">{projectList.length}</div>
             </div>
             <div className="p-3">
               <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Draft entries</div>
@@ -129,7 +120,16 @@ export default function Timetracking() {
               <tbody>
                 {projectList.map((g) => (
                   <tr key={g.projectId}>
-                    <td className="font-mono text-sm">{g.projectId}</td>
+                    <td>
+                      {projectNames.has(g.projectId) ? (
+                        <>
+                          <div className="text-sm">{projectNames.get(g.projectId)}</div>
+                          <div className="font-mono text-[0.6rem] opacity-50">{g.projectId}</div>
+                        </>
+                      ) : (
+                        <span className="font-mono text-sm">{g.projectId}</span>
+                      )}
+                    </td>
                     <td className="text-sm">{Array.from(g.categories).join(', ')}</td>
                     <td className="text-right font-semibold">{g.totalHours.toFixed(1)}</td>
                     <td className="text-right">{g.entryCount}</td>
@@ -163,12 +163,40 @@ export default function Timetracking() {
               </table>
             </div>
           </details>
+
         </>
       )}
 
-      {result && rows.length === 0 && !error && (
+      {result && (result.data ?? []).length === 0 && rows.length === 0 && !error && (
         <p className="text-sm opacity-50">No entries found for {month}.</p>
       )}
+
+      {goals.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-display text-base font-semibold mb-3">Goal progress</h3>
+          <GoalProgressGrid
+            goals={goals}
+            activityHours={activityHours}
+            projectNames={projectNames}
+            activityNames={activityNames}
+            month={month}
+            today={todayStr}
+          />
+        </div>
+      )}
+
+      <div className="mt-6">
+        <ManageGoals
+          goals={goals}
+          month={month}
+          onGoalChange={loadGoals}
+          knownCombos={allCombos}
+          projectNames={projectNames}
+          activityNames={activityNames}
+          onRefreshProjects={refreshProjects}
+          refreshingProjects={refreshingProjects}
+        />
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@
 //   ${{ args.month | default("") }}
 
 // Poll for MSAL token (handles SSO redirects + MFA)
+// Canonical source: connectors/lib/msal-token.js
 const __deadline = Date.now() + 60000;
 let token;
 while (Date.now() < __deadline) {
@@ -32,11 +33,27 @@ if (!month) {
   month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
 }
 
-const resp = await fetch(
-  'https://mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net/api/ReportFAK?date=' + month + '-01',
-  { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } }
-);
+const apiBase = 'https://mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net/api/';
+const authHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+
+const [resp, projResp] = await Promise.all([
+  fetch(apiBase + 'ReportFAK?date=' + month + '-01', { headers: authHeaders }),
+  fetch(apiBase + 'Projects?date=' + month + '-01', { headers: authHeaders }).catch(() => null),
+]);
 if (!resp.ok) throw new Error('ReportFAK returned HTTP ' + resp.status);
+
+const projectNames = new Map();
+const activityNames = new Map(); // key: "projectId\0activityNumber" → description
+if (projResp && projResp.ok) {
+  for (const p of await projResp.json()) {
+    projectNames.set(p.mserp_projectid, p.mserp_projectname);
+    for (const act of p.activities || []) {
+      if (act.mserp_activitynumber && act.mserp_description) {
+        activityNames.set(act.mserp_projectid + '\0' + act.mserp_activitynumber, act.mserp_description);
+      }
+    }
+  }
+}
 
 const days = await resp.json();
 const rows = [];
@@ -44,12 +61,16 @@ for (const day of days) {
   const header = day.calendarHeader || {};
   const dayDate = (day.date || '').slice(0, 10);
   for (const line of day.calendarLines || []) {
+    const pid = line.mserp_projectid || null;
+    const actNum = line.mserp_activitynumber || null;
     rows.push({
       month: month,
       date: dayDate,
-      projectId: line.mserp_projectid || null,
+      projectId: pid,
+      projectName: projectNames.get(pid) || null,
       category: line.mserp_category || null,
-      activity: line.mserp_activitynumber || null,
+      activity: actNum,
+      activityName: (pid && actNum) ? (activityNames.get(pid + '\0' + actNum) || null) : null,
       hours: typeof line.mserp_hours === 'number' ? line.mserp_hours : null,
       status: header.status || null,
       journalId: line.mserp_journalid || null,

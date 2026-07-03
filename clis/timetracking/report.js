@@ -78,7 +78,7 @@ cli({
     { name: 'month', type: 'string', default: '', help: 'Single month YYYY-MM (default: current month)' },
     { name: 'months', type: 'int', help: 'Fetch the last N months ending this month (1-6)' },
   ],
-  columns: ['month', 'date', 'weekday', 'projectId', 'category', 'activity', 'hours', 'status', 'journalId', 'lineNumber'],
+  columns: ['month', 'date', 'weekday', 'projectId', 'projectName', 'category', 'activity', 'activityName', 'hours', 'status', 'journalId', 'lineNumber'],
   func: async (page, args) => {
     const monthDates = resolveMonthDates(args);
 
@@ -86,18 +86,35 @@ cli({
       throw new AuthRequiredError(DOMAIN, 'No valid Time Tracking access token in the browser session');
     }
 
-    const result = await page.evaluate(async (dates, apiBase) => {
+    const result = await page.evaluate(async (dates, apiBase, projApiBase) => {
       const k = Object.keys(sessionStorage).find((x) => x.includes('accesstoken'));
       if (!k) return { error: 'AUTH' };
       let token;
       try { token = JSON.parse(sessionStorage.getItem(k)).secret; } catch (_e) { return { error: 'AUTH' }; }
       if (!token) return { error: 'AUTH' };
 
+      const authHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+
+      // Fetch project names and activity descriptions for the first month date
+      const pnames = new Map();
+      const anames = new Map(); // key: "projectId\0activityNumber" → description
+      try {
+        const projRes = await fetch(projApiBase + dates[0], { headers: authHeaders });
+        if (projRes.ok) {
+          for (const p of await projRes.json()) {
+            pnames.set(p.mserp_projectid, p.mserp_projectname);
+            for (const a of p.activities || []) {
+              if (a.mserp_activitynumber && a.mserp_description) {
+                anames.set(p.mserp_projectid + '\0' + a.mserp_activitynumber, a.mserp_description);
+              }
+            }
+          }
+        }
+      } catch (_e) { /* graceful degradation */ }
+
       const rows = [];
       for (const date of dates) {
-        const res = await fetch(apiBase + date, {
-          headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
-        });
+        const res = await fetch(apiBase + date, { headers: authHeaders });
         if (res.status === 401 || res.status === 403) return { error: 'AUTH' };
         if (!res.ok) return { error: 'HTTP', status: res.status, date };
         const days = await res.json();
@@ -106,12 +123,16 @@ cli({
           const header = day.calendarHeader || {};
           const dayDate = (day.date || '').slice(0, 10);
           for (const line of day.calendarLines || []) {
+            const pid = line.mserp_projectid ?? null;
+            const actNum = line.mserp_activitynumber ?? null;
             rows.push({
               ym,
               d: dayDate,
-              pid: line.mserp_projectid ?? null,
+              pid,
+              pname: pnames.get(pid) || null,
               cat: line.mserp_category ?? null,
-              act: line.mserp_activitynumber ?? null,
+              act: actNum,
+              aname: (pid && actNum) ? (anames.get(pid + '\0' + actNum) || null) : null,
               hrs: typeof line.mserp_hours === 'number' ? line.mserp_hours : null,
               st: header.status ?? null,
               jid: line.mserp_journalid ?? null,
@@ -121,7 +142,7 @@ cli({
         }
       }
       return { rows };
-    }, monthDates, API_BASE);
+    }, monthDates, API_BASE, 'https://mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net/api/Projects?date=');
 
     if (result && result.error === 'AUTH') {
       throw new AuthRequiredError(DOMAIN, 'Time Tracking access token missing or rejected (401/403)');
@@ -138,13 +159,15 @@ cli({
       throw new EmptyResultError('timetracking report', `No booking lines for ${span}`);
     }
 
-    return raw.map(({ ym, d, pid, cat, act, hrs, st, jid, ln }) => ({
+    return raw.map(({ ym, d, pid, pname, cat, act, aname, hrs, st, jid, ln }) => ({
       month: ym,
       date: d,
       weekday: d ? WEEKDAYS[new Date(d + 'T00:00:00').getDay()] : null,
       projectId: pid,
+      projectName: pname,
       category: cat,
       activity: act,
+      activityName: aname,
       hours: hrs,
       status: st,
       journalId: jid,

@@ -1,7 +1,7 @@
 site: timetracking
-name: report
+name: projects
 version: "1.0"
-description: "MBTI Time Tracking monthly report — one row per booking line"
+description: "List all available projects and activities for the current user"
 access: read
 
 domains:
@@ -19,28 +19,18 @@ args:
     pattern: "^\\d{4}-\\d{2}$"
 
 columns:
-  - name: month
-    type: string
-  - name: date
-    type: string
   - name: projectId
     type: string
   - name: projectName
     type: string
-  - name: category
-    type: string
-  - name: activity
+  - name: activityNumber
     type: string
   - name: activityName
     type: string
-  - name: hours
-    type: number
-  - name: status
+  - name: category
     type: string
-  - name: journalId
+  - name: linePropertyId
     type: string
-  - name: lineNumber
-    type: number
 
 pipeline:
   - step: navigate
@@ -49,4 +39,4 @@ pipeline:
     selector: "body"
     timeout: 10000
   - step: js_evaluate
-    file: timetracking-report.eval.js
+    file: timetracking-projects.eval.js

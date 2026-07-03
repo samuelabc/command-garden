@@ -488,7 +488,7 @@ curl http://127.0.0.1:19825/api/status
 node cli/dist/main.js daemon status
 node cli/dist/main.js list
 node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
-node cli/dist/main.js run timetracking/report --month 2026-06 --format json
+node cli/dist/main.js run timetracking/report --month 2026-07 --format json
 ```
 
 ### Linking globally (optional)

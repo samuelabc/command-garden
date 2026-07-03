@@ -69,4 +69,52 @@ describe('AppStore', () => {
       expect(store.deleteView('nonexistent')).toBe(false);
     });
   });
+
+  describe('goals', () => {
+    it('returns empty array when no goals', () => {
+      expect(store.getGoalsByMonth('2026-07')).toEqual([]);
+    });
+
+    it('creates a goal with correct hours calculation', () => {
+      const goal = store.upsertGoal('2026-07', 'PID001', 'A000095814', 16.5);
+      expect(goal.month).toBe('2026-07');
+      expect(goal.projectId).toBe('PID001');
+      expect(goal.activity).toBe('A000095814');
+      expect(goal.targetDays).toBe(16.5);
+      expect(goal.targetHours).toBe(132);
+      expect(goal.id).toBeGreaterThan(0);
+    });
+
+    it('lists goals by month', () => {
+      store.upsertGoal('2026-07', 'PID001', 'A000095814', 16.5);
+      store.upsertGoal('2026-07', 'PID002', 'A000100978', 1);
+      store.upsertGoal('2026-08', 'PID001', 'A000095814', 20);
+
+      const julyGoals = store.getGoalsByMonth('2026-07');
+      expect(julyGoals).toHaveLength(2);
+
+      const augGoals = store.getGoalsByMonth('2026-08');
+      expect(augGoals).toHaveLength(1);
+    });
+
+    it('upserts existing goal (updates target)', () => {
+      store.upsertGoal('2026-07', 'PID001', 'A000095814', 16.5);
+      const updated = store.upsertGoal('2026-07', 'PID001', 'A000095814', 20);
+      expect(updated.targetDays).toBe(20);
+      expect(updated.targetHours).toBe(160);
+
+      const goals = store.getGoalsByMonth('2026-07');
+      expect(goals).toHaveLength(1);
+    });
+
+    it('deletes a goal', () => {
+      const goal = store.upsertGoal('2026-07', 'PID001', 'A000095814', 16.5);
+      expect(store.deleteGoal(goal.id)).toBe(true);
+      expect(store.getGoalsByMonth('2026-07')).toHaveLength(0);
+    });
+
+    it('returns false when deleting non-existent goal', () => {
+      expect(store.deleteGoal(999)).toBe(false);
+    });
+  });
 });
