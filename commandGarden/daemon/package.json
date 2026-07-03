@@ -5,10 +5,11 @@
   "type": "module",
   "main": "./dist/main.js",
   "files": [
-    "dist"
+    "dist",
+    "connectors"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-connectors.mjs",
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest"

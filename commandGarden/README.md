@@ -174,7 +174,7 @@ This connector drives the Outlook Scheduling Assistant in your authenticated bro
 
 ## Writing a Custom Connector
 
-Create a YAML file in `connectors/` (built-in) or `~/.commandgarden/connectors/` (user-defined):
+Create a YAML file in `~/.commandgarden/connectors/` (user-defined; overrides a built-in connector with the same `site/name`). Built-in connectors ship inside the package itself and are rebuilt from `connectors/` at the monorepo root — see `daemon/scripts/copy-connectors.mjs` if you're adding one there.
 
 ```yaml
 site: mysite
@@ -329,7 +329,8 @@ security:
 
 connectors:
   paths:
-    - "~/.commandgarden/connectors"
+    - "<bundled-in-package>/connectors"   # built-in, ships with the CLI
+    - "~/.commandgarden/connectors"        # your own connectors override built-ins with the same key
 
 audit:
   retentionDays: 90
@@ -473,7 +474,7 @@ npm start -w daemon
 The daemon will:
 - Bind to `127.0.0.1:19825`
 - Write a session token to `~/.commandgarden/session-token`
-- Load connectors from `~/.commandgarden/connectors` (the daemon always runs with this as its working directory, regardless of where `cg` was launched from; add repo-relative or absolute paths to `connectors.paths` in `config.yaml` for monorepo-local development)
+- Load connectors from its own bundled `connectors/` directory (ships with the package — works immediately after install) and then `~/.commandgarden/connectors` (your own connectors; same `site/name` key overrides the bundled version). Add further repo-relative or absolute paths to `connectors.paths` in `config.yaml` for monorepo-local development.
 
 To verify it's running, hit the status endpoint:
 

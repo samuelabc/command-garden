@@ -62,6 +62,14 @@ describe('ConnectorRegistry', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('simulates a fresh install: loads bundled connectors when the user-defined path does not exist yet', () => {
+    const reg = new ConnectorRegistry([tmpDir, '/nonexistent/user/connectors']);
+    const { loaded, errors } = reg.load();
+    expect(loaded).toBe(1);
+    expect(errors).toHaveLength(0);
+    expect(reg.get('test/cmd')).toBeDefined();
+  });
+
   it('lists all loaded connectors', () => {
     const reg = new ConnectorRegistry([tmpDir]);
     reg.load();

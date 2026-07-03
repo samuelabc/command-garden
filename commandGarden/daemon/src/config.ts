@@ -2,8 +2,11 @@
 import { z } from 'zod';
 import { parse as parseYaml } from 'yaml';
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const BUNDLED_CONNECTORS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../connectors');
 
 export const configSchema = z.object({
   daemon: z.object({
@@ -19,7 +22,7 @@ export const configSchema = z.object({
     approvalTimeoutMs: z.number().int().positive().default(120_000),
   }).default({}),
   connectors: z.object({
-    paths: z.array(z.string()).default(['~/.commandgarden/connectors']),
+    paths: z.array(z.string()).default([BUNDLED_CONNECTORS_DIR, '~/.commandgarden/connectors']),
   }).default({}),
   audit: z.object({
     retentionDays: z.number().int().positive().default(90),
