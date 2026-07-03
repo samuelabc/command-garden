@@ -116,7 +116,7 @@ export default function Timetracking() {
           <h3 className="font-display text-base font-semibold mb-3">By project</h3>
           <div className="overflow-x-auto border border-base-300 mb-6">
             <table className="table table-sm">
-              <thead><tr><th>Project</th><th>Categories</th><th className="text-right">Hours</th><th className="text-right">Entries</th></tr></thead>
+              <thead><tr><th>Project</th><th>Activities</th><th className="text-right">Hours</th><th className="text-right">Entries</th></tr></thead>
               <tbody>
                 {projectList.map((g) => (
                   <tr key={g.projectId}>
@@ -130,7 +130,7 @@ export default function Timetracking() {
                         <span className="font-mono text-sm">{g.projectId}</span>
                       )}
                     </td>
-                    <td className="text-sm">{Array.from(g.categories).join(', ')}</td>
+                    <td className="text-sm">{Array.from(g.activities).join(', ')}</td>
                     <td className="text-right font-semibold">{g.totalHours.toFixed(1)}</td>
                     <td className="text-right">{g.entryCount}</td>
                   </tr>
@@ -143,13 +143,12 @@ export default function Timetracking() {
             <summary className="cursor-pointer text-sm font-semibold mb-2">Raw booking lines ({rows.length})</summary>
             <div className="overflow-x-auto">
               <table className="table table-xs">
-                <thead><tr><th>Date</th><th>Project</th><th>Category</th><th>Activity</th><th className="text-right">Hours</th><th>Status</th></tr></thead>
+                <thead><tr><th>Date</th><th>Project</th><th>Activity</th><th className="text-right">Hours</th><th>Status</th></tr></thead>
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={i}>
                       <td>{String(r.date ?? '')}</td>
                       <td className="font-mono text-xs">{String(r.projectId ?? '')}</td>
-                      <td>{String(r.category ?? '')}</td>
                       <td>{String(r.activity ?? '')}</td>
                       <td className="text-right">{Number(r.hours ?? 0).toFixed(1)}</td>
                       <td>
