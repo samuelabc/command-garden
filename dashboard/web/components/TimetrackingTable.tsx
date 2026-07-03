@@ -34,7 +34,7 @@ export function TimetrackingTable({ data, month }: { data: TtReportResponse; mon
         <table className="table table-zebra">
           <thead>
             <tr>
-              <th>Project</th><th>Category</th><th className="text-right">Hours</th><th className="text-right">Lines</th>
+              <th>Project</th><th>Activity</th><th className="text-right">Hours</th><th className="text-right">Lines</th>
               {hasGoals && <th className="text-right">Goal</th>}
             </tr>
           </thead>
@@ -83,10 +83,10 @@ export function TimetrackingTable({ data, month }: { data: TtReportResponse; mon
       {showRaw && (
         <div className="overflow-x-auto">
           <table className="table table-xs">
-            <thead><tr><th>Date</th><th>Project</th><th>Category</th><th>Activity</th><th className="text-right">Hours</th></tr></thead>
+            <thead><tr><th>Date</th><th>Project</th><th>Activity</th><th className="text-right">Hours</th></tr></thead>
             <tbody>
               {data.raw.map((r, i) => (
-                <tr key={i}><td>{r.date}</td><td>{r.projectId}</td><td>{r.category}</td><td>{r.activity}</td><td className="text-right">{r.hours ?? 0}</td></tr>
+                <tr key={i}><td>{r.date}</td><td>{r.projectId}</td><td>{r.activity}</td><td className="text-right">{r.hours ?? 0}</td></tr>
               ))}
             </tbody>
           </table>
