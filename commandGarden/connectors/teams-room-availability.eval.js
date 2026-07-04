@@ -63,7 +63,10 @@ function typeText(sel, text) {
   const el = $(sel);
   if (!el) throw new Error(`Element "${sel}" not found for typing`);
   el.focus();
-  el.value = text;
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype, 'value'
+  ).set;
+  setter.call(el, text);
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }

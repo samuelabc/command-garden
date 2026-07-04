@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Enterprise browser automation — secure, auditable CLI commands for websites",
   "minimum_chrome_version": "116",
-  "permissions": ["alarms", "cookies", "idle", "tabs", "scripting", "webRequest", "storage"],
+  "permissions": ["alarms", "cookies", "debugger", "idle", "tabs", "scripting", "webRequest", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service-worker.js",
