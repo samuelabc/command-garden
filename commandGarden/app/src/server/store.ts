@@ -1,7 +1,10 @@
-import initSqlJs, { type Database } from 'sql.js';
+import initSqlJs from 'sql.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
+
+// sql.js ships no .d.ts; derive Database from the init function's return type.
+type Database = InstanceType<Awaited<ReturnType<typeof initSqlJs>>['Database']>;
 
 type SqlParam = string | number | null;
 
@@ -64,9 +67,9 @@ export class AppStore {
     const results = this.db.exec(sql, params);
     if (results.length === 0) return [];
     const { columns, values } = results[0];
-    return values.map(row => {
+    return values.map((row: unknown[]) => {
       const obj: Record<string, unknown> = {};
-      columns.forEach((col, i) => { obj[col] = row[i]; });
+      columns.forEach((col: string, i: number) => { obj[col] = row[i]; });
       return obj;
     });
   }

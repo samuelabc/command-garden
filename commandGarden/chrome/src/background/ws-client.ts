@@ -1,9 +1,4 @@
 // src/background/ws-client.ts
-declare function setTimeout(cb: () => void, ms: number): number;
-declare function clearTimeout(id: number): void;
-declare function setInterval(cb: () => void, ms: number): number;
-declare function clearInterval(id: number): void;
-declare function fetch(input: string, init?: { method?: string }): Promise<{ ok: boolean }>;
 import type { ExtensionRequest, ExtensionResponse, ApprovalRequest, ApprovalResponse } from '@commandgarden/shared';
 
 type RequestHandler = (request: ExtensionRequest) => void;
@@ -36,7 +31,7 @@ export class WsClient {
 
   constructor(
     private url: string,
-    private WS: WebSocketConstructor = globalThis.WebSocket as unknown as WebSocketConstructor,
+    private WS: WebSocketConstructor = (globalThis as unknown as { WebSocket: WebSocketConstructor }).WebSocket,
   ) {
     this.probeUrl = url.replace(/^ws/, 'http').replace(/\/ws\/extension$/, '/api/status');
   }

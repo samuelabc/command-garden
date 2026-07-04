@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "outDir": "dist/server",
     "rootDir": "src/server",
-    "declaration": false
+    "composite": true
   },
   "include": ["src/server"],
   "exclude": ["src/server/**/*.test.ts"]

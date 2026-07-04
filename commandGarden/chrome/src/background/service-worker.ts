@@ -1,6 +1,4 @@
 // src/background/service-worker.ts
-declare function setTimeout(cb: () => void, ms: number): number;
-declare function clearTimeout(id: number): void;
 import type { ExtensionRequest, ApprovalRequest, ApprovalResponse } from '@commandgarden/shared';
 import { WsClient } from './ws-client.js';
 import { PipelineRunner } from '../pipeline/runner.js';

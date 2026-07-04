@@ -3,9 +3,6 @@ import type { PipelineStep } from '@commandgarden/shared';
 import type { ChromeAdapter } from '../pipeline/runner.js';
 import { createDomRequest, type DomResponse } from '../messages.js';
 
-// atob is available in Chrome extension service worker context
-declare function atob(data: string): string;
-
 export class RealChromeAdapter implements ChromeAdapter {
   private tabId: number | null = null;
   private targetOrigin: string | null = null;
@@ -125,13 +122,13 @@ export class RealChromeAdapter implements ChromeAdapter {
 
   private _swTargetId: string | null = null;
 
-  /** Inject a getSchedule response body into the page's window.__rfb array. */
+  /** Inject a getSchedule response body into the page's globalThis.__rfb array. */
   private injectRfb(tabId: number, body: string): void {
     chrome.scripting.executeScript({
       target: { tabId }, world: 'MAIN', args: [body],
       func: (data: string) => {
-        if (!(window as Record<string, unknown>).__rfb) (window as Record<string, unknown>).__rfb = [];
-        ((window as Record<string, unknown>).__rfb as Array<{ req: string; body: string }>).push({ req: '', body: data });
+        if (!(globalThis as Record<string, unknown>).__rfb) (globalThis as Record<string, unknown>).__rfb = [];
+        ((globalThis as Record<string, unknown>).__rfb as Array<{ req: string; body: string }>).push({ req: '', body: data });
       },
     });
   }
@@ -201,17 +198,17 @@ export class RealChromeAdapter implements ChromeAdapter {
 
   async evaluateInPage(tabId: number, code: string): Promise<unknown> {
     const nonce = '__cg_' + Math.random().toString(36).slice(2);
-    // Step 1: inject the async code; it stores result on window when done
+    // Step 1: inject the async code; it stores result on globalThis when done
     await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
       args: [code, nonce],
       func: (codeStr: string, key: string) => {
-        (window as Record<string, unknown>)[key] = { pending: true };
+        (globalThis as Record<string, unknown>)[key] = { pending: true };
         const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
         new AsyncFunction(codeStr)().then(
-          (r: unknown) => { (window as Record<string, unknown>)[key] = { ok: true, result: r }; },
-          (e: Error) => { (window as Record<string, unknown>)[key] = { ok: false, error: e.message || String(e) }; },
+          (r: unknown) => { (globalThis as Record<string, unknown>)[key] = { ok: true, result: r }; },
+          (e: Error) => { (globalThis as Record<string, unknown>)[key] = { ok: false, error: e.message || String(e) }; },
         );
       },
     });
@@ -222,14 +219,14 @@ export class RealChromeAdapter implements ChromeAdapter {
         target: { tabId },
         world: 'MAIN',
         args: [nonce],
-        func: (key: string) => (window as Record<string, unknown>)[key],
+        func: (key: string) => (globalThis as Record<string, unknown>)[key],
       });
       const val = poll?.result as { pending?: boolean; ok?: boolean; result?: unknown; error?: string } | undefined;
       if (val && !val.pending) {
         // Cleanup
         await chrome.scripting.executeScript({
           target: { tabId }, world: 'MAIN', args: [nonce],
-          func: (key: string) => { delete (window as Record<string, unknown>)[key]; },
+          func: (key: string) => { delete (globalThis as Record<string, unknown>)[key]; },
         });
         if (val.ok) return val.result;
         throw new Error(val.error ?? 'js_evaluate failed');

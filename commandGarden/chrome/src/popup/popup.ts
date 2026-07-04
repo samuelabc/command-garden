@@ -1,4 +1,5 @@
 // src/popup/popup.ts
+/// <reference lib="dom" />
 import type { PopupStatusResponse, ApprovalInfo } from './popup-types.js';
 import { timeAgo } from './time-ago.js';
 
