@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Clock, DoorOpen, ScrollText } from 'lucide-react';
+import { Clock, DoorOpen, ScrollText, BookOpen } from 'lucide-react';
 
 const NAV = [
+  { href: '/journal', label: 'Dev Journal', icon: BookOpen },
   { href: '/timetracking', label: 'Time Tracking', icon: Clock },
   { href: '/rooms', label: 'Room Availability', icon: DoorOpen },
   { href: '/audit', label: 'Audit Log', icon: ScrollText },

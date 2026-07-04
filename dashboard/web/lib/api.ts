@@ -1,4 +1,4 @@
-import type { TtReportResponse, RoomFreeBusyResponse, AuditPage, Goal } from './types';
+import type { TtReportResponse, RoomFreeBusyResponse, AuditPage, Goal, JournalResponse } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3001/api';
 
@@ -48,4 +48,6 @@ export const api = {
   getGoals: (month: string) => get<Goal[]>(`/goals?month=${month}`),
   upsertGoal: (body: { month: string; projectId: string; targetDays: number }) => post<Goal>('/goals', body),
   deleteGoal: (id: number) => del<{ deleted: true }>(`/goals/${id}`),
+  generateJournal: (body: { weekStart: string }) =>
+    post<JournalResponse>('/journal/generate', body),
 };

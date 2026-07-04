@@ -7,6 +7,7 @@ import { AuditModule } from './audit/audit.module';
 import { GoalsModule } from './goals/goals.module';
 import { TimetrackingModule } from './timetracking/timetracking.module';
 import { TeamsModule } from './teams/teams.module';
+import { JournalModule } from './journal/journal.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TeamsModule } from './teams/teams.module';
     GoalsModule,
     TimetrackingModule,
     TeamsModule,
+    JournalModule,
   ],
 })
 export class AppModule {}
