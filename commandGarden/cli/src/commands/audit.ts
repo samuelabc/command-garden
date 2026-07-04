@@ -1,6 +1,6 @@
 // src/commands/audit.ts
 import Table from 'cli-table3';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 import type { AuditEvent } from '@commandgarden/shared';
 import { escapeCsvField } from '../formatters.js';
 

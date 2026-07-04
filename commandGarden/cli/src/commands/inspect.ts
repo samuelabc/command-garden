@@ -1,5 +1,5 @@
 // src/commands/inspect.ts
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 import type { ConnectorDef } from '@commandgarden/shared';
 
 export async function executeInspect(client: DaemonClient, connectorKey: string): Promise<string> {

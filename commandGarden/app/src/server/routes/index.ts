@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { DaemonClient } from '../daemon-client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 import type { AppStore } from '../store.js';
 import { statusRoutes } from './status.js';
 import { connectorRoutes } from './connectors.js';

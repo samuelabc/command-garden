@@ -1,4 +1,3 @@
-// src/client.ts
 import { readFileSync } from 'node:fs';
 
 export function readToken(tokenPath: string): string | null {
@@ -28,7 +27,7 @@ export class DaemonClient {
     try {
       resp = await this.rawFetch('/api/status', { method: 'GET' });
     } catch {
-      throw new Error('Cannot connect to daemon. Is it running? Try: commandgarden daemon start');
+      throw new Error('Cannot connect to daemon. Is it running? Try: cg daemon start');
     }
     const data = await resp.json();
     if (!resp.ok) {
@@ -37,27 +36,13 @@ export class DaemonClient {
     return data as { ok: boolean; extensionConnected: boolean; connectorCount: number };
   }
 
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    let resp: Response;
-    try {
-      resp = await this.rawFetch(path, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'X-CommandGarden': '1',
-          'Content-Type': 'application/json',
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-    } catch {
-      throw new Error('Cannot connect to daemon. Is it running? Try: commandgarden daemon start');
-    }
-
-    const data = await resp.json();
-    if (!resp.ok) {
-      throw new Error((data as Record<string, string>).error ?? `HTTP ${resp.status}`);
-    }
-    return data as T;
+  async pipeRaw(path: string): Promise<Response> {
+    const resp = await this.rawFetch(path, {
+      method: 'GET',
+      headers: this.sseHeaders(),
+    });
+    if (!resp.ok) throw new Error(`SSE connection failed: HTTP ${resp.status}`);
+    return resp;
   }
 
   async connectSSE(
@@ -67,11 +52,7 @@ export class DaemonClient {
   ): Promise<void> {
     const resp = await this.rawFetch(path, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.token}`,
-        'X-CommandGarden': '1',
-        'Accept': 'text/event-stream',
-      },
+      headers: this.sseHeaders(),
       signal,
     });
 
@@ -116,6 +97,37 @@ export class DaemonClient {
       if (signal?.aborted) return;
       throw err;
     }
+  }
+
+  private sseHeaders(): Record<string, string> {
+    return {
+      'Authorization': `Bearer ${this.token}`,
+      'X-CommandGarden': '1',
+      'Accept': 'text/event-stream',
+    };
+  }
+
+  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
+    let resp: Response;
+    try {
+      resp = await this.rawFetch(path, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'X-CommandGarden': '1',
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      throw new Error('Cannot connect to daemon. Is it running? Try: cg daemon start');
+    }
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error((data as Record<string, string>).error ?? `HTTP ${resp.status}`);
+    }
+    return data as T;
   }
 
   private rawFetch(path: string, init: RequestInit): Promise<Response> {

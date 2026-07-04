@@ -1,7 +1,7 @@
 // src/commands/audit.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { executeAuditList, executeAuditExport, executeAuditShow } from './audit.js';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 
 const EVENTS = [
   {

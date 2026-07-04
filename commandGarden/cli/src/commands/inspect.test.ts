@@ -1,7 +1,7 @@
 // src/commands/inspect.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { executeInspect } from './inspect.js';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 
 describe('executeInspect', () => {
   it('displays full connector details', async () => {

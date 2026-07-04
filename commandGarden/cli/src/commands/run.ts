@@ -1,6 +1,6 @@
 // src/commands/run.ts
 import { createInterface } from 'node:readline';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 import type { RunCommandResponse, ApprovalRequest } from '@commandgarden/shared';
 import { format, type OutputFormat } from '../formatters.js';
 

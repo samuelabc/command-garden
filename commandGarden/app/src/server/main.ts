@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { parse as parseYaml } from 'yaml';
 import { readFileSync } from 'node:fs';
-import { DaemonClient, readToken } from './daemon-client.js';
+import { DaemonClient, readToken } from '@commandgarden/shared';
 import { AppStore } from './store.js';
 import { registerRoutes } from './routes/index.js';
 

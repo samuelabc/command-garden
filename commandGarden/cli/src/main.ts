@@ -4,7 +4,7 @@ import { join, dirname, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { DaemonClient, readToken } from './client.js';
+import { DaemonClient, readToken } from '@commandgarden/shared';
 import { resolveScript } from './resolve-script.js';
 import { parseDuration } from './duration.js';
 import type { OutputFormat } from './formatters.js';

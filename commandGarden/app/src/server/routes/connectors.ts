@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { DaemonClient } from '../daemon-client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 
 const APP_ROUTES: Record<string, string> = {

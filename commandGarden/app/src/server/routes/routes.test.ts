@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import { registerRoutes } from './index.js';
-import { DaemonClient } from '../daemon-client.js';
+import { DaemonClient, HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 import { AppStore } from '../store.js';
-import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 
 function mockDaemon() {
   return {

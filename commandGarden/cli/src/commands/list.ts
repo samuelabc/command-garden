@@ -1,6 +1,6 @@
 // src/commands/list.ts
 import Table from 'cli-table3';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 
 interface ConnectorSummary {
   key: string;

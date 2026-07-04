@@ -1,6 +1,6 @@
 // src/commands/config-cmd.ts
 import { readFileSync, existsSync } from 'node:fs';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 
 export function executeConfigShow(configPath: string): string {
   if (!existsSync(configPath)) {

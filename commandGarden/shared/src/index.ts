@@ -82,3 +82,9 @@ export {
   createAuditEvent,
   redactArgs,
 } from './events.js';
+
+// Daemon client
+export {
+  DaemonClient,
+  readToken,
+} from './daemon-client.js';

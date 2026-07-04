@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { DaemonClient } from '../daemon-client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 
 export function auditRoutes(app: FastifyInstance, daemon: DaemonClient): void {
   app.get('/api/audit', async (req) => {

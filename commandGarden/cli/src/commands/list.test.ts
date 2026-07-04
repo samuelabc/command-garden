@@ -1,7 +1,7 @@
 // src/commands/list.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { executeList } from './list.js';
-import type { DaemonClient } from '../client.js';
+import type { DaemonClient } from '@commandgarden/shared';
 
 function mockClient(connectors: Record<string, unknown>[]): DaemonClient {
   return {
