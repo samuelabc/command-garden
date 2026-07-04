@@ -19,7 +19,7 @@ describe('sample connectors — schema validation', () => {
     expect(result.data.name).toBe('report');
     expect(result.data.pipeline).toHaveLength(3);
     expect(result.data.args).toHaveLength(1);
-    expect(result.data.columns).toHaveLength(9);
+    expect(result.data.columns).toHaveLength(11);
   });
 });
 
