@@ -3,10 +3,19 @@ import type { PipelineStep } from '@commandgarden/shared';
 import type { ChromeAdapter } from '../pipeline/runner.js';
 import { createDomRequest, type DomResponse } from '../messages.js';
 
+export interface AdapterOptions {
+  useCdp?: boolean;
+}
+
 export class RealChromeAdapter implements ChromeAdapter {
   private tabId: number | null = null;
   private targetOrigin: string | null = null;
   private debuggerAttached = false;
+  private readonly useCdp: boolean;
+
+  constructor(options?: AdapterOptions) {
+    this.useCdp = options?.useCdp ?? false;
+  }
   private cdpEventHandler: ((
     source: chrome.debugger.Debuggee,
     method: string,
@@ -16,12 +25,12 @@ export class RealChromeAdapter implements ChromeAdapter {
   async navigateTab(url: string): Promise<number> {
     try { this.targetOrigin = new URL(url).origin; } catch { this.targetOrigin = null; }
     if (this.tabId) {
-      await this.attachDebugger(this.tabId);
+      if (this.useCdp) await this.attachDebugger(this.tabId);
       await chrome.tabs.update(this.tabId, { url, active: true });
     } else {
       const tab = await chrome.tabs.create({ url: 'about:blank', active: true });
       this.tabId = tab.id!;
-      await this.attachDebugger(this.tabId);
+      if (this.useCdp) await this.attachDebugger(this.tabId);
       await chrome.tabs.update(this.tabId, { url, active: true });
     }
     return this.tabId;
@@ -36,7 +45,7 @@ export class RealChromeAdapter implements ChromeAdapter {
         : (tab.url && !tab.url.startsWith('about:') && !tab.url.startsWith('chrome:'));
       if (tab.status === 'complete' && onTarget) {
         // Attach to the Service Worker target to capture its network events
-        await this.attachToServiceWorker();
+        if (this.useCdp) await this.attachToServiceWorker();
         return;
       }
       await new Promise(r => setTimeout(r, 500));

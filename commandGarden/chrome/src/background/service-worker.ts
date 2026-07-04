@@ -92,7 +92,8 @@ function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: 
 }
 
 client.onRequest(async (request: ExtensionRequest) => {
-  const adapter = new RealChromeAdapter();
+  const useCdp = request.connector.pipeline.some(s => s.step === 'intercept');
+  const adapter = new RealChromeAdapter({ useCdp });
   const connectorKey = `${request.connector.site}/${request.connector.name}`;
   const approvalGate = request.approvalConfig
     ? createApprovalGate(request.id, connectorKey, request.approvalConfig.approvalTimeoutMs)

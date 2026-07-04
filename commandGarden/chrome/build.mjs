@@ -12,6 +12,7 @@ const sharedOpts = {
   sourcemap: true,
   alias: {
     'node:crypto': resolve(__dirname, 'src/shims/node-crypto.ts'),
+    'node:fs': resolve(__dirname, 'src/shims/node-fs.ts'),
   },
 };
 
