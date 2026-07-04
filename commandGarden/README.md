@@ -14,13 +14,13 @@ For the full design spec, see [`docs/superpowers/specs/2026-06-23-commandgarden-
 ┌─────────────┐                 ┌──────────────┐                 ┌───────────────────┐
 │  CLI Client  │      HTTP      │    Daemon    │    WebSocket    │  Chrome Extension  │
 │  (Node.js)   │ ─────────────→ │  (Fastify)   │ ←────────────→ │  (MV3, TypeScript) │
-└─────────────┘  localhost:19825└──────────────┘                 └───────────────────┘
+└─────────────┘  localhost:9091└──────────────┘                 └───────────────────┘
                                        ↑                                │
 ┌─────────────┐      HTTP              │                                │
 │  GUI (React) │ ─→ ┌──────────────┐   │  Relay commands via HTTP       │  Execute pipeline
 │  SPA         │    │  App Server  │ ──┘                                │  steps on page
 └─────────────┘    │  (Fastify)   │                                    │
-                    │  :19826      │                                    │
+                    │  :9092      │                                    │
                     └──────────────┘                                    │
                            │                                           │
                      ┌──────────┐          ┌──────────────┐            │
@@ -31,7 +31,7 @@ For the full design spec, see [`docs/superpowers/specs/2026-06-23-commandgarden-
 
 **Data flow:** CLI or GUI sends a command → Daemon validates auth, domains, and capabilities → Daemon relays to the Chrome Extension via WebSocket → Extension runs the connector's pipeline steps on the target page → Structured data flows back through the Daemon to the CLI or GUI.
 
-The **App Server** (`:19826`) is the GUI's backend — it proxies daemon calls, enriches responses, and owns app-specific state (preferences, saved views). The GUI never talks to the daemon directly.
+The **App Server** (`:9092`) is the GUI's backend — it proxies daemon calls, enriches responses, and owns app-specific state (preferences, saved views). The GUI never talks to the daemon directly.
 
 ---
 
@@ -76,7 +76,7 @@ Build compiles all five workspace packages in dependency order: `shared` → `da
 cg up
 ```
 
-This starts the daemon, starts the GUI app server, and opens the browser to `http://127.0.0.1:19826`. To stop everything: `cg down`.
+This starts the daemon, starts the GUI app server, and opens the browser to `http://127.0.0.1:9092`. To stop everything: `cg down`.
 
 ### 1b. Start components individually
 
@@ -92,7 +92,7 @@ node daemon/dist/main.js
 node app/dist/server/main.js
 ```
 
-The daemon binds to `127.0.0.1:19825` by default and writes a session token to `~/.commandgarden/session-token`. The GUI app server binds to `127.0.0.1:19826` (configurable via `app.port` in config.yaml).
+The daemon binds to `127.0.0.1:9091` by default and writes a session token to `~/.commandgarden/session-token`. The GUI app server binds to `127.0.0.1:9092` (configurable via `app.port` in config.yaml).
 
 ### 2. Load the Chrome Extension
 
@@ -101,7 +101,7 @@ The daemon binds to `127.0.0.1:19825` by default and writes a session token to `
 3. Click **Load unpacked**
 4. Select the `commandGarden/chrome/dist/` directory
 
-The extension's service worker will connect to the daemon via WebSocket on `ws://127.0.0.1:19825`.
+The extension's service worker will connect to the daemon via WebSocket on `ws://127.0.0.1:9091`.
 
 ### 3. Verify
 
@@ -112,14 +112,14 @@ cg daemon status
 Expected output:
 
 ```
-Daemon is running on http://127.0.0.1:19825
+Daemon is running on http://127.0.0.1:9091
 ```
 
 ---
 
 ## Web GUI
 
-The GUI provides a browser-based interface at `http://127.0.0.1:19826` with:
+The GUI provides a browser-based interface at `http://127.0.0.1:9092` with:
 
 - **Dashboard** — system health cards (daemon, extension, connectors) and recent activity
 - **Connectors** — browse all connectors with approval status badges, inline approve action for high-risk connectors, run any connector via an auto-generated form
@@ -317,7 +317,7 @@ Stored at `~/.commandgarden/config.yaml`. Created automatically with defaults on
 
 ```yaml
 daemon:
-  port: 19825
+  port: 9091
   host: "127.0.0.1"
 
 security:
@@ -472,14 +472,14 @@ npm start -w daemon
 ```
 
 The daemon will:
-- Bind to `127.0.0.1:19825`
+- Bind to `127.0.0.1:9091`
 - Write a session token to `~/.commandgarden/session-token`
 - Load connectors from its own bundled `connectors/` directory (ships with the package — works immediately after install) and then `~/.commandgarden/connectors` (your own connectors; same `site/name` key overrides the bundled version). Add further repo-relative or absolute paths to `connectors.paths` in `config.yaml` for monorepo-local development.
 
 To verify it's running, hit the status endpoint:
 
 ```bash
-curl http://127.0.0.1:19825/api/status
+curl http://127.0.0.1:9091/api/status
 ```
 
 ### Running the CLI from source (without global link)
@@ -507,7 +507,7 @@ After linking, use `cg` commands as documented in the [Setup](#setup) section.
 cd app && npm run dev
 ```
 
-This starts Vite (HMR on `:5173`) and the app server (`tsx watch`) concurrently. The Vite dev server proxies `/api` requests to the app server on `:19826`.
+This starts Vite (HMR on `:5173`) and the app server (`tsx watch`) concurrently. The Vite dev server proxies `/api` requests to the app server on `:9092`.
 
 ### Watch mode for tests
 

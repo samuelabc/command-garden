@@ -36,7 +36,7 @@ function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigStat
   const o = raw.output ?? {};
   const ap = raw.app ?? {};
   return {
-    daemon: { host: String(d.host ?? '127.0.0.1'), port: Number(d.port ?? 19825) },
+    daemon: { host: String(d.host ?? '127.0.0.1'), port: Number(d.port ?? 9091) },
     security: {
       extensionId: String(s.extensionId ?? ''),
       highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? [...DEFAULT_HIGH_RISK_CAPABILITIES],
@@ -48,7 +48,7 @@ function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigStat
     connectors: { paths: (c.paths as string[]) ?? ['./connectors', '~/.commandgarden/connectors'] },
     audit: { retentionDays: Number(a.retentionDays ?? 90), dbPath: String(a.dbPath ?? '~/.commandgarden/audit.db') },
     output: { defaultFormat: String(o.defaultFormat ?? 'table') },
-    app: { port: Number(ap.port ?? 19826) },
+    app: { port: Number(ap.port ?? 9092) },
   };
 }
 

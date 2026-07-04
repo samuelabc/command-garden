@@ -9,7 +9,7 @@ import { RealChromeAdapter } from './chrome-adapter.js';
 import type { ActivityEntry, ApprovalInfo, PopupMessage } from '../popup/popup-types.js';
 import { initFromStorage, handleSetEnabled, buildStatusResponse } from './service-worker-logic.js';
 
-const DAEMON_URL = 'ws://127.0.0.1:19825/ws/extension';
+const DAEMON_URL = 'ws://127.0.0.1:9091/ws/extension';
 const client = new WsClient(DAEMON_URL);
 const MAX_ACTIVITY = 10;
 const recentActivity: ActivityEntry[] = [];

@@ -7,7 +7,7 @@ describe('DaemonClient', () => {
 
   beforeEach(() => {
     vi.stubGlobal('fetch', mockFetch);
-    client = new DaemonClient('http://127.0.0.1:19825', 'test-token');
+    client = new DaemonClient('http://127.0.0.1:9091', 'test-token');
     mockFetch.mockReset();
   });
 
@@ -18,7 +18,7 @@ describe('DaemonClient', () => {
     });
     await client.get('/api/status');
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:19825/api/status',
+      'http://127.0.0.1:9091/api/status',
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({

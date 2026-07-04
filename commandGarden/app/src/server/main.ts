@@ -23,7 +23,7 @@ function readAppPort(): number {
       if (typeof port === 'number') return port;
     }
   } catch { /* use default */ }
-  return 19826;
+  return 9092;
 }
 
 async function start() {
@@ -34,7 +34,7 @@ async function start() {
   }
 
   const port = readAppPort();
-  const daemonUrl = 'http://127.0.0.1:19825';
+  const daemonUrl = 'http://127.0.0.1:9091';
   const daemon = new DaemonClient(daemonUrl, token);
   const store = await AppStore.create(join(CG_HOME, 'app.db'));
   const app = Fastify();

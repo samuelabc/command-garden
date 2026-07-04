@@ -15,13 +15,13 @@ function readAppPort(configPath: string): number {
       if (typeof port === 'number') return port;
     }
   } catch { /* use default */ }
-  return 19826;
+  return 9092;
 }
 
 export async function executeGuiStart(
   baseUrl: string, cgHome: string, appScript: string, opts: { background?: boolean; noOpen?: boolean; configPath?: string },
 ): Promise<LifecycleStartResult | string> {
-  const appPort = opts.configPath ? readAppPort(opts.configPath) : 19826;
+  const appPort = opts.configPath ? readAppPort(opts.configPath) : 9092;
 
   try {
     const resp = await fetch(`${baseUrl}/api/status`);

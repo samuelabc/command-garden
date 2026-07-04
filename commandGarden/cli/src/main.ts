@@ -43,7 +43,7 @@ function getAppScript(): string {
 const CG_HOME = join(homedir(), '.commandgarden');
 const TOKEN_PATH = join(CG_HOME, 'session-token');
 const CONFIG_PATH = join(CG_HOME, 'config.yaml');
-const BASE_URL = `http://127.0.0.1:19825`;
+const BASE_URL = `http://127.0.0.1:9091`;
 
 function createClient(): DaemonClient {
   const token = readToken(TOKEN_PATH);

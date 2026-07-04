@@ -8,7 +8,7 @@ import { loadConfig, configSchema, expandHome } from './config.js';
 describe('configSchema', () => {
   it('parses empty object with all defaults', () => {
     const c = configSchema.parse({});
-    expect(c.daemon.port).toBe(19825);
+    expect(c.daemon.port).toBe(9091);
     expect(c.daemon.host).toBe('127.0.0.1');
     expect(c.security.highRiskCapabilities).toEqual(['js_evaluate', 'cookie_write']);
     expect(c.security.approvalRequired).toEqual([]);
@@ -66,7 +66,7 @@ describe('loadConfig', () => {
   afterEach(() => { rmSync(tmpDir, { recursive: true, force: true }); });
 
   it('returns defaults when file missing', () => {
-    expect(loadConfig(join(tmpDir, 'no.yaml')).daemon.port).toBe(19825);
+    expect(loadConfig(join(tmpDir, 'no.yaml')).daemon.port).toBe(9091);
   });
 
   it('loads valid YAML config', () => {
@@ -81,6 +81,6 @@ describe('loadConfig', () => {
   it('handles empty YAML file', () => {
     const p = join(tmpDir, 'config.yaml');
     writeFileSync(p, '');
-    expect(loadConfig(p).daemon.port).toBe(19825);
+    expect(loadConfig(p).daemon.port).toBe(9091);
   });
 });

@@ -279,7 +279,7 @@ describe('server', () => {
   describe('GET /api/config', () => {
     it('returns parsed config when file exists', async () => {
       const configPath = join(tmpDir, 'config.yaml');
-      writeFileSync(configPath, 'daemon:\n  port: 19825\nsecurity:\n  extensionId: "test-ext"\n');
+      writeFileSync(configPath, 'daemon:\n  port: 9091\nsecurity:\n  extensionId: "test-ext"\n');
 
       const app = await createServer(deps);
       const resp = await app.inject({
@@ -291,7 +291,7 @@ describe('server', () => {
       expect(resp.statusCode).toBe(200);
       const body = JSON.parse(resp.payload);
       expect(body.ok).toBe(true);
-      expect(body.config.daemon.port).toBe(19825);
+      expect(body.config.daemon.port).toBe(9091);
       expect(body.config.security.extensionId).toBe('test-ext');
     });
 

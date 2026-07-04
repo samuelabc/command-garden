@@ -26,7 +26,7 @@ describe('DaemonClient', () => {
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
-    client = new DaemonClient('http://127.0.0.1:19825', 'test-token');
+    client = new DaemonClient('http://127.0.0.1:9091', 'test-token');
   });
   afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -36,7 +36,7 @@ describe('DaemonClient', () => {
     });
     const result = await client.get('/api/connectors');
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:19825/api/connectors',
+      'http://127.0.0.1:9091/api/connectors',
       expect.objectContaining({
         method: 'GET',
         headers: expect.objectContaining({
@@ -54,7 +54,7 @@ describe('DaemonClient', () => {
     });
     await client.post('/api/run', { connector: 'test/cmd', args: {} });
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:19825/api/run',
+      'http://127.0.0.1:9091/api/run',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
@@ -84,7 +84,7 @@ describe('DaemonClient', () => {
     });
     const result = await client.status();
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:19825/api/status',
+      'http://127.0.0.1:9091/api/status',
       expect.objectContaining({ method: 'GET' }),
     );
     expect(result.ok).toBe(true);

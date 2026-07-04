@@ -11,7 +11,7 @@ vi.mock('node:fs', () => ({
 }));
 
 const SAMPLE_CONFIG = `daemon:
-  port: 19825
+  port: 9091
   host: "127.0.0.1"
 security:
   extensionId: ""
@@ -25,7 +25,7 @@ describe('executeConfigShow', () => {
     vi.mocked(readFileSync).mockReturnValue(SAMPLE_CONFIG);
     const output = executeConfigShow('/fake/.commandgarden/config.yaml');
     expect(output).toContain('daemon');
-    expect(output).toContain('19825');
+    expect(output).toContain('9091');
     expect(output).toContain('table');
   });
 

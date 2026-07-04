@@ -48,7 +48,7 @@ describe('WsClient', () => {
     vi.useFakeTimers();
     vi.mocked(globalThis.fetch).mockClear();
     vi.mocked(globalThis.fetch).mockResolvedValue({ ok: true } as Response);
-    client = new WsClient('ws://127.0.0.1:19825/ws/extension', MockWebSocket as any);
+    client = new WsClient('ws://127.0.0.1:9091/ws/extension', MockWebSocket as any);
   });
 
   afterEach(() => {

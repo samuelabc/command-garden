@@ -50,7 +50,7 @@ describe('executeUp', () => {
     vi.mocked(existsSync).mockReturnValue(false);
 
     const output = await executeUp(
-      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
     );
     expect(output).toContain('started');
     expect(spawn).toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe('executeUp', () => {
     vi.mocked(existsSync).mockReturnValue(false);
 
     const output = await executeUp(
-      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
     );
     expect(output).toContain('already running');
   });
@@ -73,11 +73,11 @@ describe('executeUp', () => {
     vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     await executeUp(
-      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
     );
     expect(spawn).toHaveBeenCalledWith(
       expect.any(String),
-      expect.arrayContaining([expect.stringContaining('19826')]),
+      expect.arrayContaining([expect.stringContaining('9092')]),
       expect.anything(),
     );
   });
@@ -89,7 +89,7 @@ describe('executeUp', () => {
     vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     await executeUp(
-      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
       { noOpen: true },
     );
     expect(spawn).not.toHaveBeenCalled();
@@ -106,13 +106,13 @@ describe('executeUp', () => {
     vi.mocked(existsSync).mockReturnValue(false);
 
     await executeUp(
-      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
       { noOpen: true },
     );
     // spawn called for daemon + app process, but never with a browser-open command containing the app URL
     expect(spawn).not.toHaveBeenCalledWith(
       expect.any(String),
-      expect.arrayContaining([expect.stringContaining('19826')]),
+      expect.arrayContaining([expect.stringContaining('9092')]),
       expect.anything(),
     );
   });
@@ -124,7 +124,7 @@ describe('executeUp', () => {
     vi.spyOn(process, 'kill').mockImplementation(() => { throw new Error('ESRCH'); });
 
     const output = await executeUp(
-      'http://127.0.0.1:19825', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', '/fake/config.yaml',
     );
     expect(output).toContain('failed to start');
     // spawn was called once for the daemon attempt, never a second time for GUI

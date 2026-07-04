@@ -10,7 +10,7 @@ const BUNDLED_CONNECTORS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..
 
 export const configSchema = z.object({
   daemon: z.object({
-    port: z.number().int().min(1024).max(65535).default(19825),
+    port: z.number().int().min(1024).max(65535).default(9091),
     host: z.string().default('127.0.0.1'),
   }).default({}),
   security: z.object({
