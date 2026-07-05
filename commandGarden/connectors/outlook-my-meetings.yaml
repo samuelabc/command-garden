@@ -1,0 +1,41 @@
+site: outlook
+name: my-meetings
+version: "1.0"
+description: "User's own meeting schedule from Outlook Calendar for a given day"
+access: read
+
+domains:
+  - "outlook.cloud.microsoft.mcas.ms"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: date
+    type: string
+    required: true
+    help: "Day to fetch in YYYY-MM-DD format"
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+
+columns:
+  - name: date
+    type: string
+  - name: subject
+    type: string
+  - name: start
+    type: string
+  - name: end
+    type: string
+  - name: durationMin
+    type: number
+  - name: state
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://outlook.cloud.microsoft.mcas.ms/calendar/deeplink/compose"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: outlook-my-meetings.eval.js
