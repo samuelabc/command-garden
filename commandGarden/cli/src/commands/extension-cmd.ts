@@ -11,12 +11,12 @@ export function executeExtensionSetup(baseDir: string): string {
   );
   const extensionDir = dirname(manifestPath);
 
-  // Open chrome://extensions in the default browser
+  // chrome:// is an internal protocol — must target Chrome directly
   const [command, args]: [string, string[]] = process.platform === 'darwin'
-    ? ['open', ['chrome://extensions']]
+    ? ['open', ['-a', 'Google Chrome', 'chrome://extensions']]
     : process.platform === 'win32'
-      ? ['cmd', ['/c', 'start', '', 'chrome://extensions']]
-      : ['xdg-open', ['chrome://extensions']];
+      ? ['cmd', ['/c', 'start', 'chrome', 'chrome://extensions']]
+      : ['google-chrome', ['chrome://extensions']];
 
   const child = spawn(command, args, { stdio: 'ignore', detached: true });
   child.on('error', () => { /* best-effort — instructions still printed */ });
