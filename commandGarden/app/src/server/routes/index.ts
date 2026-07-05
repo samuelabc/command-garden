@@ -9,6 +9,7 @@ import { configRoutes } from './config.js';
 import { preferencesRoutes } from './preferences.js';
 import { goalsRoutes } from './goals.js';
 import { timetrackingCacheRoutes } from './timetracking-cache.js';
+import { journalRoutes } from './journal.js';
 
 export function registerRoutes(app: FastifyInstance, daemon: DaemonClient, store: AppStore): void {
   statusRoutes(app, daemon);
@@ -19,4 +20,5 @@ export function registerRoutes(app: FastifyInstance, daemon: DaemonClient, store
   preferencesRoutes(app, store);
   goalsRoutes(app, store);
   timetrackingCacheRoutes(app, store);
+  journalRoutes(app, daemon);
 }

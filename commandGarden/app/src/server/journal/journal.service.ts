@@ -1,0 +1,190 @@
+/**
+ * Journal orchestrator — fetches all sources in parallel, cross-references,
+ * and generates basic insights.
+ * Ported from dashboard/api/src/journal/journal.service.ts.
+ *
+ * Removed NestJS DI: takes source instances via constructor params.
+ * Removed AuditService dependency: audit logging deferred to route level / Phase 3.
+ */
+
+import { GitSource } from './sources/git.source.js';
+import { TimetrackingSource } from './sources/timetracking.source.js';
+import { MeetingsSource } from './sources/meetings.source.js';
+import { JiraSource } from './sources/jira.source.js';
+import type {
+  JournalInput,
+  JournalResponse,
+  TimetrackingData,
+  MeetingsData,
+  GitData,
+  JiraData,
+  CrossRefData,
+} from './journal.types.js';
+
+export class JournalService {
+  constructor(
+    private readonly git: GitSource,
+    private readonly timetracking: TimetrackingSource,
+    private readonly meetings: MeetingsSource,
+    private readonly jira: JiraSource,
+  ) {}
+
+  async generate(input: JournalInput): Promise<JournalResponse> {
+    const weekStart = input.weekStart;
+    const weekEnd = this.addDays(weekStart, 6); // Mon–Sun (full 7-day week)
+
+    const errors: string[] = [];
+
+    // Fetch all sources in parallel; each source handles its own errors gracefully
+    const [ttResult, meetingsResult, jiraResult, gitResult] = await Promise.allSettled([
+      this.timetracking.fetch(weekStart, weekEnd),
+      this.meetings.fetch(weekStart, weekEnd),
+      this.jira.fetch(weekStart, weekEnd),
+      this.git.fetch(weekStart, weekEnd),
+    ]);
+
+    const tt = ttResult.status === 'fulfilled' ? ttResult.value : null;
+    if (ttResult.status === 'rejected') errors.push(`TimeTracking: ${ttResult.reason}`);
+
+    const mtg = meetingsResult.status === 'fulfilled' ? meetingsResult.value : null;
+    if (meetingsResult.status === 'rejected') errors.push(`Meetings: ${meetingsResult.reason}`);
+
+    const jira = jiraResult.status === 'fulfilled' ? jiraResult.value : null;
+    if (jiraResult.status === 'rejected') errors.push(`Jira: ${jiraResult.reason}`);
+
+    const git = gitResult.status === 'fulfilled' ? gitResult.value : null;
+    if (gitResult.status === 'rejected') errors.push(`Git: ${gitResult.reason}`);
+
+    // Cross-reference available data
+    const crossRef = this.crossReference(tt, mtg, jira, git, weekStart, weekEnd);
+
+    // Determine overall status
+    const hasAnyData = tt || mtg || jira || git;
+    const status = hasAnyData ? (errors.length > 0 ? 'partial' : 'success') : 'error';
+
+    // Rule-based insights (LLM replacement in Phase 4)
+    const insights = this.generateBasicInsights(tt, mtg, jira, git, crossRef);
+
+    return {
+      status,
+      week: `${weekStart} – ${weekEnd}`,
+      timetracking: tt,
+      meetings: mtg,
+      jira,
+      git,
+      crossRef,
+      insights,
+      errors,
+    };
+  }
+
+  /**
+   * Cross-reference data across sources to identify patterns:
+   * - forgottenDays: days with activity but 0 hours logged
+   * - heavyMeetingDays: days with 4+ hours in meetings
+   * - zeroCodingDays: weekdays with 0 commits
+   * - meetingRatio: fraction of work hours spent in meetings
+   * - codingHours: estimated non-meeting hours
+   */
+  private crossReference(
+    tt: TimetrackingData | null,
+    mtg: MeetingsData | null,
+    _jira: JiraData | null,
+    git: GitData | null,
+    weekStart: string,
+    weekEnd: string,
+  ): CrossRefData | null {
+    if (!tt && !mtg && !git) return null;
+
+    // Days with activity but 0 hours logged in TimeTracking
+    const forgottenDays: string[] = [];
+    if (tt) {
+      for (const gap of tt.gaps) {
+        const hasMeetings = mtg?.daily.some((d) => d.date === gap && d.count > 0);
+        const hasCommits = git?.daily.some((d) => d.date === gap && d.commits > 0);
+        if (hasMeetings || hasCommits) forgottenDays.push(gap);
+      }
+    }
+
+    // Heavy meeting days (4+ hours)
+    const heavyMeetingDays = (mtg?.daily ?? [])
+      .filter((d) => d.hours >= 4)
+      .map((d) => ({ date: d.date, hours: d.hours }));
+
+    // Days with 0 commits
+    const allWeekdays = this.weekdaysInRange(weekStart, weekEnd);
+    const zeroCodingDays = git
+      ? allWeekdays.filter((date) => !git.daily.some((d) => d.date === date && d.commits > 0))
+      : [];
+
+    // Meeting ratio
+    const totalWorkHours = tt?.totalHours ?? 40;
+    const meetingHours = mtg?.totalHours ?? 0;
+    const meetingRatio = totalWorkHours > 0 ? Math.round((meetingHours / totalWorkHours) * 100) / 100 : 0;
+    const codingHours = Math.max(0, totalWorkHours - meetingHours);
+
+    return { forgottenDays, heavyMeetingDays, zeroCodingDays, meetingRatio, codingHours };
+  }
+
+  /**
+   * Generate basic insights without LLM.
+   * Phase 4 replaces this with an LLM call for richer, more contextual insights.
+   */
+  private generateBasicInsights(
+    tt: TimetrackingData | null,
+    mtg: MeetingsData | null,
+    jira: JiraData | null,
+    git: GitData | null,
+    crossRef: CrossRefData | null,
+  ): string[] {
+    const insights: string[] = [];
+
+    if (crossRef?.forgottenDays.length) {
+      insights.push(
+        `You have activity on ${crossRef.forgottenDays.join(', ')} but 0 hours logged in TimeTracking — you may have forgotten to fill it.`,
+      );
+    }
+
+    if (crossRef?.heavyMeetingDays.length) {
+      const days = crossRef.heavyMeetingDays.map((d) => `${d.date} (${d.hours}h)`).join(', ');
+      insights.push(`Heavy meeting days: ${days}. Consider blocking focus time.`);
+    }
+
+    if (tt && tt.totalHours < tt.targetHours * 0.8) {
+      const gap = tt.targetHours - tt.totalHours;
+      insights.push(`You're ${gap}h below your ${tt.targetHours}h weekly target.`);
+    }
+
+    if (jira?.blockers.length) {
+      const items = jira.blockers.map((b) => `${b.key} (${b.staleDays}d)`).join(', ');
+      insights.push(`Stale tickets: ${items}. Consider unblocking or reassigning.`);
+    }
+
+    if (crossRef && crossRef.meetingRatio > 0.5 && mtg) {
+      insights.push(
+        `Meetings consumed ${Math.round(crossRef.meetingRatio * 100)}% of your logged hours this week.`,
+      );
+    }
+
+    return insights;
+  }
+
+  private addDays(dateStr: string, days: number): string {
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  private weekdaysInRange(start: string, end: string): string[] {
+    const days: string[] = [];
+    const cursor = new Date(start);
+    const endDate = new Date(end);
+    while (cursor <= endDate) {
+      if (cursor.getDay() >= 1 && cursor.getDay() <= 5) {
+        days.push(cursor.toISOString().slice(0, 10));
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  }
+}
