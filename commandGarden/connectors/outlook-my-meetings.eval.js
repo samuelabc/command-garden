@@ -1,231 +1,186 @@
 // Runs in page context via js_evaluate step.
-// Captures the user's OWN meeting schedule from Outlook's Scheduling Assistant.
+// Captures the user's calendar events by intercepting OWA's own data fetches.
 //
-// Strategy: navigate to the OWA calendar compose deeplink, open the Scheduling
-// Assistant, and intercept the getSchedule GraphQL call that fires automatically
-// for the organizer. The organizer's scheduleItems contain their meetings.
+// Strategy: patch fetch() and XMLHttpRequest to capture responses containing
+// calendar event data. OWA loads calendar events automatically when the
+// calendar page opens — we just wait and read what it fetched.
 //
-// Key difference from teams-room-availability: we do NOT add any room or attendee.
-// The organizer's own schedule loads automatically when the Scheduling Assistant opens.
-//
-// Shared helpers and fetch interceptor are adapted from teams-room-availability.eval.js.
+// This avoids all auth issues (no tokens, no CANARY, no cross-origin) because
+// we're reading data OWA already fetched for itself.
 //
 // Template variables interpolated before execution:
 //   ${{ args.date }}
 
-// ── Shared helpers ────────────────────────────────────────────────────
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'];
-const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-
-function pad2(n) { return String(n).padStart(2, '0'); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function pad2(n) { return String(n).padStart(2, '0'); }
 
-function todayLocalISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function $(sel) { return document.querySelector(sel); }
-function exists(sel) { return !!$(sel); }
-
-/** Click a button/link by accessible name (aria-label OR visible text). */
-function clickByName(name) {
-  const els = Array.from(document.querySelectorAll('button,a,[role=button]'));
-  const el = els.find(e => {
-    if (!e.offsetParent) return false;
-    const al = (e.getAttribute('aria-label') || '').trim();
-    const tx = (e.textContent || '').replace(/\s+/g, ' ').trim();
-    return al === name || al.includes(name) || tx.includes(name);
-  });
-  if (!el) return false;
-  el.scrollIntoView({ block: 'center' });
-  el.click();
-  return true;
-}
-
-/** True when the Scheduling Assistant view is rendered. */
-function schedulingAssistantOpen() {
-  return Array.from(document.querySelectorAll('input')).some(
-    e => (e.getAttribute('aria-label') || '') === 'Start date'
-  );
-}
-
-// ── Fetch interceptor — captures getSchedule GraphQL responses ────────
-// Installs a monkey-patch on window.fetch to record getSchedule calls.
-// The organizer's own schedule fires automatically when the SA opens.
-if (!window.__rfb) {
-  window.__rfb = [];
-  const origFetch = window.fetch;
-  window.fetch = function () {
-    const a = arguments;
-    const u = (a[0] && a[0].url) || a[0] || '';
-    const rb = (a[1] && a[1].body) || '';
-    return origFetch.apply(this, a).then(r => {
-      try {
-        if (String(u).indexOf('graphql') > -1) {
-          r.clone().text().then(t => {
-            if (t.indexOf('getSchedule') > -1 && t.indexOf('availabilityView') > -1) {
-              window.__rfb.push({ req: String(rb || ''), body: t });
-            }
-          }).catch(() => {});
-        }
-      } catch (_e) { /* ignore */ }
-      return r;
-    });
-  };
-}
-
-function readCapture() {
-  const d = window.__rfb || [];
-  window.__rfb = [];
-  return d;
-}
-
-/** Extract schedule objects from a captured getSchedule response. */
-function schedulesFromPair(pair) {
-  let body;
-  try { body = JSON.parse(pair.body); } catch (_e) { return new Map(); }
-  const byId = new Map();
-  const nodes = Array.isArray(body) ? body : [body];
-  for (const node of nodes) {
-    const schedules = node?.data?.getSchedule?.schedules;
-    if (Array.isArray(schedules)) {
-      for (const s of schedules) {
-        if (s?.scheduleId) byId.set(String(s.scheduleId).toLowerCase(), s);
-      }
-    }
-  }
-  return byId;
-}
-
-/**
- * Build a timeline of busy/tentative/oof blocks for one day from scheduleItems.
- * Returns only non-free blocks (the user's actual meetings/events).
- */
-function buildMeetings(items, dateIso) {
-  const mapStatus = st => ({
-    Busy: 'busy', Tentative: 'tentative', Oof: 'oof', WorkingElsewhere: 'elsewhere', Free: 'free',
-  }[st] || 'busy');
-
-  const dayStart = new Date(`${dateIso}T00:00:00`);
-  const dayEnd = new Date(dayStart.getTime() + 86400000);
-  const fmt = ms => {
-    if (ms >= dayEnd.getTime()) return '24:00';
-    const d = new Date(ms);
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  };
-
-  const meetings = [];
-  for (const it of items) {
-    if (!it || !it.startTime || !it.endTime) continue;
-    const status = mapStatus(it.status);
-    // Only include busy/tentative blocks (actual meetings), skip free gaps
-    if (status === 'free') continue;
-
-    const s = new Date(it.startTime.dateTime).getTime();
-    const e = new Date(it.endTime.dateTime).getTime();
-    const cs = Math.max(s, dayStart.getTime());
-    const ce = Math.min(e, dayEnd.getTime());
-    if (ce <= cs) continue;
-
-    meetings.push({
-      date: dateIso,
-      subject: it.subject || '(meeting)',
-      start: fmt(cs),
-      end: fmt(ce),
-      durationMin: Math.round((ce - cs) / 60000),
-      state: status,
-    });
-  }
-
-  return meetings;
-}
-
-// ── Main flow ─────────────────────────────────────────────────────────
-
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const date = '${{ args.date }}'.trim();
 if (!DATE_RE.test(date)) throw new Error(`Invalid date "${date}" — use YYYY-MM-DD`);
 
-// Wait for compose form controls (handles SSO redirect delays)
-const __deadline2 = Date.now() + 30000;
-while (Date.now() < __deadline2) {
-  if (exists("button[aria-label='Open Scheduling Assistant']") ||
-      exists("input[aria-label='Start date']")) break;
+// ── Wait for OWA to finish SSO/redirect (up to 30s) ──────────────────
+const __deadline = Date.now() + 30000;
+while (Date.now() < __deadline) {
+  if (location.hostname.includes('outlook') && !(/login\.|\/oauth2\/|signin|sso/i.test(location.href))) break;
   await sleep(1000);
 }
-if (!exists("button[aria-label='Open Scheduling Assistant']") &&
-    !exists("input[aria-label='Start date']")) {
-  if (/login\.|\/oauth2\/|signin|sso/i.test(location.href)) {
-    throw new Error('Not signed in to Outlook — log in and retry');
+if (/login\.|\/oauth2\/|signin|sso/i.test(location.href)) {
+  throw new Error('Not signed in to Outlook — log in and retry');
+}
+
+// ── Install interceptors to capture calendar event data ───────────────
+// OWA uses both fetch() and XMLHttpRequest for API calls. We patch both
+// to capture any response containing calendar events (Items, calendarView,
+// getSchedule, FindItem).
+if (!window.__calEvents) {
+  window.__calEvents = [];
+
+  // Patch fetch
+  const origFetch = window.fetch;
+  window.fetch = function () {
+    const args = arguments;
+    return origFetch.apply(this, args).then(r => {
+      try {
+        r.clone().text().then(t => {
+          // Capture responses that look like calendar event data
+          if (t.includes('"Subject"') && (t.includes('"Start"') || t.includes('"StartTime"'))) {
+            try {
+              const parsed = JSON.parse(t);
+              extractEvents(parsed);
+            } catch (_) {}
+          }
+          // Also capture getSchedule GraphQL responses (fallback)
+          if (t.includes('getSchedule') && t.includes('scheduleItems')) {
+            try {
+              const parsed = JSON.parse(t);
+              extractScheduleItems(parsed);
+            } catch (_) {}
+          }
+        }).catch(() => {});
+      } catch (_) {}
+      return r;
+    });
+  };
+
+  // Patch XMLHttpRequest (OWA uses this for some API calls)
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  const origXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function () {
+    this.__url = arguments[1] || '';
+    return origXHROpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function () {
+    this.addEventListener('load', function () {
+      try {
+        const t = this.responseText || '';
+        if (t.includes('"Subject"') && (t.includes('"Start"') || t.includes('"StartTime"'))) {
+          try { extractEvents(JSON.parse(t)); } catch (_) {}
+        }
+      } catch (_) {}
+    });
+    return origXHRSend.apply(this, arguments);
+  };
+}
+
+/** Extract calendar events from OWA API response shapes. */
+function extractEvents(data) {
+  // OWA returns events in various shapes; try common patterns
+  const items = data.value || data.Items || data.items || [];
+  const arr = Array.isArray(data) ? data : (Array.isArray(items) ? items : []);
+  for (const item of arr) {
+    if (item && (item.Subject || item.subject) && (item.Start || item.start)) {
+      window.__calEvents.push(item);
+    }
   }
-  throw new Error('Calendar compose form did not load');
 }
 
-// Open the Scheduling Assistant
-for (let i = 0; i < 12 && !schedulingAssistantOpen(); i++) {
-  clickByName('Open Scheduling Assistant');
-  await sleep(1000);
-}
-if (!schedulingAssistantOpen()) {
-  throw new Error('Could not open the Scheduling Assistant');
-}
-
-// ── Set the date by typing directly into the Start date input ─────────
-// The old approach navigated the calendar picker month-by-month clicking
-// date cells by aria-label, which looped endlessly when labels didn't match.
-// Instead, we focus the input, clear it, type the formatted date, and
-// press Enter to confirm — much more reliable.
-const dateInput = $("input[aria-label='Start date']");
-if (dateInput) {
-  // Format date as M/D/YYYY (OWA's expected input format for en-US locale)
-  const [y, m, d] = date.split('-').map(Number);
-  const formatted = `${m}/${d}/${y}`;
-
-  dateInput.focus();
-  dateInput.select();
-  // Use the React-compatible value setter to update the controlled input
-  const setter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype, 'value'
-  ).set;
-  setter.call(dateInput, formatted);
-  dateInput.dispatchEvent(new Event('input', { bubbles: true }));
-  dateInput.dispatchEvent(new Event('change', { bubbles: true }));
-  // Press Enter to confirm the date and close any open picker
-  dateInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-  await sleep(2000);
-}
-
-// ── Capture the organizer's own schedule ──────────────────────────────
-// When the Scheduling Assistant opens, it automatically fires getSchedule
-// for the organizer. We capture those responses — the organizer's scheduleItems
-// contain their meetings for the selected day.
-
-const allItems = new Map();
-let sawView = false;
-let stable = 0;
-
-for (let i = 0; i < 30; i++) {
-  await sleep(1000);
-  for (const pair of readCapture()) {
-    for (const [id, s] of schedulesFromPair(pair)) {
-      if (s.availabilityView && s.availabilityView.length) sawView = true;
-      // Collect all schedule items from all captured schedules.
-      // The first schedule(s) are the organizer's own.
+/** Extract events from getSchedule GraphQL responses (fallback path). */
+function extractScheduleItems(data) {
+  const nodes = Array.isArray(data) ? data : [data];
+  for (const node of nodes) {
+    const schedules = node?.data?.getSchedule?.schedules;
+    if (!Array.isArray(schedules)) continue;
+    for (const s of schedules) {
       for (const it of (s.scheduleItems || [])) {
-        const key = it && it.id ? it.id : JSON.stringify(it && [it.startTime, it.endTime, it.subject]);
-        if (it) allItems.set(key, it);
+        if (it && it.startTime && it.endTime) {
+          // Convert getSchedule format to calendarView-like format
+          window.__calEvents.push({
+            subject: it.subject || '(meeting)',
+            start: it.startTime,
+            end: it.endTime,
+            showAs: it.status || 'Busy',
+            responseStatus: { response: 'Accepted' },
+            isAllDayEvent: false,
+            isCancelled: false,
+            _fromSchedule: true,
+          });
+        }
       }
     }
   }
-  if (sawView) { stable += 1; if (stable >= 3) break; }
 }
 
-if (allItems.size === 0 && !sawView) {
-  // No schedule data captured — might be an empty day or auth issue
-  return [];
+// ── Wait for OWA to load calendar data (up to 20s) ───────────────────
+for (let i = 0; i < 20; i++) {
+  await sleep(1000);
+  if (window.__calEvents.length > 0) break;
 }
 
-const rows = buildMeetings([...allItems.values()], date);
+// Deduplicate events by start+end time
+const seen = new Set();
+const uniqueEvents = [];
+for (const ev of window.__calEvents) {
+  const startStr = ev.Start?.DateTime || ev.start?.dateTime || ev.start?.DateTime || '';
+  const endStr = ev.End?.DateTime || ev.end?.dateTime || ev.end?.DateTime || '';
+  const key = startStr + '|' + endStr;
+  if (seen.has(key)) continue;
+  seen.add(key);
+  uniqueEvents.push(ev);
+}
+
+// Clear captured events for next run
+window.__calEvents = [];
+
+// ── Filter to the target date and map to output rows ──────────────────
+const rows = [];
+for (const ev of uniqueEvents) {
+  // Normalize field names (OWA mixes PascalCase and camelCase)
+  const subject = ev.Subject || ev.subject || '(meeting)';
+  const startRaw = ev.Start?.DateTime || ev.start?.dateTime || ev.start?.DateTime || '';
+  const endRaw = ev.End?.DateTime || ev.end?.dateTime || ev.end?.DateTime || '';
+  const showAs = (ev.ShowAs || ev.showAs || 'busy');
+  const isCancelled = ev.IsCancelled || ev.isCancelled || false;
+  const isAllDay = ev.IsAllDayEvent || ev.isAllDayEvent || false;
+  const responseType = ev.ResponseStatus?.Response || ev.responseStatus?.response || '';
+
+  if (isCancelled || isAllDay) continue;
+
+  // Filter by response status if available (accepted/organizer only)
+  // If responseStatus is missing (e.g. from getSchedule), include the event
+  if (responseType && responseType !== 'Organizer' && responseType !== 'Accepted') continue;
+
+  // Only show busy/tentative items (skip free blocks from getSchedule)
+  const showAsLower = String(showAs).toLowerCase();
+  if (showAsLower === 'free') continue;
+
+  const startDt = new Date(startRaw.endsWith('Z') ? startRaw : startRaw + 'Z');
+  const endDt = new Date(endRaw.endsWith('Z') ? endRaw : endRaw + 'Z');
+  const evDate = `${startDt.getFullYear()}-${pad2(startDt.getMonth() + 1)}-${pad2(startDt.getDate())}`;
+
+  // Filter to the target date
+  if (evDate !== date) continue;
+
+  const durationMin = Math.round((endDt.getTime() - startDt.getTime()) / 60000);
+  if (durationMin < 5 || durationMin > 480) continue;
+
+  rows.push({
+    date: evDate,
+    subject: subject,
+    start: `${pad2(startDt.getHours())}:${pad2(startDt.getMinutes())}`,
+    end: `${pad2(endDt.getHours())}:${pad2(endDt.getMinutes())}`,
+    durationMin,
+    state: showAsLower,
+  });
+}
+
 return rows;
