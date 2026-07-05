@@ -1,6 +1,7 @@
-- [ ] bundle extension
+- [x] bundle extension
 - [ ] skills
 - [ ] display commands in gui
 - [ ] more explaination in gui
 - [ ] humanizer review on gui copywriting
 - [ ] timetracking (goal tracking, time analysis)
+- [ ] room availability (bulk checking)

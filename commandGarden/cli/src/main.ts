@@ -17,6 +17,7 @@ import { executeAuditList, executeAuditExport, executeAuditShow } from './comman
 import { executeConfigShow, executeConfigSet } from './commands/config-cmd.js';
 import { executeGuiStart, executeGuiStop, executeGuiStatus } from './commands/gui-cmd.js';
 import { executeUp, executeDown } from './commands/up-down.js';
+import { executeExtensionSetup } from './commands/extension-cmd.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -220,6 +221,18 @@ gui
   .command('status')
   .description('Check GUI status')
   .action(() => { console.log(executeGuiStatus(CG_HOME)); });
+
+// --- extension ---
+const extension = program
+  .command('extension')
+  .description('Manage the Chrome extension');
+
+extension
+  .command('setup')
+  .description('Show extension path and open Chrome for installation')
+  .action(() => {
+    console.log(executeExtensionSetup(__dirname));
+  });
 
 // --- up/down ---
 program

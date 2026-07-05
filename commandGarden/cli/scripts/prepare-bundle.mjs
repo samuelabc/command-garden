@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const cliDir = join(__dirname, '..');
 const monorepoDir = join(cliDir, '..');
 
-const PACKAGES = ['shared', 'daemon', 'app'];
+const PACKAGES = ['shared', 'daemon', 'app', 'chrome'];
 
 console.log('Preparing workspace packages for bundleDependencies...\n');
 
