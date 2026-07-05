@@ -1,12 +1,17 @@
 /**
- * Journal configuration — reads from environment variables.
- * Ported from dashboard/api/src/journal/journal.config.ts.
+ * Journal configuration — reads from commandGarden preferences (SQLite).
+ * Users configure their settings through the GUI Config page.
  *
- * Env vars: JOURNAL_AUTHOR, ADO_ORG, ADO_PAT, ADO_REPOS, TARGET_HOURS.
- * ADO_REPOS format: "project/repo,project/repo" (comma-separated pairs).
+ * Preference keys:
+ *   journal.author     — email/name as it appears in git commits and ADO
+ *   journal.ado_org    — Azure DevOps organization (e.g. "daimler-mic")
+ *   journal.ado_repos  — comma-separated "project/repo" pairs
+ *   journal.target_hours — weekly target hours (default 40)
  */
 
-/** Parse ADO_REPOS env var: comma-separated "project/repo" pairs.
+import type { AppStore } from '../store.js';
+
+/** Parse comma-separated "project/repo" pairs.
  *  Example: "mic-dns/mic-dns-api,mic-dns/mic-dns-ui" */
 function parseRepos(raw: string): { project: string; repo: string }[] {
   if (!raw) return [];
@@ -16,19 +21,19 @@ function parseRepos(raw: string): { project: string; repo: string }[] {
   });
 }
 
-export const journalConfig = {
-  /** Your email/name as it appears in git commits and ADO. */
-  author: process.env.JOURNAL_AUTHOR ?? '',
+/** Build journal config from the user's stored preferences. */
+export function getJournalConfig(store: AppStore) {
+  return {
+    author: store.getPreference('journal.author') ?? '',
 
-  /** Azure DevOps configuration. */
-  azureDevOps: {
-    org: process.env.ADO_ORG ?? '',
-    /** Personal Access Token (read-only scope: Code > Read). */
-    pat: process.env.ADO_PAT ?? '',
-    /** Repos to scan for commits (from ADO_REPOS env var). */
-    repos: parseRepos(process.env.ADO_REPOS ?? ''),
-  },
+    azureDevOps: {
+      org: store.getPreference('journal.ado_org') ?? '',
+      repos: parseRepos(store.getPreference('journal.ado_repos') ?? ''),
+    },
 
-  /** Weekly target hours (default 40 for Mon-Fri, 8h/day). */
-  targetHours: Number(process.env.TARGET_HOURS) || 40,
-};
+    targetHours: Number(store.getPreference('journal.target_hours')) || 40,
+  };
+}
+
+/** Type of the config object returned by getJournalConfig. */
+export type JournalConfig = ReturnType<typeof getJournalConfig>;

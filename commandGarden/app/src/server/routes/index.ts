@@ -20,5 +20,5 @@ export function registerRoutes(app: FastifyInstance, daemon: DaemonClient, store
   preferencesRoutes(app, store);
   goalsRoutes(app, store);
   timetrackingCacheRoutes(app, store);
-  journalRoutes(app, daemon);
+  journalRoutes(app, daemon, store);
 }

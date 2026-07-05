@@ -233,6 +233,7 @@ export default function Config() {
         <ConnectorSourcesSection config={edited} actions={formActions} />
         <AuditSection config={edited} actions={formActions} />
         <OutputSection config={edited} actions={formActions} />
+        <JournalSettingsSection />
       </div>
 
       {/* Raw Config Editor */}
@@ -496,6 +497,67 @@ function OutputSection({ config, actions }: { config: ConfigState; actions: Form
           <option value="csv">csv</option>
         </select>
       </Field>
+    </SectionCard>
+  );
+}
+
+/** Journal-specific settings stored in preferences (not daemon config). */
+function JournalSettingsSection() {
+  const [author, setAuthor] = useState('');
+  const [org, setOrg] = useState('');
+  const [repos, setRepos] = useState('');
+  const [targetHours, setTargetHours] = useState('40');
+  const [loaded, setLoaded] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Load current preferences on mount
+  useEffect(() => {
+    api.getPreferences().then(res => {
+      if (!res.ok) return;
+      const p = res.preferences;
+      setAuthor(p['journal.author'] ?? '');
+      setOrg(p['journal.ado_org'] ?? '');
+      setRepos(p['journal.ado_repos'] ?? '');
+      setTargetHours(p['journal.target_hours'] ?? '40');
+      setLoaded(true);
+    }).catch(() => setLoaded(true));
+  }, []);
+
+  async function save() {
+    await Promise.all([
+      api.setPreference('journal.author', author),
+      api.setPreference('journal.ado_org', org),
+      api.setPreference('journal.ado_repos', repos),
+      api.setPreference('journal.target_hours', targetHours),
+    ]);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  if (!loaded) return null;
+
+  return (
+    <SectionCard title="Journal Settings" description="Configure your Dev Work Journal data sources">
+      <Field label="Author" help="Your name or email as it appears in ADO commits (e.g. mun_hong.lee@mercedes-benz.com)">
+        <input type="text" className="input input-bordered input-sm w-full" placeholder="your.name@company.com"
+          value={author} onChange={e => setAuthor(e.target.value)} />
+      </Field>
+      <Field label="ADO Organization" help="Azure DevOps organization name (e.g. daimler-mic)">
+        <input type="text" className="input input-bordered input-sm w-full" placeholder="daimler-mic"
+          value={org} onChange={e => setOrg(e.target.value)} />
+      </Field>
+      <Field label="ADO Repos" help='Comma-separated project/repo pairs (e.g. "mic-dns/mic-dns-api,mic-dns/mic-dns-ui")'>
+        <input type="text" className="input input-bordered input-sm w-full font-mono" placeholder="project/repo,project/repo"
+          value={repos} onChange={e => setRepos(e.target.value)} />
+      </Field>
+      <Field label="Weekly Target Hours" help="Target hours per week for the hours progress bar (default 40)">
+        <input type="number" className="input input-bordered input-sm w-20" min={1} max={80}
+          value={targetHours} onChange={e => setTargetHours(e.target.value)} />
+      </Field>
+      <div className="flex items-center gap-3 mt-2">
+        <button className="btn btn-primary btn-sm" onClick={save}>Save Journal Settings</button>
+        {saved && <span className="text-success text-sm">Saved ✓</span>}
+      </div>
     </SectionCard>
   );
 }

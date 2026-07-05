@@ -9,7 +9,7 @@
 
 import type { DaemonClient } from '@commandgarden/shared';
 import type { TimetrackingData, TtDailyEntry } from '../journal.types.js';
-import { journalConfig } from '../journal.config.js';
+import type { JournalConfig } from '../journal.config.js';
 
 interface TtRow {
   month?: string;
@@ -26,7 +26,7 @@ interface DaemonRunResponse {
 }
 
 export class TimetrackingSource {
-  constructor(private readonly daemon: DaemonClient) {}
+  constructor(private readonly daemon: DaemonClient, private readonly config: JournalConfig) {}
 
   async fetch(weekStart: string, weekEnd: string): Promise<TimetrackingData | null> {
     try {
@@ -89,7 +89,7 @@ export class TimetrackingSource {
 
       return {
         totalHours,
-        targetHours: journalConfig.targetHours,
+        targetHours: this.config.targetHours,
         daily,
         gaps,
       };

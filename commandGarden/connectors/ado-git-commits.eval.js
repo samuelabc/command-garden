@@ -8,6 +8,7 @@
 // (unlike the Commits API which only searches the default branch).
 //
 // Template variables interpolated before execution:
+//   ${{ args.org }}
 //   ${{ args.project }}
 //   ${{ args.repo }}
 //   ${{ args.fromDate }}
@@ -34,17 +35,19 @@ while (Date.now() < __deadline) {
 if (!token) throw new Error('No valid MSAL access token after 60s — log in and retry');
 
 // ── Read args ─────────────────────────────────────────────────────────
+const org = '${{ args.org }}'.trim();
 const project = '${{ args.project }}'.trim();
 const repo = '${{ args.repo }}'.trim();
 const fromDate = '${{ args.fromDate }}'.trim();
 const toDate = '${{ args.toDate }}'.trim();
 const authorFilter = '${{ args.author | default("") }}'.trim().toLowerCase();
 
-if (!project || !repo || !fromDate || !toDate) {
-  throw new Error('Missing required args: project, repo, fromDate, toDate');
+if (!org || !project || !repo || !fromDate || !toDate) {
+  throw new Error('Missing required args: org, project, repo, fromDate, toDate');
 }
 
-const apiBase = `https://dev.azure.com/${project}/_apis`;
+// ADO REST API: dev.azure.com/{org}/{project}/_apis/...
+const apiBase = `https://dev.azure.com/${org}/${project}/_apis`;
 const authHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
 
 // ── Step 1: List pushes in the date range ─────────────────────────────

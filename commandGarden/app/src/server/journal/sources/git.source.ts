@@ -8,7 +8,7 @@
  */
 
 import type { DaemonClient } from '@commandgarden/shared';
-import { journalConfig } from '../journal.config.js';
+import type { JournalConfig } from '../journal.config.js';
 import type { GitData, GitDaily, GitRepoActivity } from '../journal.types.js';
 
 /** Row shape returned by the ado/git-commits connector (matches YAML columns). */
@@ -33,10 +33,15 @@ interface DaemonRunResponse {
 }
 
 export class GitSource {
-  private readonly repos = journalConfig.azureDevOps.repos;
-  private readonly author = journalConfig.author;
+  private readonly org: string;
+  private readonly repos: { project: string; repo: string }[];
+  private readonly author: string;
 
-  constructor(private readonly daemon: DaemonClient) {}
+  constructor(private readonly daemon: DaemonClient, config: JournalConfig) {
+    this.org = config.azureDevOps.org;
+    this.repos = config.azureDevOps.repos;
+    this.author = config.author;
+  }
 
   async fetch(weekStart: string, weekEnd: string): Promise<GitData> {
     try {
@@ -89,7 +94,7 @@ export class GitSource {
     try {
       const result = await this.daemon.post<DaemonRunResponse>('/api/run', {
         connector: 'ado/git-commits',
-        args: { project, repo, fromDate, toDate, author: this.author },
+        args: { org: this.org, project, repo, fromDate, toDate, author: this.author },
       });
       return result.ok && result.data ? result.data : [];
     } catch {

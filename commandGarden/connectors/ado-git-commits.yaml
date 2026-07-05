@@ -11,6 +11,10 @@ capabilities:
   - js_evaluate
 
 args:
+  - name: org
+    type: string
+    required: true
+    help: "ADO organization name (e.g. 'daimler-mic')"
   - name: project
     type: string
     required: true
@@ -58,7 +62,7 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://dev.azure.com/${{ args.project }}"
+    url: "https://dev.azure.com/${{ args.org }}"
   - step: wait
     selector: "body"
     timeout: 30000

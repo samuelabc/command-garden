@@ -1,18 +1,20 @@
 /**
  * Journal Fastify route — POST /api/journal/generate.
- * Instantiates all sources and the journal service per request,
- * following the same pattern as other commandGarden app routes.
+ * Reads journal config from user preferences (SQLite), instantiates
+ * sources with that config, and generates the weekly report.
  */
 
 import type { FastifyInstance } from 'fastify';
 import type { DaemonClient } from '@commandgarden/shared';
+import type { AppStore } from '../store.js';
+import { getJournalConfig } from '../journal/journal.config.js';
 import { GitSource } from '../journal/sources/git.source.js';
 import { JiraSource } from '../journal/sources/jira.source.js';
 import { TimetrackingSource } from '../journal/sources/timetracking.source.js';
 import { MeetingsSource } from '../journal/sources/meetings.source.js';
 import { JournalService } from '../journal/journal.service.js';
 
-export function journalRoutes(app: FastifyInstance, daemon: DaemonClient): void {
+export function journalRoutes(app: FastifyInstance, daemon: DaemonClient, store: AppStore): void {
   app.post('/api/journal/generate', async (req, reply) => {
     const body = req.body as { weekStart?: string } | null;
 
@@ -24,13 +26,23 @@ export function journalRoutes(app: FastifyInstance, daemon: DaemonClient): void 
       });
     }
 
+    // Build config from user preferences (configured via GUI Config page)
+    const config = getJournalConfig(store);
+
+    // Check that required settings are configured
+    if (!config.azureDevOps.org || config.azureDevOps.repos.length === 0) {
+      return reply.code(400).send({
+        ok: false,
+        error: 'Journal not configured. Go to Configuration → Journal Settings and set your ADO org and repos.',
+      });
+    }
+
     try {
       const start = Date.now();
-      // All 4 sources now use the daemon to run commandGarden connectors
-      // (Phase 3: no more direct REST API calls or PAT auth)
-      const git = new GitSource(daemon);
+      // Sources receive config from preferences — no env vars needed
+      const git = new GitSource(daemon, config);
       const jira = new JiraSource(daemon);
-      const timetracking = new TimetrackingSource(daemon);
+      const timetracking = new TimetrackingSource(daemon, config);
       const meetings = new MeetingsSource(daemon);
 
       const service = new JournalService(git, timetracking, meetings, jira);
