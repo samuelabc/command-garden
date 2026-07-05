@@ -1,0 +1,66 @@
+site: ado
+name: git-commits
+version: "1.0"
+description: "Azure DevOps Git commits and PRs across all branches for a date range"
+access: read
+
+domains:
+  - "dev.azure.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: project
+    type: string
+    required: true
+    help: "ADO project name (e.g. 'mic-dns')"
+  - name: repo
+    type: string
+    required: true
+    help: "Repository name (e.g. 'mic-dns-api')"
+  - name: fromDate
+    type: string
+    required: true
+    help: "Start date in YYYY-MM-DD format"
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+  - name: toDate
+    type: string
+    required: true
+    help: "End date in YYYY-MM-DD format"
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+  - name: author
+    type: string
+    required: false
+    help: "Filter by pusher name or email (case-insensitive substring match)"
+
+columns:
+  - name: commitId
+    type: string
+  - name: authorName
+    type: string
+  - name: authorEmail
+    type: string
+  - name: date
+    type: string
+  - name: message
+    type: string
+  - name: filesAdded
+    type: number
+  - name: filesEdited
+    type: number
+  - name: filesDeleted
+    type: number
+  - name: isPR
+    type: string
+  - name: prId
+    type: number
+
+pipeline:
+  - step: navigate
+    url: "https://dev.azure.com/${{ args.project }}"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: ado-git-commits.eval.js
