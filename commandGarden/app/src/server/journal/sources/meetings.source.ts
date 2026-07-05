@@ -1,31 +1,29 @@
 /**
- * Meetings data source — fetches calendar events via commandGarden daemon.
- * Ported from dashboard/api/src/journal/sources/meetings.source.ts.
+ * Meetings data source — fetches calendar events via the outlook/my-meetings
+ * commandGarden connector through the daemon API.
  *
- * Replaces OpencliService (CLI spawn) with DaemonClient (HTTP to daemon).
- * Uses the teams/roomfreebusy connector with the user's own email as --room
- * to extract busy/tentative blocks as meetings.
- * Returns null gracefully when the connector isn't available (Phase 2 dependency).
+ * Phase 3 update: switched from teams/roomfreebusy to the dedicated
+ * outlook/my-meetings connector which captures the organizer's own schedule
+ * and already filters to busy/tentative blocks (meetings only).
  */
 
 import type { DaemonClient } from '@commandgarden/shared';
-import { journalConfig } from '../journal.config.js';
 import type { MeetingsData, MeetingsDaily, MeetingEntry } from '../journal.types.js';
 
-interface ScheduleRow {
-  date?: string;
-  subject?: string;
-  start?: string;
-  end?: string;
-  durationMin?: number;
-  isMeeting?: boolean;
-  state?: string;
+/** Row shape returned by the outlook/my-meetings connector (matches YAML columns). */
+interface MeetingRow {
+  date: string;
+  subject: string;
+  start: string;
+  end: string;
+  durationMin: number;
+  state: string;
 }
 
-/** Response shape from daemon /api/run for connector execution. */
+/** Response shape from daemon /api/run. */
 interface DaemonRunResponse {
   ok: boolean;
-  data?: ScheduleRow[];
+  data?: MeetingRow[];
   error?: string;
 }
 
@@ -74,28 +72,26 @@ export class MeetingsSource {
     }
   }
 
-  /** Fetch a single day's meetings via the teams/roomfreebusy connector. */
+  /** Fetch a single day's meetings via the outlook/my-meetings connector.
+   *  The connector already filters to busy/tentative blocks, so no extra
+   *  filtering is needed here. */
   private async fetchDay(date: string): Promise<MeetingEntry[]> {
     try {
       const result = await this.daemon.post<DaemonRunResponse>('/api/run', {
-        connector: 'teams/roomfreebusy',
-        args: { room: journalConfig.author, date },
+        connector: 'outlook/my-meetings',
+        args: { date },
       });
       if (!result.ok || !result.data) return [];
 
+      // Connector rows already match MeetingEntry shape — map directly
       return result.data
-        .filter((r) => r.start && r.end && r.durationMin && r.durationMin > 0)
-        .filter((r) => r.start !== '00:00' || r.end !== '24:00') // exclude full-day "free" blocks
-        .filter((r) => {
-          // Only include busy/tentative blocks (these are meetings)
-          return r.state === 'busy' || r.state === 'tentative';
-        })
+        .filter((r) => r.start && r.end && r.durationMin > 0)
         .map((r) => ({
-          date,
-          subject: r.subject ?? '(meeting)',
-          start: r.start!,
-          end: r.end!,
-          durationMin: r.durationMin!,
+          date: r.date,
+          subject: r.subject || '(meeting)',
+          start: r.start,
+          end: r.end,
+          durationMin: r.durationMin,
         }));
     } catch {
       return [];

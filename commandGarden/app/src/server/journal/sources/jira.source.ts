@@ -1,131 +1,66 @@
 /**
- * Jira/ADO Work Items data source — fetches tickets via WIQL API.
- * Ported from dashboard/api/src/journal/sources/jira.source.ts.
+ * Jira/ADO Work Items data source — fetches tickets via the jira/my-tickets
+ * commandGarden connector through the daemon API.
  *
- * Uses Azure DevOps Work Items API with WIQL queries to find:
- * - Resolved tickets within the date range
- * - Currently in-progress tickets assigned to the user
- * - Blockers: in-progress items with no state change in 3+ days
+ * Phase 3 rewrite: replaced direct WIQL API calls + PAT auth with a single
+ * daemon.post('/api/run') call. The connector uses the browser's MSAL session
+ * token — no PAT required. Connector returns rows with a `category` field
+ * (resolved/inProgress/blocker) that maps directly to the JiraData sub-arrays.
  */
 
+import type { DaemonClient } from '@commandgarden/shared';
 import { journalConfig } from '../journal.config.js';
-import type { JiraData, JiraTicket } from '../journal.types.js';
+import type { JiraData } from '../journal.types.js';
 
-interface AdoWorkItem {
+/** Row shape returned by the jira/my-tickets connector (matches YAML columns). */
+interface ConnectorRow {
   id: number;
-  fields: {
-    'System.Title'?: string;
-    'System.State'?: string;
-    'System.WorkItemType'?: string;
-    'Microsoft.VSTS.Common.ResolvedDate'?: string;
-    'Microsoft.VSTS.Common.StateChangeDate'?: string;
-    'System.CreatedDate'?: string;
-    'System.AssignedTo'?: { uniqueName?: string };
-  };
+  title: string;
+  state: string;
+  type: string;
+  resolvedDate: string;
+  stateChangeDate: string;
+  staleDays: number;
+  category: 'resolved' | 'inProgress' | 'blocker';
+}
+
+/** Response shape from daemon /api/run. */
+interface DaemonRunResponse {
+  ok: boolean;
+  data?: ConnectorRow[];
+  error?: string;
 }
 
 export class JiraSource {
-  private readonly org = journalConfig.azureDevOps.org;
-  private readonly pat = journalConfig.azureDevOps.pat;
   private readonly author = journalConfig.author;
 
-  private headers(): Record<string, string> {
-    const token = Buffer.from(`:${this.pat}`).toString('base64');
-    return {
-      Authorization: `Basic ${token}`,
-      'Content-Type': 'application/json',
-    };
-  }
+  constructor(private readonly daemon: DaemonClient) {}
 
   async fetch(weekStart: string, weekEnd: string): Promise<JiraData | null> {
     try {
-      const [resolved, inProgress] = await Promise.all([
-        this.fetchResolved(weekStart, weekEnd),
-        this.fetchInProgress(),
-      ]);
+      const result = await this.daemon.post<DaemonRunResponse>('/api/run', {
+        connector: 'jira/my-tickets',
+        args: { fromDate: weekStart, toDate: weekEnd, assignee: this.author },
+      });
 
-      // Identify blockers: in-progress items with no state change in 3+ days
-      const now = new Date();
-      const blockers = inProgress
-        .filter((item) => {
-          const stateChange = item.fields['Microsoft.VSTS.Common.StateChangeDate'];
-          if (!stateChange) return false;
-          const days = (now.getTime() - new Date(stateChange).getTime()) / 86400000;
-          return days >= 3;
-        })
-        .map((item) => ({
-          key: `#${item.id}`,
-          summary: item.fields['System.Title'] ?? '(no title)',
-          staleDays: Math.floor(
-            (now.getTime() - new Date(item.fields['Microsoft.VSTS.Common.StateChangeDate']!).getTime()) / 86400000,
-          ),
-        }));
+      if (!result.ok || !result.data || result.data.length === 0) return null;
+
+      // Map connector rows by category to the JiraData sub-arrays
+      const rows = result.data;
 
       return {
-        resolved: resolved.map((item) => ({
-          key: `#${item.id}`,
-          summary: item.fields['System.Title'] ?? '(no title)',
-          resolvedDate: (item.fields['Microsoft.VSTS.Common.ResolvedDate'] ?? '').slice(0, 10),
-        })),
-        inProgress: inProgress.map((item) => ({
-          key: `#${item.id}`,
-          summary: item.fields['System.Title'] ?? '(no title)',
-        })),
-        blockers,
+        resolved: rows
+          .filter((r) => r.category === 'resolved')
+          .map((r) => ({ key: `#${r.id}`, summary: r.title, resolvedDate: r.resolvedDate })),
+        inProgress: rows
+          .filter((r) => r.category === 'inProgress')
+          .map((r) => ({ key: `#${r.id}`, summary: r.title })),
+        blockers: rows
+          .filter((r) => r.category === 'blocker')
+          .map((r) => ({ key: `#${r.id}`, summary: r.title, staleDays: r.staleDays })),
       };
     } catch {
       return null;
     }
-  }
-
-  private async fetchResolved(weekStart: string, weekEnd: string): Promise<AdoWorkItem[]> {
-    const wiql = `
-      SELECT [System.Id]
-      FROM WorkItems
-      WHERE [System.AssignedTo] = '${this.author}'
-        AND [System.State] IN ('Resolved', 'Closed', 'Done')
-        AND [Microsoft.VSTS.Common.ResolvedDate] >= '${weekStart}'
-        AND [Microsoft.VSTS.Common.ResolvedDate] <= '${weekEnd}'
-      ORDER BY [Microsoft.VSTS.Common.ResolvedDate] DESC
-    `;
-    return this.queryWorkItems(wiql);
-  }
-
-  private async fetchInProgress(): Promise<AdoWorkItem[]> {
-    const wiql = `
-      SELECT [System.Id]
-      FROM WorkItems
-      WHERE [System.AssignedTo] = '${this.author}'
-        AND [System.State] IN ('Active', 'In Progress', 'Doing')
-      ORDER BY [Microsoft.VSTS.Common.StateChangeDate] ASC
-    `;
-    return this.queryWorkItems(wiql);
-  }
-
-  /** Run a WIQL query and batch-fetch work item details. */
-  private async queryWorkItems(wiql: string): Promise<AdoWorkItem[]> {
-    // Step 1: Run WIQL query to get IDs
-    const queryUrl = `https://dev.azure.com/${this.org}/_apis/wit/wiql?api-version=7.1`;
-    const queryRes = await fetch(queryUrl, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify({ query: wiql }),
-    });
-    if (!queryRes.ok) return [];
-    const queryBody = await queryRes.json();
-    const ids: number[] = (queryBody.workItems ?? []).map((w: { id: number }) => w.id);
-    if (ids.length === 0) return [];
-
-    // Step 2: Get work item details (batch, max 200)
-    const batchIds = ids.slice(0, 200);
-    const detailUrl =
-      `https://dev.azure.com/${this.org}/_apis/wit/workitems` +
-      `?ids=${batchIds.join(',')}` +
-      `&fields=System.Id,System.Title,System.State,System.WorkItemType,Microsoft.VSTS.Common.ResolvedDate,Microsoft.VSTS.Common.StateChangeDate` +
-      `&api-version=7.1`;
-    const detailRes = await fetch(detailUrl, { headers: this.headers() });
-    if (!detailRes.ok) return [];
-    const detailBody = await detailRes.json();
-    return (detailBody.value ?? []) as AdoWorkItem[];
   }
 }

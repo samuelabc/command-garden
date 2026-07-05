@@ -25,15 +25,26 @@ export function journalRoutes(app: FastifyInstance, daemon: DaemonClient): void 
     }
 
     try {
-      // Instantiate sources: Git and Jira use direct REST API (no daemon needed),
-      // Timetracking and Meetings use the daemon to run commandGarden connectors.
-      const git = new GitSource();
-      const jira = new JiraSource();
+      const start = Date.now();
+      // All 4 sources now use the daemon to run commandGarden connectors
+      // (Phase 3: no more direct REST API calls or PAT auth)
+      const git = new GitSource(daemon);
+      const jira = new JiraSource(daemon);
       const timetracking = new TimetrackingSource(daemon);
       const meetings = new MeetingsSource(daemon);
 
       const service = new JournalService(git, timetracking, meetings, jira);
       const result = await service.generate({ weekStart: body.weekStart });
+
+      // Audit log (non-blocking — failure should not break the response)
+      const durationMs = Date.now() - start;
+      daemon.post('/api/audit/log', {
+        command: 'journal generate',
+        args: { weekStart: body.weekStart },
+        status: result.status,
+        durationMs,
+      }).catch(() => { /* audit failure is non-critical */ });
+
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
