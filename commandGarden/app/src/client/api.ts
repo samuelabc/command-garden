@@ -1,3 +1,5 @@
+import type { JournalResponse } from './types/journal';
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const init: RequestInit = { method };
   if (body) {
@@ -32,6 +34,7 @@ export const api = {
   cacheReport: (month: string, data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/timetracking/cache', { month, data }),
   getCachedProjects: () => request<{ ok: boolean; data: ProjectActivity[] | null; fetchedAt: string | null }>('GET', '/api/timetracking/projects'),
   cacheProjects: (data: ProjectActivity[]) => request<{ ok: boolean }>('POST', '/api/timetracking/projects', { data }),
+  generateJournal: (body: { weekStart: string }) => request<JournalResponse>('POST', '/api/journal/generate', body),
 };
 
 export interface Connector {

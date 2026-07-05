@@ -9,6 +9,7 @@ import Config from './pages/Config';
 import Guide from './pages/Guide';
 import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
+import Journal from './pages/Journal';
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
@@ -87,6 +88,7 @@ function Layout() {
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Apps</div>
           <NavLink to="/apps/timetracking" className={navClass}>Time Tracking</NavLink>
           <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
+          <NavLink to="/apps/journal" className={navClass}>Dev Journal</NavLink>
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Platform</div>
           <NavLink to="/connectors" className={navClass}>Connectors</NavLink>
@@ -127,6 +129,7 @@ export default function App() {
           <Route path="guide" element={<Guide />} />
           <Route path="apps/timetracking" element={<Timetracking />} />
           <Route path="apps/rooms" element={<Rooms />} />
+          <Route path="apps/journal" element={<Journal />} />
         </Route>
       </Routes>
     </BrowserRouter>
