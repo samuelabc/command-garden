@@ -1,25 +1,24 @@
 /**
- * Jira/ADO Work Items data source — fetches tickets via the jira/my-tickets
+ * Jira Cloud data source — fetches tickets via the jira/my-tickets
  * commandGarden connector through the daemon API.
  *
- * Phase 3 rewrite: replaced direct WIQL API calls + PAT auth with a single
- * daemon.post('/api/run') call. The connector uses the browser's MSAL session
- * token — no PAT required. Connector returns rows with a `category` field
- * (resolved/inProgress/blocker) that maps directly to the JiraData sub-arrays.
+ * Uses Jira Cloud REST API (mercedes-benz.atlassian.net) with the browser's
+ * Atlassian session — no API token required. Connector returns rows with a
+ * `category` field (resolved/inProgress/blocker) and Jira issue keys (e.g. PROJ-123).
  */
 
 import type { DaemonClient } from '@commandgarden/shared';
-import { journalConfig } from '../journal.config.js';
 import type { JiraData } from '../journal.types.js';
 
-/** Row shape returned by the jira/my-tickets connector (matches YAML columns). */
+/** Row shape returned by the jira/my-tickets connector (matches YAML columns).
+ *  Uses Jira field names: key (not id), summary, status (not state). */
 interface ConnectorRow {
-  id: number;
-  title: string;
-  state: string;
+  key: string;
+  summary: string;
+  status: string;
   type: string;
   resolvedDate: string;
-  stateChangeDate: string;
+  updatedDate: string;
   staleDays: number;
   category: 'resolved' | 'inProgress' | 'blocker';
 }
@@ -32,32 +31,32 @@ interface DaemonRunResponse {
 }
 
 export class JiraSource {
-  private readonly author = journalConfig.author;
-
   constructor(private readonly daemon: DaemonClient) {}
 
   async fetch(weekStart: string, weekEnd: string): Promise<JiraData | null> {
     try {
+      // assignee left empty → connector uses Jira's currentUser() function
       const result = await this.daemon.post<DaemonRunResponse>('/api/run', {
         connector: 'jira/my-tickets',
-        args: { fromDate: weekStart, toDate: weekEnd, assignee: this.author },
+        args: { fromDate: weekStart, toDate: weekEnd },
       });
 
       if (!result.ok || !result.data || result.data.length === 0) return null;
 
-      // Map connector rows by category to the JiraData sub-arrays
+      // Map connector rows by category to the JiraData sub-arrays.
+      // Connector returns Jira issue keys directly (e.g. "PROJ-123").
       const rows = result.data;
 
       return {
         resolved: rows
           .filter((r) => r.category === 'resolved')
-          .map((r) => ({ key: `#${r.id}`, summary: r.title, resolvedDate: r.resolvedDate })),
+          .map((r) => ({ key: r.key, summary: r.summary, resolvedDate: r.resolvedDate })),
         inProgress: rows
           .filter((r) => r.category === 'inProgress')
-          .map((r) => ({ key: `#${r.id}`, summary: r.title })),
+          .map((r) => ({ key: r.key, summary: r.summary })),
         blockers: rows
           .filter((r) => r.category === 'blocker')
-          .map((r) => ({ key: `#${r.id}`, summary: r.title, staleDays: r.staleDays })),
+          .map((r) => ({ key: r.key, summary: r.summary, staleDays: r.staleDays })),
       };
     } catch {
       return null;

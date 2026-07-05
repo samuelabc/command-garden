@@ -1,11 +1,11 @@
 site: jira
 name: my-tickets
-version: "1.0"
-description: "Tickets assigned to the user — resolved, in-progress, and blockers (ADO Work Items)"
+version: "2.0"
+description: "Jira Cloud tickets assigned to the user — resolved, in-progress, and blockers"
 access: read
 
 domains:
-  - "dev.azure.com"
+  - "mercedes-benz.atlassian.net"
 capabilities:
   - navigate
   - js_evaluate
@@ -24,20 +24,20 @@ args:
   - name: assignee
     type: string
     required: false
-    help: "Override assignee email (default: auto-detect from browser session)"
+    help: "Override assignee (Jira username or 'currentUser()'). Default: currentUser()"
 
 columns:
-  - name: id
-    type: number
-  - name: title
+  - name: key
     type: string
-  - name: state
+  - name: summary
+    type: string
+  - name: status
     type: string
   - name: type
     type: string
   - name: resolvedDate
     type: string
-  - name: stateChangeDate
+  - name: updatedDate
     type: string
   - name: staleDays
     type: number
@@ -46,7 +46,7 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://dev.azure.com/"
+    url: "https://mercedes-benz.atlassian.net/"
   - step: wait
     selector: "body"
     timeout: 30000
