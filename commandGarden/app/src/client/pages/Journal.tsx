@@ -47,13 +47,18 @@ export default function Journal() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<JournalResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
 
   async function generate() {
     setLoading(true);
     setError(null);
     setData(null);
+    setElapsedMs(null);
+    const t0 = Date.now();
     try {
-      setData(await api.generateJournal({ weekStart }));
+      const result = await api.generateJournal({ weekStart });
+      setElapsedMs(Date.now() - t0);
+      setData(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -66,7 +71,7 @@ export default function Journal() {
       <h1 className="text-2xl font-bold">Dev Work Journal</h1>
 
       {/* Week selector + generate button */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button
           className="btn btn-sm btn-ghost"
           onClick={() => setWeekStart(addWeeks(weekStart, -1))}
@@ -83,11 +88,22 @@ export default function Journal() {
           ►
         </button>
         <button className="btn btn-primary ml-4" onClick={generate} disabled={loading}>
-          Generate
+          {loading ? (
+            <>
+              <span className="loading loading-spinner loading-xs"></span>
+              Generating…
+            </>
+          ) : 'Generate'}
         </button>
+        {/* Show elapsed time after generation completes */}
+        {elapsedMs !== null && !loading && (
+          <span className="text-xs text-base-content/40 ml-2">
+            Generated in {(elapsedMs / 1000).toFixed(1)}s
+          </span>
+        )}
       </div>
 
-      {/* Loading — DaisyUI spinner instead of Next.js Spinner component */}
+      {/* Loading state */}
       {loading && (
         <div className="flex items-center gap-3 text-base-content/60">
           <span className="loading loading-spinner loading-md"></span>
@@ -95,10 +111,24 @@ export default function Journal() {
         </div>
       )}
 
-      {/* Error */}
+      {/* Fatal error (request failed entirely) */}
       {error && (
         <div role="alert" className="alert alert-error">
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Partial-data warning (some sources failed but others returned data) */}
+      {data?.status === 'partial' && (
+        <div role="alert" className="alert alert-warning text-sm">
+          <div>
+            <p className="font-semibold">Some data sources were unavailable. Results may be incomplete.</p>
+            <ul className="list-disc list-inside mt-1">
+              {data.errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
