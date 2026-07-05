@@ -1,0 +1,54 @@
+site: jira
+name: my-tickets
+version: "1.0"
+description: "Tickets assigned to the user — resolved, in-progress, and blockers (ADO Work Items)"
+access: read
+
+domains:
+  - "dev.azure.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: fromDate
+    type: string
+    required: true
+    help: "Start date in YYYY-MM-DD format"
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+  - name: toDate
+    type: string
+    required: true
+    help: "End date in YYYY-MM-DD format"
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+  - name: assignee
+    type: string
+    required: false
+    help: "Override assignee email (default: auto-detect from browser session)"
+
+columns:
+  - name: id
+    type: number
+  - name: title
+    type: string
+  - name: state
+    type: string
+  - name: type
+    type: string
+  - name: resolvedDate
+    type: string
+  - name: stateChangeDate
+    type: string
+  - name: staleDays
+    type: number
+  - name: category
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://dev.azure.com/"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: jira-my-tickets.eval.js
