@@ -45,7 +45,8 @@ if (location.hostname !== 'mercedes-benz.atlassian.net') {
 // ── Helper: run a JQL search and return issues ────────────────────────
 // Uses the browser's session cookies for auth (same-origin fetch).
 async function jqlSearch(jql, maxResults = 100) {
-  const url = `${API}/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,status,issuetype,resolutiondate,updated`;
+  // Jira Cloud deprecated /rest/api/3/search (HTTP 410) — must use /rest/api/3/search/jql
+  const url = `${API}/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=summary,status,issuetype,resolutiondate,updated`;
   const resp = await fetch(url, {
     headers: { Accept: 'application/json' },
     credentials: 'include',      // send Atlassian session cookies
