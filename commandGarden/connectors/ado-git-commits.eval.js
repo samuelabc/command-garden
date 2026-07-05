@@ -1,11 +1,11 @@
 // Runs in page context via js_evaluate step.
 // Fetches ADO Git commits (via Pushes API, all branches) and completed PRs
-// using the browser session's MSAL token — no PAT required.
+// using the browser's ADO session cookies — no PAT or MSAL token required.
 //
-// Strategy: navigate to ADO project page to trigger SSO, poll sessionStorage
-// for the MSAL access token, then call the same REST APIs that a PAT-based
-// approach would use. The Pushes API captures work across ALL branches
-// (unlike the Commits API which only searches the default branch).
+// Strategy: navigate to dev.azure.com to trigger SSO, then call the ADO REST
+// API with session cookies (credentials:'include'). The Pushes API captures
+// work across ALL branches (unlike the Commits API which only searches the
+// default branch).
 //
 // Template variables interpolated before execution:
 //   ${{ args.org }}
@@ -15,24 +15,7 @@
 //   ${{ args.toDate }}
 //   ${{ args.author | default("") }}
 
-// ── MSAL token polling (handles SSO redirects + MFA) ──────────────────
-// Canonical source: connectors/lib/msal-token.js
-const __deadline = Date.now() + 60000;
-let token;
-while (Date.now() < __deadline) {
-  const k = Object.keys(sessionStorage).find(x => x.includes('accesstoken'));
-  if (k) {
-    try {
-      const tokenData = JSON.parse(sessionStorage.getItem(k));
-      if (Number(tokenData.expiresOn) > Math.floor(Date.now() / 1000) + 30) {
-        token = tokenData.secret;
-        break;
-      }
-    } catch (_) {}
-  }
-  await new Promise(r => setTimeout(r, 1000));
-}
-if (!token) throw new Error('No valid MSAL access token after 60s — log in and retry');
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── Read args ─────────────────────────────────────────────────────────
 const org = '${{ args.org }}'.trim();
@@ -46,9 +29,23 @@ if (!org || !project || !repo || !fromDate || !toDate) {
   throw new Error('Missing required args: org, project, repo, fromDate, toDate');
 }
 
+// ── Wait for ADO to finish SSO/redirect (up to 30s) ──────────────────
+// ADO uses httpOnly session cookies — no MSAL tokens in sessionStorage.
+// We just need the browser to be logged in; session cookies are sent
+// automatically with same-origin fetch (credentials: 'include').
+const __deadline = Date.now() + 30000;
+while (Date.now() < __deadline) {
+  if (location.hostname === 'dev.azure.com') break;
+  await sleep(1000);
+}
+if (location.hostname !== 'dev.azure.com') {
+  throw new Error('Not signed in to Azure DevOps — log in at dev.azure.com and retry');
+}
+
 // ADO REST API: dev.azure.com/{org}/{project}/_apis/...
 const apiBase = `https://dev.azure.com/${org}/${project}/_apis`;
-const authHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/json' };
+// Use session cookies for auth (same-origin, no Bearer token needed)
+const authHeaders = { Accept: 'application/json' };
 
 // ── Step 1: List pushes in the date range ─────────────────────────────
 const listUrl =
@@ -57,7 +54,7 @@ const listUrl =
   `&searchCriteria.toDate=${toDate}T23:59:59Z` +
   `&api-version=7.1`;
 
-const listResp = await fetch(listUrl, { headers: authHeaders });
+const listResp = await fetch(listUrl, { headers: authHeaders, credentials: 'include' });
 if (!listResp.ok) throw new Error(`Pushes list HTTP ${listResp.status}: ${await listResp.text()}`);
 const listBody = await listResp.json();
 let pushes = listBody.value || [];
@@ -79,7 +76,7 @@ const commits = [];
 for (const push of pushes) {
   const detailUrl = `${apiBase}/git/repositories/${repo}/pushes/${push.pushId}?api-version=7.1`;
   try {
-    const detailResp = await fetch(detailUrl, { headers: authHeaders });
+    const detailResp = await fetch(detailUrl, { headers: authHeaders, credentials: 'include' });
     if (!detailResp.ok) continue;
     const detail = await detailResp.json();
     for (const c of (detail.commits || [])) {
@@ -99,7 +96,7 @@ const prUrl =
 
 let prRows = [];
 try {
-  const prResp = await fetch(prUrl, { headers: authHeaders });
+  const prResp = await fetch(prUrl, { headers: authHeaders, credentials: 'include' });
   if (prResp.ok) {
     const prBody = await prResp.json();
     const prs = (prBody.value || []).filter(pr => {
