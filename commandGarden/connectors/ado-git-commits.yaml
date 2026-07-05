@@ -62,7 +62,7 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://dev.azure.com/${{ args.org }}"
+    url: "https://dev.azure.com/${{ args.org }}/${{ args.project }}/_git/${{ args.repo }}/commits"
   - step: wait
     selector: "body"
     timeout: 30000

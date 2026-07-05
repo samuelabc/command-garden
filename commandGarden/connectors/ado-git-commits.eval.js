@@ -1,11 +1,10 @@
 // Runs in page context via js_evaluate step.
-// Fetches ADO Git commits (via Pushes API, all branches) and completed PRs
-// using the browser's ADO session cookies — no PAT or MSAL token required.
+// Captures ADO Git commit data by intercepting the page's own API calls.
 //
-// Strategy: navigate to dev.azure.com to trigger SSO, then call the ADO REST
-// API with session cookies (credentials:'include'). The Pushes API captures
-// work across ALL branches (unlike the Commits API which only searches the
-// default branch).
+// Strategy: the pipeline navigates to the ADO commits page, which triggers
+// ADO's SPA to fetch commit data from its own API. We intercept those
+// responses (same proven pattern as teams-room-availability connector).
+// This avoids making our own API calls (which hang due to ADO's auth/CSP).
 //
 // Template variables interpolated before execution:
 //   ${{ args.org }}
@@ -17,127 +16,115 @@
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ── Read args ─────────────────────────────────────────────────────────
-const org = '${{ args.org }}'.trim();
-const project = '${{ args.project }}'.trim();
-const repo = '${{ args.repo }}'.trim();
 const fromDate = '${{ args.fromDate }}'.trim();
 const toDate = '${{ args.toDate }}'.trim();
 const authorFilter = '${{ args.author | default("") }}'.trim().toLowerCase();
 
-if (!org || !project || !repo || !fromDate || !toDate) {
-  throw new Error('Missing required args: org, project, repo, fromDate, toDate');
+// ── Install fetch interceptor to capture ADO's commit API responses ───
+// ADO's SPA calls its own API to load commits when the page renders.
+// We intercept those responses and collect the commit data.
+if (!window.__adoCommits) {
+  window.__adoCommits = [];
+  const origFetch = window.fetch;
+  window.fetch = function () {
+    const args = arguments;
+    const url = String((args[0] && args[0].url) || args[0] || '');
+    return origFetch.apply(this, args).then(r => {
+      try {
+        // Capture responses from the commits/pushes API
+        if (url.includes('/commits') || url.includes('/pushes')) {
+          r.clone().json().then(data => {
+            const items = data.value || data.results || [];
+            if (Array.isArray(items)) {
+              for (const item of items) {
+                // Commit objects have commitId; push objects have pushId
+                if (item.commitId || item.pushId) {
+                  window.__adoCommits.push(item);
+                }
+              }
+            }
+          }).catch(() => {});
+        }
+      } catch (_) {}
+      return r;
+    });
+  };
+
+  // Also patch XMLHttpRequest (ADO uses both)
+  const origXHROpen = XMLHttpRequest.prototype.open;
+  const origXHRSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function () {
+    this.__url = arguments[1] || '';
+    return origXHROpen.apply(this, arguments);
+  };
+  XMLHttpRequest.prototype.send = function () {
+    this.addEventListener('load', function () {
+      try {
+        const url = this.__url || '';
+        if (url.includes('/commits') || url.includes('/pushes')) {
+          const data = JSON.parse(this.responseText);
+          const items = data.value || data.results || [];
+          if (Array.isArray(items)) {
+            for (const item of items) {
+              if (item.commitId || item.pushId) {
+                window.__adoCommits.push(item);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    });
+    return origXHRSend.apply(this, arguments);
+  };
 }
 
-// ── Wait for ADO to finish SSO/redirect (up to 30s) ──────────────────
-// ADO uses httpOnly session cookies — no MSAL tokens in sessionStorage.
-// We just need the browser to be logged in; session cookies are sent
-// automatically with same-origin fetch (credentials: 'include').
-const __deadline = Date.now() + 30000;
-while (Date.now() < __deadline) {
-  if (location.hostname === 'dev.azure.com') break;
+// ── Wait for ADO to load commit data (up to 30s) ─────────────────────
+for (let i = 0; i < 30; i++) {
   await sleep(1000);
-}
-if (location.hostname !== 'dev.azure.com') {
-  throw new Error('Not signed in to Azure DevOps — log in at dev.azure.com and retry');
+  if (window.__adoCommits.length > 0) break;
 }
 
-// ADO REST API: dev.azure.com/{org}/{project}/_apis/...
-const apiBase = `https://dev.azure.com/${org}/${project}/_apis`;
-// Use session cookies for auth (same-origin, no Bearer token needed)
-const authHeaders = { Accept: 'application/json' };
+// Collect and clear captured data
+const captured = [...(window.__adoCommits || [])];
+window.__adoCommits = [];
 
-// ── Step 1: List pushes in the date range ─────────────────────────────
-const listUrl =
-  `${apiBase}/git/repositories/${repo}/pushes` +
-  `?searchCriteria.fromDate=${fromDate}T00:00:00Z` +
-  `&searchCriteria.toDate=${toDate}T23:59:59Z` +
-  `&api-version=7.1`;
+// ── Deduplicate and filter commits ────────────────────────────────────
+const seen = new Set();
+const rows = [];
 
-const listResp = await fetch(listUrl, { headers: authHeaders, credentials: 'include' });
-if (!listResp.ok) throw new Error(`Pushes list HTTP ${listResp.status}: ${await listResp.text()}`);
-const listBody = await listResp.json();
-let pushes = listBody.value || [];
+for (const item of captured) {
+  // Skip non-commit items (push metadata without commit details)
+  if (!item.commitId) continue;
+  if (seen.has(item.commitId)) continue;
+  seen.add(item.commitId);
 
-// Filter by author if provided (case-insensitive substring match on
-// pushedBy.uniqueName or pushedBy.displayName)
-if (authorFilter) {
-  pushes = pushes.filter(p => {
-    const un = (p.pushedBy?.uniqueName || '').toLowerCase();
-    const dn = (p.pushedBy?.displayName || '').toLowerCase();
-    return un.includes(authorFilter) || dn.includes(authorFilter);
+  const authorName = item.author?.name || item.committer?.name || '';
+  const authorEmail = item.author?.email || item.committer?.email || '';
+  const dateRaw = item.author?.date || item.committer?.date || '';
+  const date = dateRaw.slice(0, 10);
+
+  // Filter by date range
+  if (date && (date < fromDate || date > toDate)) continue;
+
+  // Filter by author if provided
+  if (authorFilter) {
+    const nameMatch = authorName.toLowerCase().includes(authorFilter);
+    const emailMatch = authorEmail.toLowerCase().includes(authorFilter);
+    if (!nameMatch && !emailMatch) continue;
+  }
+
+  rows.push({
+    commitId: item.commitId,
+    authorName,
+    authorEmail,
+    date,
+    message: (item.comment || '').split('\n')[0].slice(0, 200),
+    filesAdded: item.changeCounts?.Add || 0,
+    filesEdited: item.changeCounts?.Edit || 0,
+    filesDeleted: item.changeCounts?.Delete || 0,
+    isPR: 'false',
+    prId: 0,
   });
 }
 
-// ── Step 2: Fetch each push's commits ─────────────────────────────────
-const seen = new Set();
-const commits = [];
-
-for (const push of pushes) {
-  const detailUrl = `${apiBase}/git/repositories/${repo}/pushes/${push.pushId}?api-version=7.1`;
-  try {
-    const detailResp = await fetch(detailUrl, { headers: authHeaders, credentials: 'include' });
-    if (!detailResp.ok) continue;
-    const detail = await detailResp.json();
-    for (const c of (detail.commits || [])) {
-      // Deduplicate: same commit can appear in multiple pushes (e.g. after merge)
-      if (seen.has(c.commitId)) continue;
-      seen.add(c.commitId);
-      commits.push(c);
-    }
-  } catch (_) { /* skip failed push detail fetches */ }
-}
-
-// ── Step 3: Fetch completed PRs in the date range ─────────────────────
-const prUrl =
-  `${apiBase}/git/repositories/${repo}/pullrequests` +
-  `?searchCriteria.status=completed` +
-  `&api-version=7.1`;
-
-let prRows = [];
-try {
-  const prResp = await fetch(prUrl, { headers: authHeaders, credentials: 'include' });
-  if (prResp.ok) {
-    const prBody = await prResp.json();
-    const prs = (prBody.value || []).filter(pr => {
-      if (!pr.closedDate) return false;
-      return pr.closedDate >= `${fromDate}T00:00:00Z` && pr.closedDate <= `${toDate}T23:59:59Z`;
-    });
-    // Optionally filter PRs by author
-    const filtered = authorFilter
-      ? prs.filter(pr => {
-          const un = (pr.createdBy?.uniqueName || '').toLowerCase();
-          return un.includes(authorFilter);
-        })
-      : prs;
-    prRows = filtered.map(pr => ({
-      commitId: '',
-      authorName: pr.createdBy?.displayName || '',
-      authorEmail: pr.createdBy?.uniqueName || '',
-      date: (pr.closedDate || '').slice(0, 10),
-      message: `PR #${pr.pullRequestId}: ${pr.title || '(no title)'}`,
-      filesAdded: 0,
-      filesEdited: 0,
-      filesDeleted: 0,
-      isPR: 'true',
-      prId: pr.pullRequestId,
-    }));
-  }
-} catch (_) { /* PRs are supplemental — don't fail on error */ }
-
-// ── Build output rows ─────────────────────────────────────────────────
-const commitRows = commits.map(c => ({
-  commitId: c.commitId || '',
-  authorName: c.author?.name || '',
-  authorEmail: c.author?.email || '',
-  date: (c.author?.date || '').slice(0, 10),
-  message: (c.comment || '').split('\n')[0].slice(0, 200),
-  filesAdded: c.changeCounts?.Add || 0,
-  filesEdited: c.changeCounts?.Edit || 0,
-  filesDeleted: c.changeCounts?.Delete || 0,
-  isPR: 'false',
-  prId: 0,
-}));
-
-const rows = [...commitRows, ...prRows];
 return rows;
