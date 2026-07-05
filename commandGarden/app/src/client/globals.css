@@ -44,6 +44,17 @@
     border: 1px solid var(--fallback-bc, oklch(var(--bc) / 0.12));
   }
 
+  /* Native date/month picker — make the calendar icon visible and clickable */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="month"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+
   /* Brutalist scrollbar (webkit) */
   ::-webkit-scrollbar {
     width: 6px;

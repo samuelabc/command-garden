@@ -75,6 +75,7 @@ export default function Rooms() {
             className="input input-bordered input-sm w-full sm:w-auto"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
           />
         </label>
         <button className="btn btn-primary btn-sm w-full sm:w-auto" onClick={handleRun} disabled={running || !room}>

@@ -16,6 +16,7 @@ export default {
     themes: [
       {
         dark: {
+          'color-scheme': 'dark',
           'primary': '#4ade80',
           'primary-content': '#0a0a0a',
           'secondary': '#737373',
@@ -43,6 +44,7 @@ export default {
       },
       {
         light: {
+          'color-scheme': 'light',
           'primary': '#16a34a',
           'primary-content': '#ffffff',
           'secondary': '#737373',

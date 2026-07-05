@@ -56,6 +56,7 @@ export default function Timetracking() {
             className="input input-bordered input-sm"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
+            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
           />
         </label>
         <button className="btn btn-primary btn-sm" onClick={handleRun} disabled={running}>
