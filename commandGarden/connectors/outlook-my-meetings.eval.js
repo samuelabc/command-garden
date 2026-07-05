@@ -27,12 +27,6 @@ function todayLocalISO() {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-/** "2026-06-18" -> "18, June, 2026" (matches OWA date-cell aria-label). */
-function dateCellLabel(iso) {
-  const [y, m, d] = iso.split('-').map(Number);
-  return `${d}, ${MONTHS[m - 1]}, ${y}`;
-}
-
 function $(sel) { return document.querySelector(sel); }
 function exists(sel) { return !!$(sel); }
 
@@ -178,29 +172,29 @@ if (!schedulingAssistantOpen()) {
   throw new Error('Could not open the Scheduling Assistant');
 }
 
-// ── Set the date ──────────────────────────────────────────────────────
-const cellSel = `button[aria-label='${dateCellLabel(date)}']`;
-const target = new Date(`${date}T00:00:00`);
-const now = new Date();
-const navSel = target >= new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  ? "button[aria-label^='Go to next month']"
-  : "button[aria-label^='Go to previous month']";
-
+// ── Set the date by typing directly into the Start date input ─────────
+// The old approach navigated the calendar picker month-by-month clicking
+// date cells by aria-label, which looped endlessly when labels didn't match.
+// Instead, we focus the input, clear it, type the formatted date, and
+// press Enter to confirm — much more reliable.
 const dateInput = $("input[aria-label='Start date']");
-if (dateInput) dateInput.click();
+if (dateInput) {
+  // Format date as M/D/YYYY (OWA's expected input format for en-US locale)
+  const [y, m, d] = date.split('-').map(Number);
+  const formatted = `${m}/${d}/${y}`;
 
-for (let i = 0; i < 30; i++) {
-  if (exists(cellSel)) {
-    $(cellSel).click();
-    break;
-  }
-  if (exists(navSel)) {
-    try { $(navSel).click(); } catch (_e) { /* retry */ }
-  } else {
-    const di = $("input[aria-label='Start date']");
-    if (di) di.click();
-  }
-  await sleep(1000);
+  dateInput.focus();
+  dateInput.select();
+  // Use the React-compatible value setter to update the controlled input
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype, 'value'
+  ).set;
+  setter.call(dateInput, formatted);
+  dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+  dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+  // Press Enter to confirm the date and close any open picker
+  dateInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+  await sleep(2000);
 }
 
 // ── Capture the organizer's own schedule ──────────────────────────────
