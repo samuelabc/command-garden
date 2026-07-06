@@ -1,0 +1,39 @@
+site: tokenmaster
+name: clients-list
+version: "1.0"
+description: "List the clients managed by the current user in TokenMaster"
+access: read
+
+domains:
+  - "tma.query.api.dvb.corpinter.net"
+capabilities:
+  - navigate
+  - cookie_read
+
+columns:
+  - name: id
+    type: string
+  - name: name
+    type: string
+  - name: status
+    type: string
+  - name: admins
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://tma.query.api.dvb.corpinter.net/"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: fetch
+    url: "https://tma.query.api.dvb.corpinter.net/v1/clients"
+    method: "GET"
+    headers:
+      Accept: "application/json"
+  - step: map
+    fields:
+      id: "${{ row.id }}"
+      name: "${{ row.name }}"
+      status: "${{ row.status }}"
+      admins: "${{ row.admins }}"

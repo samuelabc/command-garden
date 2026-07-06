@@ -21,11 +21,29 @@ describe('sample connectors — schema validation', () => {
     expect(result.data.args).toHaveLength(1);
     expect(result.data.columns).toHaveLength(11);
   });
+
+  it('tokenmaster/clients-list passes schema validation', () => {
+    const result = loadConnector('tokenmaster-clients-list.yaml');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.site).toBe('tokenmaster');
+    expect(result.data.name).toBe('clients-list');
+    expect(result.data.pipeline).toHaveLength(4);
+    expect(result.data.args).toHaveLength(0);
+    expect(result.data.columns).toHaveLength(4);
+  });
 });
 
 describe('sample connectors — semantic validation', () => {
   it('timetracking/report passes semantic validation', () => {
     const result = loadConnector('timetracking-report.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    const errors = validateConnectorSemantics(result.data);
+    expect(errors).toEqual([]);
+  });
+
+  it('tokenmaster/clients-list passes semantic validation', () => {
+    const result = loadConnector('tokenmaster-clients-list.yaml');
     if (!result.ok) throw new Error(result.error.message);
     const errors = validateConnectorSemantics(result.data);
     expect(errors).toEqual([]);
@@ -46,5 +64,13 @@ describe('sample connectors — field correctness', () => {
     const monthArg = result.data.args!.find(a => a.name === 'month');
     expect(monthArg).toBeDefined();
     expect(monthArg!.pattern).toBe('^\\d{4}-\\d{2}$');
+  });
+
+  it('tokenmaster/clients-list uses cookie_read capability and correct domain', () => {
+    const result = loadConnector('tokenmaster-clients-list.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.capabilities).toContain('cookie_read');
+    expect(result.data.domains).toContain('tma.query.api.dvb.corpinter.net');
+    expect(result.data.columns.map(c => c.name)).toEqual(['id', 'name', 'status', 'admins']);
   });
 });

@@ -28,6 +28,7 @@ export class PipelineContext {
       for (const [key, expr] of Object.entries(fields)) {
         const rowCtx: ExprContext = {
           args: this.args, vars: { ...this.vars, row }, cookies: this.cookies,
+          row,
         };
         mapped[key] = sharedInterpolate(expr, rowCtx);
       }

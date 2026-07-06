@@ -84,10 +84,14 @@ describe('ConnectorRegistry loads sample connectors', () => {
     const { loaded, errors } = registry.load();
 
     expect(errors).toEqual([]);
-    expect(loaded).toBe(3);
+    expect(loaded).toBeGreaterThanOrEqual(7);
     expect(registry.get('timetracking/report')).toBeDefined();
     expect(registry.get('timetracking/projects')).toBeDefined();
     expect(registry.get('teams/room-availability')).toBeDefined();
+    expect(registry.get('ado/git-commits')).toBeDefined();
+    expect(registry.get('jira/my-tickets')).toBeDefined();
+    expect(registry.get('outlook/my-meetings')).toBeDefined();
+    expect(registry.get('tokenmaster/clients-list')).toBeDefined();
   });
 
   it('lists all connectors', async () => {

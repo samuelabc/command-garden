@@ -6,6 +6,8 @@ export interface ExprContext {
   args: Record<string, string | number | boolean>;
   vars: Record<string, unknown>;
   cookies: Record<string, string>;
+  /** Per-row scope injected by PipelineContext.applyMap for ${{ row.field }} expressions */
+  row?: Record<string, unknown>;
 }
 
 function resolvePath(obj: unknown, path: string[]): unknown {

@@ -141,9 +141,10 @@ cg list
 ```
 
 ```
-CONNECTOR                  ACCESS  DOMAINS                      CAPABILITIES
-timetracking/report        read    timetracking.mercedes…       navigate, js_evaluate
-teams/room-availability    read    outlook.cloud.microsoft.…    navigate, js_evaluate
+CONNECTOR                      ACCESS  DOMAINS                      CAPABILITIES
+timetracking/report            read    timetracking.mercedes…       navigate, js_evaluate
+teams/room-availability        read    outlook.cloud.microsoft.…    navigate, js_evaluate
+tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, cookie_read
 ```
 
 ### Timetracking report
@@ -155,6 +156,14 @@ cg run timetracking/report --month 2026-06 --format json
 This connector navigates to the timetracking portal, fetches the monthly report API using your existing browser session cookies, and returns structured booking data.
 
 > **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### TokenMaster clients
+
+```bash
+cg run tokenmaster/clients-list --format table
+```
+
+This connector calls the TokenMaster API (`/v1/clients`) using your browser session cookies — no JS evaluation, no DOM scraping. It's the first **declarative-only** connector: the pipeline uses `navigate → wait → fetch → map` with `cookie_read` capability.
 
 ### Room availability (Teams/Outlook)
 
@@ -232,7 +241,7 @@ cg validate connectors/my-connector.yaml
 | `intercept` | Capture a network response body | `intercept_response` |
 | `cookie` | Read cookies for a domain | `cookie_read` |
 | `fetch` | HTTP request from page context | `cookie_read` |
-| `map` | Transform/rename extracted fields | none |
+| `map` | Transform/rename extracted fields (use `${{ row.field }}`) | none |
 | `filter` | Filter rows by condition | none |
 | `set` | Set a variable for later steps | none |
 
@@ -241,8 +250,11 @@ cg validate connectors/my-connector.yaml
 Use `${{ }}` for template expressions (no JS eval):
 
 - **Variable access:** `args.month`, `vars.token`, `cookies.name`
+- **Row access (map steps):** `row.id`, `row.name` — available only inside `map` step fields
 - **String concatenation:** `"Bearer " + vars.token`
 - **Pipe filters:** `args.month | default("2026-06")`, `value | number`, `text | trim`
+
+> For detailed patterns, fetch best practices, and debugging techniques, see the [Connector Authoring Guide](docs/connector-authoring.md).
 
 ---
 
@@ -489,6 +501,7 @@ node cli/dist/main.js daemon status
 node cli/dist/main.js list
 node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
 node cli/dist/main.js run timetracking/report --month 2026-07 --format json
+node cli/dist/main.js run tokenmaster/clients-list --format table
 ```
 
 ### Linking globally (optional)
@@ -508,6 +521,20 @@ cd app && npm run dev
 ```
 
 This starts Vite (HMR on `:5173`) and the app server (`tsx watch`) concurrently. The Vite dev server proxies `/api` requests to the app server on `:9092`.
+
+### Connector development cycle
+
+Built-in connectors (in `connectors/`) are copied into the daemon at build time. After editing source YAML or extension code, you need a **3-step reload**:
+
+```bash
+npm run build              # copies connectors, rebuilds extension
+cg down && cg up           # daemon reloads connector registry
+# Then: chrome://extensions → reload commandGarden extension
+```
+
+**YAML-only changes** can skip the Chrome reload. For rapid iteration, place WIP connectors in `~/.commandgarden/connectors/` — the daemon loads from there too (same `site/name` key overrides the built-in version), no rebuild needed.
+
+See [Connector Authoring Guide — Development Cycle](docs/connector-authoring.md#development-cycle-source-connectors) for details.
 
 ### Watch mode for tests
 

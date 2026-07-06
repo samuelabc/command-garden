@@ -228,6 +228,56 @@ describe('PipelineRunner', () => {
     expect(result.steps![1].error).toContain('DOM error');
   });
 
+  it('map step resolves ${{ row.field }} and produces mapped data', async () => {
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue([
+        { id: 'abc-123', name: 'Alice', extra: 'ignored' },
+        { id: 'def-456', name: 'Bob', extra: 'also ignored' },
+      ]),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'extract', selector: 'tr', fields: { id: 'td', name: 'td:nth-child(2)', extra: 'td:nth-child(3)' } },
+      { step: 'map', fields: { userId: '${{ row.id }}', userName: '${{ row.name }}' } },
+    ]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual([
+      { userId: 'abc-123', userName: 'Alice' },
+      { userId: 'def-456', userName: 'Bob' },
+    ]);
+  });
+
+  it('map step also supports ${{ vars.row.field }} path', async () => {
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue([{ x: 42 }]),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'extract', selector: 'tr', fields: { x: 'td' } },
+      { step: 'map', fields: { val: '${{ vars.row.x }}' } },
+    ]);
+    const result = await runner.run(connector, {});
+    expect(result.data).toEqual([{ val: '42' }]);
+  });
+
+  it('map step returns "undefined" for missing row fields', async () => {
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue([{ a: 1 }]),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'extract', selector: 'tr', fields: { a: 'td' } },
+      { step: 'map', fields: { missing: '${{ row.nonexistent }}' } },
+    ]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual([{ missing: 'undefined' }]);
+  });
+
   it('steps with no capability have capability undefined', async () => {
     const adapter = mockAdapter({
       executeInContent: vi.fn().mockResolvedValue([{ name: 'A', score: 5 }]),

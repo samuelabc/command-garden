@@ -12,5 +12,9 @@
 - [x] Bugfix: Replace `better-sqlite3` (native C++ addon) with `sql.js` (pure WASM) — fixes `npm install -g` failure on systems without C++ build tools
 - [x] Publish `@commandgarden/cli@1.1.4` to npm (patch: added `sql.js` type declarations for daemon/app builds)
 - [x] Bundle connectors with published CLI — `@commandgarden/cli@1.2.3` ships built-in connectors, zero-setup fresh install (88 daemon tests, 114 cli tests, all passing)
+- [x] TokenMaster `clients-list` connector — first declarative `cookie_read` + `fetch` connector (no `.eval.js`), 131 shared tests passing
+- [x] Bugfix: Map step `${{ row.field }}` resolved to `undefined` — added `row` as top-level scope in `PipelineContext.applyMap` (92 chrome tests, 131 shared tests passing)
+- [x] Connector Authoring Guide — `docs/connector-authoring.md` with pipeline patterns, debugging techniques, and common pitfalls
+- [x] Code review fixes — formalized `row` in `ExprContext`, removed fragile connector count assertion, added missing-field edge-case test, cleaned up stray `yarn.lock`, improved docs
 
 See `TODO_ARCHIVE.md` for completed work.
