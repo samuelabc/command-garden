@@ -11,22 +11,22 @@ For the full design spec, see [`docs/superpowers/specs/2026-06-23-commandgarden-
 ## Architecture
 
 ```
-┌─────────────┐                 ┌──────────────┐                 ┌───────────────────┐
-│  CLI Client  │      HTTP      │    Daemon    │    WebSocket    │  Chrome Extension  │
-│  (Node.js)   │ ─────────────→ │  (Fastify)   │ ←────────────→ │  (MV3, TypeScript) │
-└─────────────┘  localhost:9091└──────────────┘                 └───────────────────┘
-                                       ↑                                │
-┌─────────────┐      HTTP              │                                │
-│  GUI (React) │ ─→ ┌──────────────┐   │  Relay commands via HTTP       │  Execute pipeline
-│  SPA         │    │  App Server  │ ──┘                                │  steps on page
-└─────────────┘    │  (Fastify)   │                                    │
-                    │  :9092      │                                    │
-                    └──────────────┘                                    │
-                           │                                           │
-                     ┌──────────┐          ┌──────────────┐            │
-                     │  App DB  │          │  Audit Log   │            │
-                     │ (SQLite) │          │  (SQLite)    │            │
-                     └──────────┘          └──────────────┘            │
+┌──────────────┐       HTTP        ┌──────────────┐     WebSocket     ┌────────────────────┐
+│  CLI Client  │ ────────────────→ │    Daemon    │ ←───────────────→ │  Chrome Extension  │
+│  (Node.js)   │  localhost:9091   │  (Fastify)   │                   │  (MV3, TypeScript) │
+└──────────────┘                   └──────────────┘                   └────────────────────┘
+                                     ↑         │                         │            │
+                                     │         │               Content   │    CDP     │
+┌──────────────┐   ┌──────────────┐  │         │               Scripts   │  (debugger)│
+│  GUI (React) │──→│  App Server  │──┘         │                         ↓            ↓
+│  SPA         │   │  (Fastify)   │            │               ┌────────────────────────┐
+└──────────────┘   │  :9092       │            │               │      Browser Tab       │
+                   └──────────────┘            │               │  (target web page)     │
+                          │                    │               └────────────────────────┘
+                   ┌──────────────┐    ┌──────────────┐
+                   │   App DB     │    │  Audit Log   │
+                   │   (SQLite)   │    │  (SQLite)    │
+                   └──────────────┘    └──────────────┘
 ```
 
 **Data flow:** CLI or GUI sends a command → Daemon validates auth, domains, and capabilities → Daemon relays to the Chrome Extension via WebSocket → Extension runs the connector's pipeline steps on the target page → Structured data flows back through the Daemon to the CLI or GUI.
