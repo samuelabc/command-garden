@@ -110,6 +110,41 @@ describe('gcs/kb-pages — declarative pipeline (no js_evaluate)', () => {
   });
 });
 
+describe('gcs/kb-content — declarative pipeline (no js_evaluate)', () => {
+  it('loads gcs-kb-content connector without js_evaluate', () => {
+    const connector = loadConnectorDef('gcs-kb-content.yaml');
+    expect(connector.capabilities).not.toContain('js_evaluate');
+    expect(connector.capabilities).toContain('dom_read');
+  });
+
+  it('runs extension-side steps of gcs-kb-content pipeline', async () => {
+    const connector = loadConnectorDef('gcs-kb-content.yaml');
+    // Only extension steps should run in PipelineRunner
+    // transform steps are daemon-side and would be skipped/errored
+    // For this test we verify the extension-side steps work
+    const executeInContent = vi.fn()
+      .mockResolvedValueOnce(undefined) // wait
+      .mockResolvedValueOnce([{ title: 'EDR', authorPill: 'Alice (ID)|Jan 15, 2025' }]) // extract
+      .mockResolvedValueOnce('<h1>EDR</h1><p>Content</p>'); // extract_html
+
+    const adapter = mockAdapter({ executeInContent });
+    const runner = new PipelineRunner(adapter);
+
+    // Use splitPipeline to only run extension steps
+    const { splitPipeline } = await import('@commandgarden/shared');
+    const { extensionSteps, daemonSteps } = splitPipeline(connector.pipeline);
+    expect(daemonSteps).toHaveLength(2); // two transform steps
+
+    // Run only extension steps
+    const extConnector = { ...connector, pipeline: extensionSteps };
+    const result = await runner.run(extConnector, { path: '/gcs/KB/docs/general-security/edr/' });
+
+    expect(result.ok).toBe(true);
+    expect(adapter.navigateTab).toHaveBeenCalled();
+    expect(adapter.evaluateInPage).not.toHaveBeenCalled();
+  });
+});
+
 describe('ConnectorRegistry loads sample connectors', () => {
   it('loads connectors from the connectors directory', async () => {
     const { ConnectorRegistry } = await import('../../../daemon/src/registry');

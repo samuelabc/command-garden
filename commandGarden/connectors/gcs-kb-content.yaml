@@ -1,6 +1,6 @@
 site: gcs
 name: kb-content
-version: "1.0"
+version: "2.0"
 description: "Retrieve a single GCS Knowledge Base page as Markdown"
 access: read
 
@@ -8,7 +8,7 @@ domains:
   - "pages.i.mercedes-benz.com"
 capabilities:
   - navigate
-  - js_evaluate
+  - dom_read
 
 args:
   - name: path
@@ -35,5 +35,24 @@ pipeline:
   - step: wait
     selector: "article"
     timeout: 30000
-  - step: js_evaluate
-    file: gcs-kb-content.eval.js
+  - step: extract
+    selector: "article"
+    fields:
+      title: "h1"
+      authorPill: "span.inline-flex"
+  - step: extract_html
+    selector: "article"
+    as: rawHtml
+  - step: transform
+    type: html_to_markdown
+    input: rawHtml
+    as: content
+  - step: transform
+    type: split_metadata
+    input: authorPill
+    as: meta
+    options:
+      delimiter: "|"
+      fields:
+        - author
+        - lastUpdated
