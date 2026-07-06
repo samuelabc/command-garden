@@ -1,0 +1,32 @@
+site: gcs
+name: kb-pages
+version: "1.0"
+description: "Page index of the GCS Knowledge Base — titles, URLs, sections, and hierarchy"
+access: read
+
+domains:
+  - "pages.i.mercedes-benz.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+columns:
+  - name: title
+    type: string
+  - name: url
+    type: string
+  - name: section
+    type: string
+  - name: path
+    type: string
+  - name: depth
+    type: number
+
+pipeline:
+  - step: navigate
+    url: "https://pages.i.mercedes-benz.com/gcs/KB/docs/main/"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: gcs-kb-pages.eval.js

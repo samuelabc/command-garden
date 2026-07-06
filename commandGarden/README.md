@@ -145,6 +145,8 @@ CONNECTOR                      ACCESS  DOMAINS                      CAPABILITIES
 timetracking/report            read    timetracking.mercedes…       navigate, js_evaluate
 teams/room-availability        read    outlook.cloud.microsoft.…    navigate, js_evaluate
 tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, cookie_read
+gcs/kb-pages                   read    pages.i.mercedes-benz.com    navigate, js_evaluate
+gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, js_evaluate
 ```
 
 ### Timetracking report
@@ -176,6 +178,26 @@ cg run teams/room-availability --room "RES-RERE-M6VJ7ZUW@mercedes-benz.com" --da
 ```
 
 This connector drives the Outlook Scheduling Assistant in your authenticated browser session to fetch a meeting room's free/busy timeline for a given day. It intercepts the page's own GraphQL `getSchedule` call (the endpoint rejects replayed requests) and returns time blocks with state (`free`, `busy`, `tentative`, `oof`, `elsewhere`), start/end times, and duration.
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### GCS Knowledge Base pages
+
+```bash
+cg run gcs/kb-pages --format table
+```
+
+This connector navigates to the GCS Knowledge Base (a Next.js docs site behind Mercedes-Benz SSO), expands every sidebar section, and extracts a page index with title, URL, section, breadcrumb path, and hierarchy depth. Returns all leaf pages (~57 articles covering General Security, AI Security, DevSecOps, Cloud Security, Tools & Platforms, and more).
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### GCS Knowledge Base content
+
+```bash
+cg run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
+```
+
+This connector retrieves a single GCS Knowledge Base page and converts it to Markdown. Use the `path` from the `gcs/kb-pages` index. Returns one row with `title`, `path`, `author`, `lastUpdated`, and the full page `content` as Markdown (headings, code blocks, tables, and lists preserved).
 
 > **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
@@ -502,6 +524,8 @@ node cli/dist/main.js list
 node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
 node cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node cli/dist/main.js run tokenmaster/clients-list --format table
+node cli/dist/main.js run gcs/kb-pages --format table
+node cli/dist/main.js run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
 ```
 
 ### Linking globally (optional)

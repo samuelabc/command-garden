@@ -32,6 +32,28 @@ describe('sample connectors — schema validation', () => {
     expect(result.data.args).toHaveLength(1);
     expect(result.data.columns).toHaveLength(4);
   });
+
+  it('gcs/kb-pages passes schema validation', () => {
+    const result = loadConnector('gcs-kb-pages.yaml');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.site).toBe('gcs');
+    expect(result.data.name).toBe('kb-pages');
+    expect(result.data.pipeline).toHaveLength(3);
+    expect(result.data.args).toHaveLength(0);
+    expect(result.data.columns).toHaveLength(5);
+  });
+
+  it('gcs/kb-content passes schema validation', () => {
+    const result = loadConnector('gcs-kb-content.yaml');
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.site).toBe('gcs');
+    expect(result.data.name).toBe('kb-content');
+    expect(result.data.pipeline).toHaveLength(3);
+    expect(result.data.args).toHaveLength(1);
+    expect(result.data.columns).toHaveLength(5);
+  });
 });
 
 describe('sample connectors — semantic validation', () => {
@@ -44,6 +66,20 @@ describe('sample connectors — semantic validation', () => {
 
   it('tokenmaster/clients-list passes semantic validation', () => {
     const result = loadConnector('tokenmaster-clients-list.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    const errors = validateConnectorSemantics(result.data);
+    expect(errors).toEqual([]);
+  });
+
+  it('gcs/kb-pages passes semantic validation', () => {
+    const result = loadConnector('gcs-kb-pages.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    const errors = validateConnectorSemantics(result.data);
+    expect(errors).toEqual([]);
+  });
+
+  it('gcs/kb-content passes semantic validation', () => {
+    const result = loadConnector('gcs-kb-content.yaml');
     if (!result.ok) throw new Error(result.error.message);
     const errors = validateConnectorSemantics(result.data);
     expect(errors).toEqual([]);
@@ -93,5 +129,33 @@ describe('sample connectors — field correctness', () => {
     expect(domains.emea).toBe('tma.query.api.dvb.corpinter.net');
     expect(domains.amap).toBe('tma.query.api.amap.corpinter.net');
     expect(domains.cn).toBe('tma.query.api.cn.corpinter.net');
+  });
+
+  it('gcs/kb-pages has correct domain and columns for page index', () => {
+    const result = loadConnector('gcs-kb-pages.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.domains).toEqual(['pages.i.mercedes-benz.com']);
+    expect(result.data.capabilities).toContain('js_evaluate');
+    expect(result.data.columns.map(c => c.name)).toEqual(['title', 'url', 'section', 'path', 'depth']);
+  });
+
+  it('gcs/kb-content path arg has pattern constraint', () => {
+    const result = loadConnector('gcs-kb-content.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    const pathArg = result.data.args!.find(a => a.name === 'path');
+    expect(pathArg).toBeDefined();
+    expect(pathArg!.required).toBe(true);
+    expect(pathArg!.pattern).toBeDefined();
+    // Pattern must reject paths without /gcs/KB/ prefix
+    const re = new RegExp(pathArg!.pattern!);
+    expect(re.test('/gcs/KB/docs/general-security/edr/')).toBe(true);
+    expect(re.test('/evil/path')).toBe(false);
+    expect(re.test("'; DROP TABLE --")).toBe(false);
+  });
+
+  it('gcs/kb-content has correct columns for page content', () => {
+    const result = loadConnector('gcs-kb-content.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.columns.map(c => c.name)).toEqual(['title', 'path', 'author', 'lastUpdated', 'content']);
   });
 });

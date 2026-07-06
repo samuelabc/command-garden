@@ -1,0 +1,39 @@
+site: gcs
+name: kb-content
+version: "1.0"
+description: "Retrieve a single GCS Knowledge Base page as Markdown"
+access: read
+
+domains:
+  - "pages.i.mercedes-benz.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: path
+    type: string
+    required: true
+    help: "Page path from the kb-pages index, e.g. /gcs/KB/docs/general-security/edr/"
+    pattern: "^/gcs/KB/[a-zA-Z0-9_./-]+$"
+
+columns:
+  - name: title
+    type: string
+  - name: path
+    type: string
+  - name: author
+    type: string
+  - name: lastUpdated
+    type: string
+  - name: content
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://pages.i.mercedes-benz.com${{ args.path }}"
+  - step: wait
+    selector: "article"
+    timeout: 30000
+  - step: js_evaluate
+    file: gcs-kb-content.eval.js
