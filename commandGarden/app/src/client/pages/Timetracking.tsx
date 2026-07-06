@@ -25,7 +25,7 @@ function timeAgo(iso: string): string {
 export default function Timetracking() {
   const [month, setMonth] = useState(currentMonth());
   const [showRaw, setShowRaw] = useState(false);
-  const { running, result, error, approvalPending, approvalId, run, handleApproval } = useApprovalRun();
+  const { running, result, error, approvalPending, approvalId, run, handleApproval, reset } = useApprovalRun();
 
   const {
     goals, loadGoals, rows, isCached, cachedAt,
@@ -55,7 +55,7 @@ export default function Timetracking() {
             type="month"
             className="input input-bordered input-sm"
             value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            onChange={(e) => { setMonth(e.target.value); reset(); }}
             onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
           />
         </label>
