@@ -198,7 +198,7 @@ export class RealChromeAdapter implements ChromeAdapter {
       files: ['content-script.js'],
     });
 
-    const action = step.step as 'wait' | 'extract' | 'click' | 'type' | 'fetch';
+    const action = step.step as 'wait' | 'extract' | 'extract_tree' | 'extract_html' | 'click' | 'click_all' | 'type' | 'fetch';
     const req = createDomRequest(action, step as unknown as Record<string, unknown>);
     const response = await chrome.tabs.sendMessage(tabId, req) as DomResponse;
     if (!response.ok) throw new Error(response.error ?? 'Content script error');

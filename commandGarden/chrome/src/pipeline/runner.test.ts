@@ -42,6 +42,17 @@ describe('PipelineRunner', () => {
     expect(adapter.executeInContent).toHaveBeenCalled();
   });
 
+  it('executes click_all step via content script', async () => {
+    const adapter = mockAdapter();
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'click_all', selector: 'button[aria-expanded="false"]', pause: 100, maxRounds: 5, settle: 200 },
+    ] as unknown as import('@commandgarden/shared').PipelineStep[]);
+    await runner.run(connector, {});
+    expect(adapter.executeInContent).toHaveBeenCalled();
+  });
+
   it('executes extract step and collects data', async () => {
     const adapter = mockAdapter({
       executeInContent: vi.fn().mockResolvedValue([{ name: 'Alice' }]),

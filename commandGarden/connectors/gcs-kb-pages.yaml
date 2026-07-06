@@ -1,6 +1,6 @@
 site: gcs
 name: kb-pages
-version: "1.0"
+version: "2.0"
 description: "Page index of the GCS Knowledge Base — titles, URLs, sections, and hierarchy"
 access: read
 
@@ -8,7 +8,8 @@ domains:
   - "pages.i.mercedes-benz.com"
 capabilities:
   - navigate
-  - js_evaluate
+  - dom_read
+  - dom_write
 
 columns:
   - name: title
@@ -26,7 +27,21 @@ pipeline:
   - step: navigate
     url: "https://pages.i.mercedes-benz.com/gcs/KB/docs/main/"
   - step: wait
-    selector: "body"
+    selector: "aside"
     timeout: 30000
-  - step: js_evaluate
-    file: gcs-kb-pages.eval.js
+  - step: click_all
+    selector: "aside button[aria-expanded='false']"
+    pause: 200
+    maxRounds: 10
+    settle: 300
+  - step: extract_tree
+    root: "aside > *:nth-child(2)"
+    group:
+      match: "div:has(> button), section:has(> button)"
+      title: ":scope > button"
+      children: ":scope > div"
+    leaf:
+      match: "a[href^='/gcs/KB/']"
+      fields:
+        title: textContent
+        url: href

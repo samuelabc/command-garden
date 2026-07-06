@@ -16,13 +16,15 @@
   },
   "dependencies": {
     "@commandgarden/shared": "*",
-    "sql.js": "^1.11.0",
-    "fastify": "^5.0.0",
     "@fastify/websocket": "^11.0.0",
+    "fastify": "^5.0.0",
+    "sql.js": "^1.11.0",
+    "turndown": "^7.2.4",
     "yaml": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.6",
     "@types/ws": "^8.5.0",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"

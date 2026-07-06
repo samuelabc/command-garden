@@ -1,6 +1,6 @@
 // src/content/content-script.ts
 import { isDomRequest, createDomResponse, type DomRequest } from '../messages.js';
-import { waitForSelector, extractData, clickElement, typeIntoElement, fetchFromPage } from './dom-executor.js';
+import { waitForSelector, extractData, extractHtml, extractTree, clickElement, clickAll, typeIntoElement, fetchFromPage } from './dom-executor.js';
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!isDomRequest(message)) return false;
@@ -20,8 +20,25 @@ async function handleRequest(req: DomRequest): Promise<unknown> {
       return undefined;
     case 'extract':
       return extractData(p.selector as string, p.fields as Record<string, string>);
+    case 'extract_html':
+      return extractHtml(p.selector as string);
+    case 'extract_tree':
+      return extractTree(
+        p.root as string,
+        p.group as { match: string; title: string; children: string },
+        p.leaf as { match: string; fields: Record<string, string> },
+        (p.pathSeparator as string) ?? ' / ',
+      );
     case 'click':
       await clickElement(p.selector as string);
+      return undefined;
+    case 'click_all':
+      await clickAll(
+        p.selector as string,
+        (p.pause as number) ?? 200,
+        (p.maxRounds as number) ?? 10,
+        (p.settle as number) ?? 300,
+      );
       return undefined;
     case 'type':
       await typeIntoElement(p.selector as string, p.value as string);

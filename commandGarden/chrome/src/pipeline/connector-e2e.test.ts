@@ -77,6 +77,39 @@ describe('timetracking/report — pipeline execution', () => {
   });
 });
 
+describe('gcs/kb-pages — declarative pipeline (no js_evaluate)', () => {
+  const MOCK_TREE = [
+    { title: 'EDR', url: '/gcs/KB/docs/general-security/edr/', section: 'Security', path: 'Security / EDR', depth: 1 },
+  ];
+
+  it('loads gcs-kb-pages connector without js_evaluate', () => {
+    const connector = loadConnectorDef('gcs-kb-pages.yaml');
+    expect(connector.capabilities).not.toContain('js_evaluate');
+    expect(connector.capabilities).toContain('dom_read');
+    expect(connector.capabilities).toContain('dom_write');
+  });
+
+  it('runs gcs-kb-pages pipeline with click_all and extract_tree', async () => {
+    const connector = loadConnectorDef('gcs-kb-pages.yaml');
+    const executeInContent = vi.fn()
+      .mockResolvedValueOnce(undefined) // wait
+      .mockResolvedValueOnce(undefined) // click_all
+      .mockResolvedValueOnce(MOCK_TREE); // extract_tree
+
+    const adapter = mockAdapter({ executeInContent });
+    const runner = new PipelineRunner(adapter);
+    const result = await runner.run(connector, {});
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(MOCK_TREE);
+    expect(adapter.navigateTab).toHaveBeenCalledWith(
+      'https://pages.i.mercedes-benz.com/gcs/KB/docs/main/'
+    );
+    // Should NOT call evaluateInPage (no js_evaluate)
+    expect(adapter.evaluateInPage).not.toHaveBeenCalled();
+  });
+});
+
 describe('ConnectorRegistry loads sample connectors', () => {
   it('loads connectors from the connectors directory', async () => {
     const { ConnectorRegistry } = await import('../../../daemon/src/registry');

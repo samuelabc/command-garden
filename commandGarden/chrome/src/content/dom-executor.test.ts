@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // src/content/dom-executor.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { waitForSelector, extractData, clickElement, typeIntoElement } from './dom-executor.js';
+import { waitForSelector, extractData, clickElement, clickAll, extractTree, typeIntoElement } from './dom-executor.js';
 
 describe('waitForSelector', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
@@ -59,6 +59,182 @@ describe('clickElement', () => {
   it('throws for missing element', async () => {
     document.body.innerHTML = '';
     await expect(clickElement('#missing')).rejects.toThrow('not found');
+  });
+});
+
+describe('clickAll', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('clicks all matching elements', async () => {
+    document.body.innerHTML = `
+      <div>
+        <button class="expand" aria-expanded="false">A</button>
+        <button class="expand" aria-expanded="false">B</button>
+      </div>`;
+    // Simulate: clicking a button sets aria-expanded to true (removes from selector match)
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => btn.setAttribute('aria-expanded', 'true'));
+    });
+    await clickAll('button[aria-expanded="false"]', 0, 10, 0);
+    const expanded = document.querySelectorAll('button[aria-expanded="true"]');
+    expect(expanded).toHaveLength(2);
+  });
+
+  it('re-scans and clicks newly revealed elements', async () => {
+    // A click on the first button reveals a second button
+    document.body.innerHTML = '<div id="root"><button class="toggle">A</button></div>';
+    const root = document.getElementById('root')!;
+    let round = 0;
+    root.querySelector('button')!.addEventListener('click', () => {
+      root.querySelector('button')!.remove();
+      if (round === 0) {
+        const btn2 = document.createElement('button');
+        btn2.className = 'toggle';
+        btn2.textContent = 'B';
+        btn2.addEventListener('click', () => btn2.remove());
+        root.appendChild(btn2);
+      }
+      round++;
+    });
+    await clickAll('button.toggle', 0, 10, 0);
+    expect(document.querySelectorAll('button.toggle')).toHaveLength(0);
+  });
+
+  it('stops after maxRounds even if matches remain', async () => {
+    // Button keeps matching (never changes on click)
+    document.body.innerHTML = '<button class="forever">X</button>';
+    let clicks = 0;
+    document.querySelector('button')!.addEventListener('click', () => { clicks++; });
+    await clickAll('button.forever', 0, 3, 0);
+    // Should have clicked at least once per round, but stopped at maxRounds
+    expect(clicks).toBeGreaterThanOrEqual(3);
+  });
+
+  it('returns immediately when no elements match', async () => {
+    document.body.innerHTML = '<div>nothing</div>';
+    await clickAll('.missing', 0, 10, 0);
+    // No error, just returns
+  });
+});
+
+describe('extractTree', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  it('extracts a basic tree with groups and leaves', () => {
+    document.body.innerHTML = `
+      <nav id="root">
+        <div>
+          <button>Security</button>
+          <div>
+            <a href="/docs/edr/">EDR</a>
+            <a href="/docs/firewall/">Firewall</a>
+          </div>
+        </div>
+        <div>
+          <button>DevOps</button>
+          <div>
+            <a href="/docs/ci/">CI/CD</a>
+          </div>
+        </div>
+      </nav>`;
+    const rows = extractTree(
+      '#root',
+      { match: 'div:has(> button)', title: ':scope > button', children: ':scope > div' },
+      { match: 'a', fields: { title: 'textContent', url: 'href' } },
+      ' / ',
+    );
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toEqual({
+      title: 'EDR', url: '/docs/edr/',
+      section: 'Security', path: 'Security / EDR', depth: 1,
+    });
+    expect(rows[2]).toEqual({
+      title: 'CI/CD', url: '/docs/ci/',
+      section: 'DevOps', path: 'DevOps / CI/CD', depth: 1,
+    });
+  });
+
+  it('handles nested groups (depth > 1)', () => {
+    document.body.innerHTML = `
+      <nav id="root">
+        <div>
+          <button>Top</button>
+          <div>
+            <div>
+              <button>Sub</button>
+              <div>
+                <a href="/leaf">Leaf</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>`;
+    const rows = extractTree(
+      '#root',
+      { match: 'div:has(> button)', title: ':scope > button', children: ':scope > div' },
+      { match: 'a', fields: { title: 'textContent', url: 'href' } },
+      ' / ',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      title: 'Leaf', url: '/leaf',
+      section: 'Top', path: 'Top / Sub / Leaf', depth: 2,
+    });
+  });
+
+  it('passes through wrapper divs transparently', () => {
+    document.body.innerHTML = `
+      <nav id="root">
+        <div class="wrapper">
+          <a href="/page">Page</a>
+        </div>
+      </nav>`;
+    const rows = extractTree(
+      '#root',
+      { match: 'div:has(> button)', title: ':scope > button', children: ':scope > div' },
+      { match: 'a', fields: { title: 'textContent', url: 'href' } },
+      ' / ',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      title: 'Page', url: '/page',
+      section: 'Page', path: 'Page', depth: 0,
+    });
+  });
+
+  it('returns empty array for empty tree', () => {
+    document.body.innerHTML = '<nav id="root"></nav>';
+    const rows = extractTree(
+      '#root',
+      { match: 'div:has(> button)', title: ':scope > button', children: ':scope > div' },
+      { match: 'a', fields: { title: 'textContent' } },
+      ' / ',
+    );
+    expect(rows).toEqual([]);
+  });
+
+  it('throws when root selector not found', () => {
+    document.body.innerHTML = '<div>nothing</div>';
+    expect(() => extractTree(
+      '#missing',
+      { match: 'div', title: 'button', children: 'div' },
+      { match: 'a', fields: { title: 'textContent' } },
+      ' / ',
+    )).toThrow('not found');
+  });
+
+  it('extracts href attribute for url field', () => {
+    document.body.innerHTML = `
+      <nav id="root">
+        <a href="/docs/page">My Page</a>
+      </nav>`;
+    const rows = extractTree(
+      '#root',
+      { match: 'div:has(> button)', title: ':scope > button', children: ':scope > div' },
+      { match: 'a', fields: { title: 'textContent', url: 'href' } },
+      ' / ',
+    );
+    expect(rows[0].url).toBe('/docs/page');
   });
 });
 

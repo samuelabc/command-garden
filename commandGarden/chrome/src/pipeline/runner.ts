@@ -67,6 +67,7 @@ export class PipelineRunner {
           }
           case 'wait':
           case 'click':
+          case 'click_all':
             await this.adapter.executeInContent(tabId, step);
             break;
           case 'type':
@@ -77,6 +78,16 @@ export class PipelineRunner {
           case 'extract': {
             const data = await this.adapter.executeInContent(tabId, step) as Record<string, unknown>[];
             ctx.setData(data);
+            break;
+          }
+          case 'extract_tree': {
+            const treeData = await this.adapter.executeInContent(tabId, step) as Record<string, unknown>[];
+            ctx.setData(treeData);
+            break;
+          }
+          case 'extract_html': {
+            const html = await this.adapter.executeInContent(tabId, step) as string;
+            if (step.as) ctx.setVar(step.as, html);
             break;
           }
           case 'fetch': {

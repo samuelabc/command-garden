@@ -26,7 +26,14 @@ export {
   type MapStep,
   type FilterStep,
   type SetStep,
+  type ExtractTreeStep,
+  type ClickAllStep,
+  type ExtractHtmlStep,
+  type TransformStep,
   type JsEvaluateStep,
+  DAEMON_STEPS,
+  type DaemonStepType,
+  splitPipeline,
 } from './pipeline.js';
 
 // Connector schema

@@ -30,6 +30,74 @@ export function extractData(
   });
 }
 
+export function extractHtml(selector: string): string {
+  const el = document.querySelector(selector);
+  if (!el) throw new Error(`Element "${selector}" not found`);
+  return el.innerHTML;
+}
+
+export function extractTree(
+  rootSelector: string,
+  group: { match: string; title: string; children: string },
+  leaf: { match: string; fields: Record<string, string> },
+  pathSeparator: string,
+): Record<string, unknown>[] {
+  const root = document.querySelector(rootSelector);
+  if (!root) throw new Error(`Root "${rootSelector}" not found`);
+
+  function extractField(el: Element, spec: string): string {
+    if (spec === 'textContent') return el.textContent?.trim().replace(/\s+/g, ' ') ?? '';
+    if (spec === 'href') return el.getAttribute('href') ?? '';
+    if (spec.startsWith('attr:')) return el.getAttribute(spec.slice(5)) ?? '';
+    return el.textContent?.trim() ?? '';
+  }
+
+  function walk(container: Element, ancestors: string[], depth: number): Record<string, unknown>[] {
+    const results: Record<string, unknown>[] = [];
+    for (const child of Array.from(container.children)) {
+      if (child.matches(leaf.match)) {
+        const row: Record<string, unknown> = {};
+        for (const [name, spec] of Object.entries(leaf.fields)) {
+          row[name] = extractField(child, spec);
+        }
+        const title = (row.title as string) || child.textContent?.trim() || '';
+        const section = ancestors.length > 0 ? ancestors[0] : title;
+        const pathParts = [...ancestors, title];
+        row.section = section;
+        row.path = pathParts.join(pathSeparator);
+        row.depth = depth;
+        results.push(row);
+      } else if (child.matches(group.match)) {
+        const titleEl = child.querySelector(group.title);
+        const groupTitle = titleEl?.textContent?.trim().replace(/\s+/g, ' ') ?? '';
+        const childContainer = child.querySelector(group.children);
+        if (childContainer) {
+          results.push(...walk(childContainer, [...ancestors, groupTitle], depth + 1));
+        }
+      } else {
+        results.push(...walk(child, ancestors, depth));
+      }
+    }
+    return results;
+  }
+
+  return walk(root, [], 0);
+}
+
+export async function clickAll(
+  selector: string, pause: number, maxRounds: number, settle: number,
+): Promise<void> {
+  for (let round = 0; round < maxRounds; round++) {
+    const elements = document.querySelectorAll(selector);
+    if (elements.length === 0) break;
+    for (const el of Array.from(elements)) {
+      (el as HTMLElement).click();
+      if (pause > 0) await new Promise(r => setTimeout(r, pause));
+    }
+  }
+  if (settle > 0) await new Promise(r => setTimeout(r, settle));
+}
+
 export async function clickElement(selector: string): Promise<void> {
   const el = document.querySelector(selector);
   if (!el) throw new Error(`Element "${selector}" not found`);
