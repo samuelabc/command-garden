@@ -42,6 +42,7 @@ export interface ExtensionResponse {
   id: string;
   ok: boolean;
   data: Record<string, unknown>[];
+  vars?: Record<string, unknown>;
   error?: string;
   steps?: StepSummary[];
 }

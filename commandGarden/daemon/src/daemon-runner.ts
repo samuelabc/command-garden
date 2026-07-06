@@ -22,7 +22,12 @@ export function runDaemonSteps(input: DaemonRunnerInput): {
         const inputVal = vars[ts.input] as string ?? '';
         const fn = getTransform(ts.type);
         const result = fn(inputVal, ts.options);
-        vars[ts.as] = result;
+        if (typeof result === 'object') {
+          // split_metadata returns a Record — spread fields into vars
+          Object.assign(vars, result);
+        } else {
+          vars[ts.as] = result;
+        }
         break;
       }
       default:

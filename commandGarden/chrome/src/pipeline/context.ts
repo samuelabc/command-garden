@@ -14,6 +14,7 @@ export class PipelineContext {
 
   setVar(name: string, value: unknown): void { this.vars[name] = value; }
   getVar(name: string): unknown { return this.vars[name]; }
+  getVars(): Record<string, unknown> { return { ...this.vars }; }
   setCookies(cookies: Record<string, string>): void { Object.assign(this.cookies, cookies); }
   setData(data: Record<string, unknown>[]): void { this.data = data; }
   getData(): Record<string, unknown>[] { return this.data; }

@@ -3,7 +3,7 @@ import { runDaemonSteps } from './daemon-runner';
 import type { PipelineStep } from '@commandgarden/shared';
 
 describe('runDaemonSteps', () => {
-  it('executes a transform step and stores result in vars', () => {
+  it('executes a split_metadata transform and spreads fields into vars', () => {
     const steps: PipelineStep[] = [
       { step: 'transform', type: 'split_metadata', input: 'pill', as: 'meta', options: { delimiter: '|', fields: ['author', 'date'] } },
     ];
@@ -12,9 +12,8 @@ describe('runDaemonSteps', () => {
       data: [],
       vars: { pill: 'Alice|2025-01-15' },
     });
-    const meta = JSON.parse(vars.meta as string);
-    expect(meta.author).toBe('Alice');
-    expect(meta.date).toBe('2025-01-15');
+    expect(vars.author).toBe('Alice');
+    expect(vars.date).toBe('2025-01-15');
   });
 
   it('chains multiple transform steps', () => {
@@ -28,8 +27,8 @@ describe('runDaemonSteps', () => {
       vars: { rawHtml: '<p>Hello</p>', pill: 'X|Y' },
     });
     expect(vars.content).toBe('Hello');
-    const meta = JSON.parse(vars.meta as string);
-    expect(meta.a).toBe('X');
+    expect(vars.a).toBe('X');
+    expect(vars.b).toBe('Y');
   });
 
   it('throws for unsupported step type', () => {

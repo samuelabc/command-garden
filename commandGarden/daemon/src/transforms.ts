@@ -1,7 +1,7 @@
 // src/transforms.ts
 import TurndownService from 'turndown';
 
-export type TransformFn = (input: string, options?: Record<string, unknown>) => string;
+export type TransformFn = (input: string, options?: Record<string, unknown>) => string | Record<string, string>;
 
 const transforms = new Map<string, TransformFn>();
 
@@ -18,7 +18,7 @@ transforms.set('split_metadata', (input: string, options?: Record<string, unknow
   for (let i = 0; i < fieldNames.length; i++) {
     result[fieldNames[i]] = parts[i] ?? '';
   }
-  return JSON.stringify(result);
+  return result;
 });
 
 export function getTransform(type: string): TransformFn {

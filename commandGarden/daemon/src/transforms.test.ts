@@ -39,19 +39,19 @@ describe('split_metadata', () => {
   const split = getTransform('split_metadata');
 
   it('splits by pipe delimiter', () => {
-    const result = JSON.parse(split('Author Name (ID)|Jan 15, 2025', { delimiter: '|', fields: ['author', 'lastUpdated'] }));
+    const result = split('Author Name (ID)|Jan 15, 2025', { delimiter: '|', fields: ['author', 'lastUpdated'] }) as Record<string, string>;
     expect(result.author).toBe('Author Name (ID)');
     expect(result.lastUpdated).toBe('Jan 15, 2025');
   });
 
   it('handles missing parts gracefully', () => {
-    const result = JSON.parse(split('OnlyOne', { delimiter: '|', fields: ['first', 'second'] }));
+    const result = split('OnlyOne', { delimiter: '|', fields: ['first', 'second'] }) as Record<string, string>;
     expect(result.first).toBe('OnlyOne');
     expect(result.second).toBe('');
   });
 
   it('uses default pipe delimiter', () => {
-    const result = JSON.parse(split('A|B', { fields: ['x', 'y'] }));
+    const result = split('A|B', { fields: ['x', 'y'] }) as Record<string, string>;
     expect(result.x).toBe('A');
     expect(result.y).toBe('B');
   });

@@ -2,12 +2,13 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
 import { randomUUID, createHash } from 'node:crypto';
-import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP, expandFanOut, validateEnumArgs } from '@commandgarden/shared';
+import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP, expandFanOut, validateEnumArgs, splitPipeline } from '@commandgarden/shared';
 import type { ApprovalRequest, ApprovalConfig } from '@commandgarden/shared';
 import { userInfo } from 'node:os';
 import type { DaemonConfig } from './config.js';
 import type { ConnectorRegistry } from './registry.js';
 import type { AuditStore } from './audit-store.js';
+import { runDaemonSteps } from './daemon-runner.js';
 import { WsRelay } from './ws-relay.js';
 import { validateCommand } from './validator.js';
 import { validateToken } from './auth.js';
@@ -222,22 +223,48 @@ export async function createServer(deps: ServerDeps) {
     const runPipeline = async (requestId: string, argsOverride?: Record<string, string | number | boolean>) => {
       const runArgs = argsOverride ?? body.args;
       try {
-        const resp = await deps.wsRelay.send(connector, runArgs, approvalConfig, undefined, requestId || undefined);
+        // Split pipeline: extension steps run in browser, daemon steps run here
+        const { extensionSteps, daemonSteps } = splitPipeline(connector.pipeline);
+        const extConnector = { ...connector, pipeline: extensionSteps };
+        const resp = await deps.wsRelay.send(extConnector, runArgs, approvalConfig, undefined, requestId || undefined);
+
+        // Run daemon-side steps (e.g. transform) if extension succeeded
+        let finalData = resp.data;
+        let finalVars = resp.vars ?? {};
+        if (resp.ok && daemonSteps.length > 0) {
+          // Also include data row fields as vars for daemon transforms
+          const dataVars = finalData.length > 0 ? finalData[0] : {};
+          const mergedVars = { ...dataVars, ...finalVars };
+          const daemonResult = runDaemonSteps({ steps: daemonSteps, data: finalData, vars: mergedVars });
+          finalData = daemonResult.data;
+          finalVars = daemonResult.vars;
+          // Merge daemon vars back into data rows
+          if (finalData.length > 0) {
+            for (const row of finalData) {
+              for (const [k, v] of Object.entries(finalVars)) {
+                if (connector.columns?.some(c => c.name === k) && !(k in row)) {
+                  row[k] = v;
+                }
+              }
+            }
+          }
+        }
+
         const durationMs = Date.now() - startTime;
         deps.auditStore.insert(createAuditEvent({
           type: resp.ok ? 'command.success' : 'command.error',
           connector: body.connector, user,
           args: runArgs as Record<string, string>,
           domains: connector.domains, capabilities: [...connector.capabilities],
-          rowCount: resp.data.length,
+          rowCount: finalData.length,
           columns: connector.columns?.map(c => c.name),
           durationMs, error: resp.error,
           correlationId, connectorHash, steps: resp.steps,
         }));
         return {
-          ok: resp.ok, connector: body.connector, rowCount: resp.data.length,
+          ok: resp.ok, connector: body.connector, rowCount: finalData.length,
           columns: connector.columns?.map(c => c.name) ?? [],
-          data: resp.data, error: resp.error, durationMs,
+          data: finalData, error: resp.error, durationMs,
           requestId, requiresApproval,
         };
       } catch (err) {

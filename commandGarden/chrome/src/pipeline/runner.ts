@@ -156,9 +156,9 @@ export class PipelineRunner {
           throw err;
         }
       }
-      return { id: '', ok: true, data: ctx.getData(), steps: stepSummaries };
+      return { id: '', ok: true, data: ctx.getData(), vars: ctx.getVars(), steps: stepSummaries };
     } catch (err) {
-      return { id: '', ok: false, data: [], error: err instanceof Error ? err.message : String(err), steps: stepSummaries };
+      return { id: '', ok: false, data: [], vars: {}, error: err instanceof Error ? err.message : String(err), steps: stepSummaries };
     }
   }
 }
