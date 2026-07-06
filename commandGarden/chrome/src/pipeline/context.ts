@@ -7,8 +7,9 @@ export class PipelineContext {
   private data: Record<string, unknown>[] = [];
   private readonly args: Record<string, string | number | boolean>;
 
-  constructor(args: Record<string, string | number | boolean>) {
+  constructor(args: Record<string, string | number | boolean>, initialVars?: Record<string, unknown>) {
     this.args = args;
+    if (initialVars) Object.assign(this.vars, initialVars);
   }
 
   setVar(name: string, value: unknown): void { this.vars[name] = value; }

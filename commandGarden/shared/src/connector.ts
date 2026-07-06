@@ -11,6 +11,7 @@ const connectorArgSchema = z.object({
   default: z.union([z.string(), z.number(), z.boolean()]).optional(),
   help: z.string().optional(),
   pattern: z.string().optional(),
+  enum: z.array(z.string()).optional(),
 });
 
 const connectorColumnSchema = z.object({
@@ -24,6 +25,7 @@ export const connectorSchema = z.object({
   version: z.string(),
   description: z.string().optional(),
   access: z.enum(['read', 'write']).default('read'),
+  vars: z.record(z.unknown()).optional(),
   domains: z.array(z.string()).min(1),
   capabilities: z.array(capabilityEnum).min(1),
   args: z.array(connectorArgSchema).optional().default([]),

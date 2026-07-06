@@ -83,6 +83,13 @@ export {
   redactArgs,
 } from './events.js';
 
+// Fan-out
+export {
+  expandFanOut,
+  validateEnumArgs,
+  type FanOutResult,
+} from './fan-out.js';
+
 // Daemon client
 export {
   DaemonClient,

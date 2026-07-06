@@ -97,5 +97,23 @@ export function validateConnectorSemantics(connector: ConnectorDef): string[] {
     }
   }
 
+  // Check vars maps: if a vars entry is an object whose values are all strings,
+  // verify each value is declared in the top-level domains list.
+  if (connector.vars) {
+    for (const [varName, varValue] of Object.entries(connector.vars)) {
+      if (varValue == null || typeof varValue !== 'object' || Array.isArray(varValue)) continue;
+      const entries = Object.entries(varValue as Record<string, unknown>);
+      const allStrings = entries.length > 0 && entries.every(([, v]) => typeof v === 'string');
+      if (!allStrings) continue;
+      for (const [key, domain] of entries) {
+        if (!declaredDomains.has(domain as string)) {
+          errors.push(
+            `vars.${varName}.${key} references domain "${domain}" which is not declared in domains`,
+          );
+        }
+      }
+    }
+  }
+
   return errors;
 }

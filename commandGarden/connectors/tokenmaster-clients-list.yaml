@@ -1,11 +1,27 @@
 site: tokenmaster
 name: clients-list
-version: "1.0"
+version: "2.0"
 description: "List the clients managed by the current user in TokenMaster"
 access: read
 
+vars:
+  domains:
+    emea: tma.query.api.dvb.corpinter.net
+    amap: tma.query.api.amap.corpinter.net
+    cn: tma.query.api.cn.corpinter.net
+
+args:
+  - name: region
+    type: string
+    required: false
+    default: "all"
+    enum: [emea, amap, cn]
+    help: "Region (emea, amap, cn, or 'all' for all regions)"
+
 domains:
   - "tma.query.api.dvb.corpinter.net"
+  - "tma.query.api.amap.corpinter.net"
+  - "tma.query.api.cn.corpinter.net"
 capabilities:
   - navigate
   - cookie_read
@@ -22,12 +38,12 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://tma.query.api.dvb.corpinter.net/"
+    url: "https://${{ args.region | lookup(vars.domains) }}/"
   - step: wait
     selector: "body"
     timeout: 30000
   - step: fetch
-    url: "https://tma.query.api.dvb.corpinter.net/v1/clients"
+    url: "https://${{ args.region | lookup(vars.domains) }}/v1/clients"
     method: "GET"
     headers:
       Accept: "application/json"

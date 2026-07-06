@@ -2,7 +2,7 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
 import { randomUUID, createHash } from 'node:crypto';
-import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP } from '@commandgarden/shared';
+import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP, expandFanOut, validateEnumArgs } from '@commandgarden/shared';
 import type { ApprovalRequest, ApprovalConfig } from '@commandgarden/shared';
 import { userInfo } from 'node:os';
 import type { DaemonConfig } from './config.js';
@@ -192,10 +192,14 @@ export async function createServer(deps: ServerDeps) {
       }));
       reply.code(404).send({ ok: false, error: validation.denialReason }); return;
     }
+    const connector = validation.connector!;
+    const enumError = validateEnumArgs(body.args as Record<string, string>, connector.args ?? []);
+    if (enumError) {
+      reply.code(400).send({ ok: false, error: enumError }); return;
+    }
     if (!deps.wsRelay.connected) {
       reply.code(503).send({ ok: false, error: 'Extension not connected' }); return;
     }
-    const connector = validation.connector!;
     const requiresApproval = connectorNeedsApproval(body.connector, connector);
     const approvalConfig = requiresApproval ? buildApprovalConfig() : undefined;
     const correlationId = randomUUID();
@@ -215,14 +219,15 @@ export async function createServer(deps: ServerDeps) {
       reply.code(500).send({ ok: false, error: 'Audit system unavailable \u2014 command blocked' }); return;
     }
 
-    const runPipeline = async (requestId: string) => {
+    const runPipeline = async (requestId: string, argsOverride?: Record<string, string | number | boolean>) => {
+      const runArgs = argsOverride ?? body.args;
       try {
-        const resp = await deps.wsRelay.send(connector, body.args, approvalConfig, undefined, requestId || undefined);
+        const resp = await deps.wsRelay.send(connector, runArgs, approvalConfig, undefined, requestId || undefined);
         const durationMs = Date.now() - startTime;
         deps.auditStore.insert(createAuditEvent({
           type: resp.ok ? 'command.success' : 'command.error',
           connector: body.connector, user,
-          args: body.args as Record<string, string>,
+          args: runArgs as Record<string, string>,
           domains: connector.domains, capabilities: [...connector.capabilities],
           rowCount: resp.data.length,
           columns: connector.columns?.map(c => c.name),
@@ -240,12 +245,57 @@ export async function createServer(deps: ServerDeps) {
         const error = err instanceof Error ? err.message : 'Unknown error';
         deps.auditStore.insert(createAuditEvent({
           type: 'command.error', connector: body.connector, user,
-          args: body.args as Record<string, string>, durationMs, error,
+          args: runArgs as Record<string, string>, durationMs, error,
           correlationId, connectorHash,
         }));
         return { ok: false, data: [], error, durationMs, requestId, requiresApproval };
       }
     };
+
+    // Fan-out: expand "all" on enum args into sequential runs
+    const fanOut = expandFanOut(body.args as Record<string, string>, connector.args ?? []);
+
+    if (fanOut.isFanOut && requiresApproval) {
+      reply.code(400).send({
+        ok: false,
+        error: 'Fan-out (--region all) is not supported with approval-required connectors. Specify a single region.',
+      });
+      return;
+    }
+
+    if (fanOut.isFanOut) {
+      const { fanOutArgName } = fanOut;
+      const allData: Record<string, unknown>[] = [];
+      const errors: string[] = [];
+      for (const argSet of fanOut.argSets) {
+        const result = await runPipeline('', argSet);
+        if (result.ok) {
+          for (const row of result.data as Record<string, unknown>[]) {
+            (row as Record<string, unknown>)[fanOutArgName] = argSet[fanOutArgName];
+            allData.push(row);
+          }
+        } else if (result.error) {
+          errors.push(`${argSet[fanOutArgName]}: ${result.error}`);
+        }
+      }
+      const columns = connector.columns?.map(c => c.name) ?? [];
+      if (!columns.includes(fanOutArgName)) {
+        columns.unshift(fanOutArgName);
+      }
+      const durationMs = Date.now() - startTime;
+      const hasErrors = errors.length > 0;
+      return {
+        ok: !hasErrors || allData.length > 0,
+        connector: body.connector,
+        rowCount: allData.length,
+        columns,
+        data: allData,
+        error: hasErrors ? errors.join('; ') : undefined,
+        durationMs,
+        requestId: '',
+        requiresApproval: false,
+      };
+    }
 
     if (requiresApproval) {
       const requestId = randomUUID();

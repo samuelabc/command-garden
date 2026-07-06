@@ -29,7 +29,7 @@ describe('sample connectors — schema validation', () => {
     expect(result.data.site).toBe('tokenmaster');
     expect(result.data.name).toBe('clients-list');
     expect(result.data.pipeline).toHaveLength(4);
-    expect(result.data.args).toHaveLength(0);
+    expect(result.data.args).toHaveLength(1);
     expect(result.data.columns).toHaveLength(4);
   });
 });
@@ -66,11 +66,32 @@ describe('sample connectors — field correctness', () => {
     expect(monthArg!.pattern).toBe('^\\d{4}-\\d{2}$');
   });
 
-  it('tokenmaster/clients-list uses cookie_read capability and correct domain', () => {
+  it('tokenmaster/clients-list uses cookie_read capability and all region domains', () => {
     const result = loadConnector('tokenmaster-clients-list.yaml');
     if (!result.ok) throw new Error(result.error.message);
     expect(result.data.capabilities).toContain('cookie_read');
     expect(result.data.domains).toContain('tma.query.api.dvb.corpinter.net');
+    expect(result.data.domains).toContain('tma.query.api.amap.corpinter.net');
+    expect(result.data.domains).toContain('tma.query.api.cn.corpinter.net');
     expect(result.data.columns.map(c => c.name)).toEqual(['id', 'name', 'status', 'admins']);
+  });
+
+  it('tokenmaster/clients-list has region arg with enum and default', () => {
+    const result = loadConnector('tokenmaster-clients-list.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    const regionArg = result.data.args!.find(a => a.name === 'region');
+    expect(regionArg).toBeDefined();
+    expect(regionArg!.enum).toEqual(['emea', 'amap', 'cn']);
+    expect(regionArg!.default).toBe('all');
+  });
+
+  it('tokenmaster/clients-list has vars with domain lookup table', () => {
+    const result = loadConnector('tokenmaster-clients-list.yaml');
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.data.vars).toBeDefined();
+    const domains = (result.data.vars as Record<string, Record<string, string>>).domains;
+    expect(domains.emea).toBe('tma.query.api.dvb.corpinter.net');
+    expect(domains.amap).toBe('tma.query.api.amap.corpinter.net');
+    expect(domains.cn).toBe('tma.query.api.cn.corpinter.net');
   });
 });

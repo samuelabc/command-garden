@@ -48,7 +48,7 @@ export class PipelineRunner {
     connector: ConnectorDef,
     args: Record<string, string | number | boolean>,
   ): Promise<ExtensionResponse> {
-    const ctx = new PipelineContext(args);
+    const ctx = new PipelineContext(args, connector.vars);
     let tabId = -1;
     const stepSummaries: StepSummary[] = [];
 

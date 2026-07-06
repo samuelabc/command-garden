@@ -276,6 +276,65 @@ describe('server', () => {
     expect(events[0].newValue).toBe('180');
   });
 
+  describe('enum arg validation', () => {
+    const ENUM_YAML = `
+site: test
+name: regional
+version: "1.0"
+domains: ["a.example.com", "b.example.com"]
+capabilities: ["navigate"]
+args:
+  - name: region
+    type: string
+    required: false
+    default: "all"
+    enum: [a, b]
+pipeline:
+  - step: navigate
+    url: "https://a.example.com"
+`;
+
+    it('rejects invalid enum value with 400', async () => {
+      writeFileSync(join(tmpDir, 'regional.yaml'), ENUM_YAML);
+      deps.registry.load();
+      const app = await createServer(deps);
+      const res = await app.inject({
+        method: 'POST', url: '/api/run',
+        headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+        payload: { connector: 'test/regional', args: { region: 'xyz' } },
+      });
+      expect(res.statusCode).toBe(400);
+      const body = JSON.parse(res.body);
+      expect(body.error).toContain('Invalid value "xyz"');
+    });
+
+    it('accepts valid enum value', async () => {
+      writeFileSync(join(tmpDir, 'regional.yaml'), ENUM_YAML);
+      deps.registry.load();
+      const app = await createServer(deps);
+      // Will return 503 (extension not connected) but NOT 400 — validation passed
+      const res = await app.inject({
+        method: 'POST', url: '/api/run',
+        headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+        payload: { connector: 'test/regional', args: { region: 'a' } },
+      });
+      expect(res.statusCode).toBe(503);
+    });
+
+    it('accepts "all" as enum value', async () => {
+      writeFileSync(join(tmpDir, 'regional.yaml'), ENUM_YAML);
+      deps.registry.load();
+      const app = await createServer(deps);
+      const res = await app.inject({
+        method: 'POST', url: '/api/run',
+        headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
+        payload: { connector: 'test/regional', args: { region: 'all' } },
+      });
+      // 503 = passed validation, hit extension check
+      expect(res.statusCode).toBe(503);
+    });
+  });
+
   describe('GET /api/config', () => {
     it('returns parsed config when file exists', async () => {
       const configPath = join(tmpDir, 'config.yaml');

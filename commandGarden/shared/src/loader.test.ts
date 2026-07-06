@@ -101,4 +101,55 @@ describe('validateConnectorSemantics', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain('other.com');
   });
+
+  it('detects vars map domain not in declared domains', () => {
+    const yaml = `
+site: test
+name: cmd
+version: "1.0"
+vars:
+  domains:
+    a: a.example.com
+    b: b.example.com
+    c: c.undeclared.com
+domains:
+  - "a.example.com"
+  - "b.example.com"
+capabilities:
+  - navigate
+pipeline:
+  - step: navigate
+    url: "https://a.example.com"
+`;
+    const result = parseConnectorYaml(yaml);
+    if (!result.ok) throw new Error('Parse failed');
+    const errors = validateConnectorSemantics(result.data);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('vars.domains.c');
+    expect(errors[0]).toContain('c.undeclared.com');
+  });
+
+  it('passes when all vars map domains are declared', () => {
+    const yaml = `
+site: test
+name: cmd
+version: "1.0"
+vars:
+  domains:
+    a: a.example.com
+    b: b.example.com
+domains:
+  - "a.example.com"
+  - "b.example.com"
+capabilities:
+  - navigate
+pipeline:
+  - step: navigate
+    url: "https://a.example.com"
+`;
+    const result = parseConnectorYaml(yaml);
+    if (!result.ok) throw new Error('Parse failed');
+    const errors = validateConnectorSemantics(result.data);
+    expect(errors).toEqual([]);
+  });
 });

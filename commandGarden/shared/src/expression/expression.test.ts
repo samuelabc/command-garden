@@ -71,8 +71,16 @@ describe('tokenize', () => {
 });
 
 const CTX: ExprContext = {
-  args: { month: '2026-06', count: 5 },
-  vars: { token: 'abc123', nested: { deep: 'value' } },
+  args: { month: '2026-06', count: 5, region: 'emea' },
+  vars: {
+    token: 'abc123',
+    nested: { deep: 'value' },
+    domains: {
+      emea: 'tma.query.api.dvb.corpinter.net',
+      amap: 'tma.query.api.amap.corpinter.net',
+      cn: 'tma.query.api.cn.corpinter.net',
+    },
+  },
   cookies: { session: 'xyz' },
 };
 
@@ -180,6 +188,18 @@ describe('evaluate', () => {
 
   it('chains multiple pipes', () => {
     expect(evaluate('args.missing | default("  padded  ") | trim', CTX)).toBe('padded');
+  });
+
+  it('applies lookup filter with map arg', () => {
+    expect(evaluate('args.region | lookup(vars.domains)', CTX)).toBe('tma.query.api.dvb.corpinter.net');
+  });
+
+  it('lookup filter returns undefined for missing key', () => {
+    expect(evaluate('"unknown" | lookup(vars.domains)', CTX)).toBeUndefined();
+  });
+
+  it('lookup filter returns undefined for non-object map', () => {
+    expect(evaluate('args.region | lookup(vars.token)', CTX)).toBeUndefined();
   });
 
   it('throws on unknown filter', () => {

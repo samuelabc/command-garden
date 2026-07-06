@@ -6,4 +6,8 @@ export const BUILT_IN_FILTERS: Record<string, FilterFn> = {
   trim: (value: unknown) => String(value).trim(),
   upper: (value: unknown) => String(value).toUpperCase(),
   lower: (value: unknown) => String(value).toLowerCase(),
+  lookup: (value: unknown, map: unknown) => {
+    if (map == null || typeof map !== 'object') return undefined;
+    return (map as Record<string, unknown>)[String(value)];
+  },
 };
