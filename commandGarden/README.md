@@ -187,9 +187,7 @@ This connector drives the Outlook Scheduling Assistant in your authenticated bro
 cg run gcs/kb-pages --format table
 ```
 
-This connector navigates to the GCS Knowledge Base (a Next.js docs site behind Mercedes-Benz SSO), expands every sidebar section, and extracts a page index with title, URL, section, breadcrumb path, and hierarchy depth. Returns all leaf pages (~57 articles covering General Security, AI Security, DevSecOps, Cloud Security, Tools & Platforms, and more).
-
-> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+This connector navigates to the GCS Knowledge Base (a Next.js docs site behind Mercedes-Benz SSO), expands every sidebar section, and extracts a page index with title, URL, section, breadcrumb path, and hierarchy depth. Returns all leaf pages (~57 articles covering General Security, AI Security, DevSecOps, Cloud Security, Tools & Platforms, and more). Uses declarative `click_all` + `extract_tree` steps — no `js_evaluate`.
 
 ### GCS Knowledge Base content
 
@@ -197,9 +195,7 @@ This connector navigates to the GCS Knowledge Base (a Next.js docs site behind M
 cg run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
 ```
 
-This connector retrieves a single GCS Knowledge Base page and converts it to Markdown. Use the `path` from the `gcs/kb-pages` index. Returns one row with `title`, `path`, `author`, `lastUpdated`, and the full page `content` as Markdown (headings, code blocks, tables, and lists preserved).
-
-> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+This connector retrieves a single GCS Knowledge Base page and converts it to Markdown. Use the `path` from the `gcs/kb-pages` index. Returns one row with `title`, `path`, `author`, `lastUpdated`, and the full page `content` as Markdown (headings, code blocks, tables, and lists preserved). Uses declarative `extract` + `extract_html` + server-side `transform` steps — no `js_evaluate`.
 
 ---
 
@@ -258,7 +254,10 @@ cg validate connectors/my-connector.yaml
 | `navigate` | Open a URL | `navigate` |
 | `wait` | Wait for a selector or timeout | `navigate` |
 | `extract` | Read data from DOM elements | `dom_read` |
+| `extract_tree` | Recursive DOM tree walk with ancestry | `dom_read` |
+| `extract_html` | Capture element HTML as a variable | `dom_read` |
 | `click` | Click an element | `dom_write` |
+| `click_all` | Click all matching elements (with re-scan loop) | `dom_write` |
 | `type` | Type text into an input | `dom_write` |
 | `intercept` | Capture a network response body | `intercept_response` |
 | `cookie` | Read cookies for a domain | `cookie_read` |
@@ -266,6 +265,7 @@ cg validate connectors/my-connector.yaml
 | `map` | Transform/rename extracted fields (use `${{ row.field }}`) | none |
 | `filter` | Filter rows by condition | none |
 | `set` | Set a variable for later steps | none |
+| `transform` | Server-side data transform (e.g., HTML→Markdown) | none |
 
 ### Expression syntax
 
@@ -276,7 +276,7 @@ Use `${{ }}` for template expressions (no JS eval):
 - **String concatenation:** `"Bearer " + vars.token`
 - **Pipe filters:** `args.month | default("2026-06")`, `value | number`, `text | trim`
 
-> For detailed patterns, fetch best practices, and debugging techniques, see the [Connector Authoring Guide](docs/connector-authoring.md).
+> For full parameter details and examples for every step type, see the [Pipeline Step Reference](docs/pipeline-reference.md). For authoring patterns, fetch best practices, and debugging techniques, see the [Connector Authoring Guide](docs/connector-authoring.md).
 
 ---
 
