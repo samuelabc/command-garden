@@ -127,6 +127,9 @@ The GUI provides a browser-based interface at `http://127.0.0.1:9092` with:
 - **Audit Log** — filterable, paginated event viewer with expandable pipeline step detail
 - **Configuration** — task-oriented settings page with Server, Connector Security (per-connector approval table with toggles), Connector Sources, Audit & Retention, and Output sections; includes a raw YAML editor and sticky save bar with dirty tracking
 - **Setup Guide** — interactive checklist with live status polling
+- **Architecture** — SVG system diagram, component cards, data store table, swimlane data-flow diagrams (command execution with separate CLI/GUI paths, step approval, extension connection), security model, workspace packages, and build order
+- **API & CLI Reference** — tabbed reference (CLI commands, Daemon API endpoints, App Server API endpoints) with expandable detail rows, pipeline step table, and expression syntax reference
+- **Skills** — installed skill browser
 
 Start with `cg up` or `cg gui`. For the full design spec, see [`docs/superpowers/specs/2026-07-01-commandgarden-gui-design.md`](../docs/superpowers/specs/2026-07-01-commandgarden-gui-design.md).
 
@@ -638,8 +641,8 @@ commandGarden/
                  domain guard, pipeline step execution engine
   app/           Web GUI — Fastify app server (facade endpoints, SQLite
                  store for preferences/views) + React SPA (Vite, Tailwind,
-                 DaisyUI) with 9 pages including custom app pages for
-                 timetracking, room availability, and security news
+                 DaisyUI) with 12 pages including app pages, architecture,
+                 API reference, and skills
   connectors/    Built-in YAML connector definitions
   package.json   Workspace root (npm workspaces)
 ```
