@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Badge, type BadgeVariant } from '../components/Badge';
 
 type TabId = 'daemon-api' | 'app-api' | 'cli';
@@ -153,38 +153,16 @@ function EndpointRow({ ep }: { ep: Endpoint }) {
   );
 }
 
-const HASH_TO_TAB: Record<string, TabId> = {
-  'api-cli': 'cli',
-  'api-daemon': 'daemon-api',
-  'api-app': 'app-api',
-};
-
 export default function ApiReference() {
   const [tab, setTab] = useState<TabId>('cli');
-
-  useEffect(() => {
-    const onHash = () => {
-      const hash = window.location.hash.replace('#', '');
-      const mapped = HASH_TO_TAB[hash];
-      if (mapped) setTab(mapped);
-    };
-    onHash();
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, []);
 
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-1">API & CLI Reference</h2>
       <p className="text-sm opacity-60 mb-6">CLI commands, Daemon API endpoints, and App Server endpoints.</p>
 
-      {/* Section anchors for sidebar sub-nav */}
-      <div id="api-cli" className="scroll-mt-4" />
-      <div id="api-daemon" className="scroll-mt-4" />
-      <div id="api-app" className="scroll-mt-4" />
-
       {/* Auth note */}
-      <div className="border border-base-300 bg-base-200/30 p-3 mb-6">
+      <div id="api-endpoints" className="border border-base-300 bg-base-200/30 p-3 mb-6 scroll-mt-4">
         <p className="text-sm opacity-70">
           <span className="font-semibold">Authentication:</span> Daemon endpoints (except <code className="font-mono text-xs bg-base-200 px-1 py-0.5">/api/status</code> and <code className="font-mono text-xs bg-base-200 px-1 py-0.5">/ws/extension</code>) require
           an <code className="font-mono text-xs bg-base-200 px-1 py-0.5">Authorization: Bearer &lt;token&gt;</code> header and
@@ -267,8 +245,7 @@ export default function ApiReference() {
       )}
 
       {/* Pipeline steps reference (always visible) */}
-      <div id="api-pipeline" className="scroll-mt-4">
-      <h3 className="font-display text-base font-semibold mb-3">Pipeline Steps</h3>
+      <h3 id="api-pipeline" className="font-display text-base font-semibold mb-3 scroll-mt-4">Pipeline Steps</h3>
       <p className="text-sm opacity-50 mb-3">Available steps for connector YAML pipeline definitions.</p>
       <div className="overflow-x-auto border border-base-300 mb-8">
         <table className="table table-sm w-full">
@@ -290,11 +267,8 @@ export default function ApiReference() {
           </tbody>
         </table>
       </div>
-      </div>
-
       {/* Expression syntax */}
-      <div id="api-expressions" className="scroll-mt-4">
-      <h3 className="font-display text-base font-semibold mb-3">Expression Syntax</h3>
+      <h3 id="api-expressions" className="font-display text-base font-semibold mb-3 scroll-mt-4">Expression Syntax</h3>
       <div className="border border-base-300 p-4">
         <p className="text-sm opacity-60 mb-3">Use <code className="font-mono text-xs bg-base-200 px-1 py-0.5">{'${{ }}'}</code> for template expressions (no JS eval):</p>
         <div className="space-y-1.5 font-mono text-xs">
@@ -315,7 +289,6 @@ export default function ApiReference() {
             <code className="opacity-70">{'args.month | default("2026-06"), value | number, text | trim'}</code>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );

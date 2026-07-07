@@ -113,7 +113,7 @@ export default function Connectors() {
           <p className="font-mono text-xs opacity-30">Check the daemon is running and connectors are installed in ~/.commandgarden/connectors/</p>
         </div>
       ) : (
-        <div id="connectors-list" className="space-y-3 scroll-mt-4">
+        <div className="space-y-3">
           {grouped.map(([site, siteConnectors]) => (
             <ConnectorGroup key={site} site={site} connectors={siteConnectors} approvingKey={approvingKey} onApprove={handleApprove} />
           ))}

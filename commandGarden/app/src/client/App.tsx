@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { useActiveSection } from './hooks/useActiveSection';
-import { api, groupBySite, type Connector } from './api';
+import { api, groupBySite } from './api';
 import Dashboard from './pages/Dashboard';
 import Connectors from './pages/Connectors';
 import ConnectorRun from './pages/ConnectorRun';
@@ -42,9 +42,7 @@ const PAGE_SECTIONS: Record<string, SectionDef[]> = {
     { label: 'Build Order', id: 'arch-build' },
   ],
   '/api-reference': [
-    { label: 'CLI Commands', id: 'api-cli' },
-    { label: 'Daemon API', id: 'api-daemon' },
-    { label: 'App Server', id: 'api-app' },
+    { label: 'Endpoints', id: 'api-endpoints' },
     { label: 'Pipeline Steps', id: 'api-pipeline' },
     { label: 'Expressions', id: 'api-expressions' },
   ],
@@ -57,11 +55,6 @@ function SectionSubNav({ sections }: { sections: SectionDef[] }) {
   const handleClick = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Set hash so pages can react (e.g. ApiReference tab switching)
-    if (window.location.hash !== `#${id}`) {
-      window.history.pushState(null, '', `#${id}`);
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
-    }
   };
 
   return (
