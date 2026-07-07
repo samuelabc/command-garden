@@ -35,6 +35,9 @@ export const api = {
   getCachedProjects: () => request<{ ok: boolean; data: ProjectActivity[] | null; fetchedAt: string | null }>('GET', '/api/timetracking/projects'),
   cacheProjects: (data: ProjectActivity[]) => request<{ ok: boolean }>('POST', '/api/timetracking/projects', { data }),
   generateJournal: (body: { weekStart: string }) => request<JournalResponse>('POST', '/api/journal/generate', body),
+  getCachedSecurityNews: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/security-news/cache'),
+  cacheSecurityNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/security-news/cache', { data }),
+  getSkills: () => request<{ ok: boolean; skills: Skill[] }>('GET', '/api/skills'),
 };
 
 export interface Connector {
@@ -48,6 +51,17 @@ export interface Connector {
   isHighRisk: boolean;
   isApproved: boolean;
   isAutoApproved: boolean;
+}
+
+export function groupBySite(connectors: Connector[]): [string, Connector[]][] {
+  const map = new Map<string, Connector[]>();
+  for (const c of connectors) {
+    const site = c.key.split('/')[0];
+    const list = map.get(site) ?? [];
+    list.push(c);
+    map.set(site, list);
+  }
+  return [...map.entries()];
 }
 
 export interface ConnectorDetail {
@@ -106,6 +120,17 @@ export const EVENT_TYPE_BADGE: Record<string, BadgeVariant> = {
   'approval.rejected': 'error',
   'config.changed': 'neutral',
 };
+
+export interface SkillFile {
+  name: string;
+  content: string;
+}
+
+export interface Skill {
+  name: string;
+  description: string;
+  files: SkillFile[];
+}
 
 export interface AuditEvent {
   id: string;

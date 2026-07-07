@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { api } from './api';
+import { useEffect, useState, useMemo } from 'react';
+import { useActiveSection } from './hooks/useActiveSection';
+import { api, groupBySite } from './api';
 import Dashboard from './pages/Dashboard';
 import Connectors from './pages/Connectors';
 import ConnectorRun from './pages/ConnectorRun';
@@ -11,15 +12,88 @@ import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
 import Saba from './pages/Saba';
+import SecurityNews from './pages/SecurityNews';
+import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
+import Architecture from './pages/Architecture';
+import ApiReference from './pages/ApiReference';
+import Skills from './pages/Skills';
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
+}
+
+interface SectionDef { label: string; id: string }
+
+const PAGE_SECTIONS: Record<string, SectionDef[]> = {
+  '/config': [
+    { label: 'Server', id: 'cfg-server' },
+    { label: 'Security', id: 'cfg-security' },
+    { label: 'Sources', id: 'cfg-sources' },
+    { label: 'Audit', id: 'cfg-audit' },
+    { label: 'Output', id: 'cfg-output' },
+    { label: 'Journal', id: 'cfg-journal' },
+  ],
+  '/architecture': [
+    { label: 'Diagram', id: 'arch-diagram' },
+    { label: 'Components', id: 'arch-components' },
+    { label: 'Data Stores', id: 'arch-stores' },
+    { label: 'Data Flows', id: 'arch-flows' },
+    { label: 'Security', id: 'arch-security' },
+    { label: 'Packages', id: 'arch-packages' },
+    { label: 'Build Order', id: 'arch-build' },
+  ],
+  '/api-reference': [
+    { label: 'Endpoints', id: 'api-endpoints' },
+    { label: 'Pipeline Steps', id: 'api-pipeline' },
+    { label: 'Expressions', id: 'api-expressions' },
+  ],
+};
+
+function SectionSubNav({ sections }: { sections: SectionDef[] }) {
+  const ids = useMemo(() => sections.map(s => s.id), [sections]);
+  const activeId = useActiveSection(ids);
+
+  const handleClick = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <div className="ml-3 border-l border-base-300 py-0.5">
+      {sections.map(s => (
+        <button
+          key={s.id}
+          onClick={() => handleClick(s.id)}
+          className={`block w-full text-left pl-3 py-1 text-[0.7rem] font-mono transition-colors ${
+            activeId === s.id
+              ? 'text-primary opacity-100'
+              : 'opacity-40 hover:opacity-70'
+          }`}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function NavItemWithSections({ to, label, sections }: { to: string; label: string; sections: SectionDef[] }) {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+
+  return (
+    <>
+      <NavLink to={to} end={to === '/'} className={navClass}>{label}</NavLink>
+      {isActive && sections.length > 0 && <SectionSubNav sections={sections} />}
+    </>
+  );
 }
 
 function Layout() {
   const [daemonOk, setDaemonOk] = useState(false);
   const [extensionOk, setExtensionOk] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [connectorSites, setConnectorSites] = useState<string[]>([]);
   const location = useLocation();
 
   useEffect(() => {
@@ -36,6 +110,20 @@ function Layout() {
     const id = setInterval(poll, 30_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    api.getConnectors()
+      .then((res) => {
+        const sites = groupBySite(res.connectors).map(([site]) => site);
+        setConnectorSites(sites);
+      })
+      .catch(() => {});
+  }, []);
+
+  const connectorSections = useMemo<SectionDef[]>(
+    () => connectorSites.map(site => ({ label: site, id: `conn-${site}` })),
+    [connectorSites],
+  );
 
   return (
     <div className="flex min-h-screen">
@@ -91,14 +179,19 @@ function Layout() {
           <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
           <NavLink to="/apps/journal" className={navClass}>Dev Journal</NavLink>
           <NavLink to="/apps/saba" className={navClass}>Saba Training</NavLink>
+          <NavLink to="/apps/security-news" className={navClass}>Security News</NavLink>
+          <NavLink to="/apps/trusted-peer-expiry" className={navClass}>Trusted Peer Expiry</NavLink>
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Platform</div>
-          <NavLink to="/connectors" className={navClass}>Connectors</NavLink>
+          <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
           <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
-          <NavLink to="/config" className={navClass}>Configuration</NavLink>
+          <NavItemWithSections to="/config" label="Configuration" sections={PAGE_SECTIONS['/config']} />
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Help</div>
           <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
+          <NavLink to="/skills" className={navClass}>Skills</NavLink>
+          <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
+          <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
         </nav>
         <div className="px-3 py-2.5 border-t border-base-300">
           <div className="flex items-center gap-2 text-xs font-mono">
@@ -133,6 +226,11 @@ export default function App() {
           <Route path="apps/rooms" element={<Rooms />} />
           <Route path="apps/journal" element={<Journal />} />
           <Route path="apps/saba" element={<Saba />} />
+          <Route path="apps/security-news" element={<SecurityNews />} />
+          <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
+          <Route path="architecture" element={<Architecture />} />
+          <Route path="api-reference" element={<ApiReference />} />
+          <Route path="skills" element={<Skills />} />
         </Route>
       </Routes>
     </BrowserRouter>

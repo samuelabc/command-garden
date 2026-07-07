@@ -10,6 +10,8 @@ import { preferencesRoutes } from './preferences.js';
 import { goalsRoutes } from './goals.js';
 import { timetrackingCacheRoutes } from './timetracking-cache.js';
 import { journalRoutes } from './journal.js';
+import { securityNewsCacheRoutes } from './security-news-cache.js';
+import { skillsRoutes } from './skills.js';
 
 export function registerRoutes(app: FastifyInstance, daemon: DaemonClient, store: AppStore): void {
   statusRoutes(app, daemon);
@@ -21,4 +23,6 @@ export function registerRoutes(app: FastifyInstance, daemon: DaemonClient, store
   goalsRoutes(app, store);
   timetrackingCacheRoutes(app, store);
   journalRoutes(app, daemon, store);
+  securityNewsCacheRoutes(app, store);
+  skillsRoutes(app);
 }

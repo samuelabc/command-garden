@@ -1,0 +1,38 @@
+site: tldrsec
+name: newsletter
+version: "1.0"
+description: "Latest newsletter issues from tl;dr sec — titles, summaries, authors, tags, and publish dates"
+access: read
+
+domains:
+  - "tldrsec.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args: []
+
+columns:
+  - name: title
+    type: string
+  - name: slug
+    type: string
+  - name: url
+    type: string
+  - name: publishedAt
+    type: string
+  - name: excerpt
+    type: string
+  - name: authors
+    type: string
+  - name: tags
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://tldrsec.com/t/Newsletter"
+  - step: wait
+    selector: "body"
+    timeout: 15000
+  - step: js_evaluate
+    file: tldrsec-newsletter.eval.js

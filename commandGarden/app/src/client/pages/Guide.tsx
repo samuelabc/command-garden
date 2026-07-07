@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type Connector } from '../api';
+import { api, groupBySite, type Connector } from '../api';
 import { Badge } from '../components/Badge';
 
 const CHECK_ICON = (
@@ -107,6 +107,8 @@ export default function Guide() {
   const totalCount = steps.length;
   const allDone = doneCount === totalCount;
 
+  const grouped = useMemo(() => groupBySite(connectors), [connectors]);
+
   return (
     <div className="max-w-3xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-1">Setup Guide</h2>
@@ -171,35 +173,54 @@ export default function Guide() {
       {allDone && connectors.length > 0 && (
         <div className="border border-success/30 bg-success/5 p-5">
           <p className="font-semibold text-success mb-3">Everything's ready. Pick a connector to try.</p>
-          <div className="flex flex-wrap gap-2">
-            {connectors.map((c) => {
-              const [site, name] = c.key.split('/');
-              return (
-                <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-outline">
-                  <span className="font-mono">{name}</span>
-                  <span className="opacity-50 font-normal ml-1">{site}</span>
-                </Link>
-              );
-            })}
+          <div className="space-y-3">
+            {grouped.map(([site, siteConnectors]) => (
+              <div key={site}>
+                <span className="font-mono font-semibold text-sm">{site}</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {siteConnectors.map((c) => {
+                    const name = c.key.split('/')[1];
+                    return (
+                      <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-outline">
+                        <span className="font-mono">{name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {!allDone && connectors.length > 0 && (
-        <>
-          <h3 className="font-display text-base font-semibold mb-3">Available connectors</h3>
-          <div className="flex flex-wrap gap-2">
-            {connectors.map((c) => {
-              const [site, name] = c.key.split('/');
-              return (
-                <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-ghost">
-                  <span className="font-mono">{name}</span>
-                  <span className="opacity-40 font-normal ml-1">{site}</span>
-                </Link>
-              );
-            })}
+        <div className="border-t border-base-300 pt-6">
+          <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em] mb-4">Installed connectors</div>
+          <div className="space-y-4">
+            {grouped.map(([site, siteConnectors]) => (
+              <div key={site}>
+                <div className="font-mono font-semibold text-sm mb-1.5">{site}</div>
+                <div className="space-y-1">
+                  {siteConnectors.map((c) => {
+                    const name = c.key.split('/')[1];
+                    return (
+                      <div key={c.key}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono text-sm">{name}</span>
+                          <Badge size="xs">{c.access}</Badge>
+                        </div>
+                        {c.description && <div className="text-xs opacity-40 mb-1">{c.description}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-        </>
+          <Link to="/connectors" className="inline-flex items-center gap-1 font-mono text-xs mt-5 opacity-50 hover:opacity-80 transition-opacity">
+            View all connectors →
+          </Link>
+        </div>
       )}
     </div>
   );
