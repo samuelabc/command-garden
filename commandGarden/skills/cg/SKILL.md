@@ -60,4 +60,4 @@ Errors return plain text starting with `Error:` — not JSON.
 
 ## Writing connectors
 
-Read [`connector-authoring.md`](../../docs/connector-authoring.md) and [`pipeline-reference.md`](../../docs/pipeline-reference.md). Place new connector YAML files in `~/.commandgarden/connectors/`. Validate with `cg validate <file>` before use.
+Use the [connector-authoring skill](../connector-authoring/SKILL.md) for the full recon→scaffold→implement→debug→polish sequence. Reference docs: [`connector-authoring.md`](../../docs/connector-authoring.md) and [`pipeline-reference.md`](../../docs/pipeline-reference.md). Place new connector YAML files in `~/.commandgarden/connectors/`. Validate with `cg validate <file>` before use.
