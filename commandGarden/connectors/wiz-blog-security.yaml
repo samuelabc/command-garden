@@ -1,0 +1,44 @@
+site: wiz
+name: blog-security
+version: "1.0"
+description: "Latest security blog posts from Wiz — titles, excerpts, authors, tags, and publish dates"
+access: read
+
+domains:
+  - "www.wiz.io"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: tag
+    type: string
+    required: false
+    default: "security"
+    pattern: "^[a-z0-9-]+$"
+    help: "Blog tag slug to filter by (e.g. 'security', 'research', 'ai'). Default: security"
+
+columns:
+  - name: title
+    type: string
+  - name: slug
+    type: string
+  - name: url
+    type: string
+  - name: publishedAt
+    type: string
+  - name: excerpt
+    type: string
+  - name: authors
+    type: string
+  - name: tags
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://www.wiz.io/blog/tag/${{ args.tag }}"
+  - step: wait
+    selector: "#__NEXT_DATA__"
+    timeout: 15000
+  - step: js_evaluate
+    file: wiz-blog-security.eval.js

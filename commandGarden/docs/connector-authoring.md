@@ -82,6 +82,51 @@ pipeline:
 
 > **Warning:** `js_evaluate` is a high-risk capability. The connector must be explicitly approved via `cg config set security.approvedHighRisk <connector>` before it will run.
 
+### Pattern 4: Next.js `__NEXT_DATA__` extraction
+
+Use when the target site is built with Next.js (SSG/SSR) and embeds page data in a `<script id="__NEXT_DATA__">` tag. This is common for marketing sites, blogs, and documentation portals.
+
+```yaml
+capabilities:
+  - navigate
+  - js_evaluate
+
+pipeline:
+  - step: navigate
+    url: "https://example.com/blog"
+  - step: wait
+    selector: "#__NEXT_DATA__"
+    timeout: 15000
+  - step: js_evaluate
+    file: my-nextjs-connector.eval.js
+```
+
+The eval.js file parses the embedded JSON:
+
+```js
+// NOTE: No IIFE wrapper — evaluateInPage wraps code in AsyncFunction already.
+const script = document.getElementById('__NEXT_DATA__');
+if (!script) throw new Error('__NEXT_DATA__ script tag not found');
+
+const nextData = JSON.parse(script.textContent);
+const items = nextData?.props?.pageProps?.items;
+if (!Array.isArray(items)) throw new Error('items not found');
+
+return items.map(item => ({
+  title: item.title || '',
+  url: item.url || '',
+}));
+```
+
+**How it works:**
+1. `navigate` opens the Next.js page
+2. `wait` ensures the SSG/SSR payload is present in the DOM
+3. `js_evaluate` parses the JSON from the script tag — no network requests needed
+
+**When to use:** Any Next.js site where `__NEXT_DATA__` contains the data you need. The `initialProps` or `pageProps` object usually mirrors what the React components render. Inspect the `<script id="__NEXT_DATA__">` tag in DevTools to find the shape.
+
+**Real example:** [`wiz-blog-security.yaml`](../connectors/wiz-blog-security.yaml)
+
 ---
 
 ## Expression Syntax in `map` Steps
@@ -254,3 +299,4 @@ Connectors in `connectors/` (monorepo root) are **built-in** — they ship with 
 | Rebuilt extension but didn't reload in Chrome | Old extension code runs | Reload at `chrome://extensions` |
 | API returns wrapper object, not array | 0 rows, no error | Use `as: "response"` and handle nested array |
 | Field name casing mismatch | Some values `"undefined"` | Check actual API response field names (case-sensitive) |
+| IIFE wrapper in `js_evaluate` eval file | 0 rows, no error | `evaluateInPage` wraps code in `AsyncFunction` — a `return` inside an IIFE exits the inner function, not the outer one. Write bare top-level code with `return`, no `(function(){ ... })()` wrapper |
