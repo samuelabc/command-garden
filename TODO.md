@@ -16,5 +16,6 @@
 - [x] Bugfix: Map step `${{ row.field }}` resolved to `undefined` — added `row` as top-level scope in `PipelineContext.applyMap` (92 chrome tests, 131 shared tests passing)
 - [x] Connector Authoring Guide — `docs/connector-authoring.md` with pipeline patterns, debugging techniques, and common pitfalls
 - [x] Code review fixes — formalized `row` in `ExprContext`, removed fragile connector count assertion, added missing-field edge-case test, cleaned up stray `yarn.lock`, improved docs
+- [x] Wiz blog security connector (`wiz/blog-security`) — Next.js `__NEXT_DATA__` extraction pattern, 13 posts, documented Pattern 4 + IIFE pitfall in `docs/connector-authoring.md`
 
 See `TODO_ARCHIVE.md` for completed work.
