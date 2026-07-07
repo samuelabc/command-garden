@@ -37,6 +37,7 @@ export const api = {
   generateJournal: (body: { weekStart: string }) => request<JournalResponse>('POST', '/api/journal/generate', body),
   getCachedSecurityNews: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/security-news/cache'),
   cacheSecurityNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/security-news/cache', { data }),
+  getSkills: () => request<{ ok: boolean; skills: Skill[] }>('GET', '/api/skills'),
 };
 
 export interface Connector {
@@ -119,6 +120,17 @@ export const EVENT_TYPE_BADGE: Record<string, BadgeVariant> = {
   'approval.rejected': 'error',
   'config.changed': 'neutral',
 };
+
+export interface SkillFile {
+  name: string;
+  content: string;
+}
+
+export interface Skill {
+  name: string;
+  description: string;
+  files: SkillFile[];
+}
 
 export interface AuditEvent {
   id: string;

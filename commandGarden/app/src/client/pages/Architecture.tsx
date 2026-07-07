@@ -254,7 +254,7 @@ export default function Architecture() {
       <p className="text-sm opacity-60 mb-6">How commandGarden's components fit together.</p>
 
       {/* Architecture diagram */}
-      <div className="border border-base-300 p-5 mb-8 overflow-x-auto">
+      <div id="arch-diagram" className="border border-base-300 p-5 mb-8 overflow-x-auto scroll-mt-4">
         <svg viewBox="0 0 780 300" className="w-full text-base-content" style={{ minWidth: 620 }}>
           <defs>
             <marker id="arch-ah" viewBox="0 0 10 8" refX="10" refY="4" markerWidth="7" markerHeight="5" orient="auto">
@@ -395,6 +395,7 @@ export default function Architecture() {
       </div>
 
       {/* Components */}
+      <div id="arch-components" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Components</h3>
       <div className="space-y-2 mb-8">
         {LAYERS.map((l) => (
@@ -409,8 +410,10 @@ export default function Architecture() {
           </div>
         ))}
       </div>
+      </div>
 
       {/* Data stores */}
+      <div id="arch-stores" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Data Stores</h3>
       <div className="overflow-x-auto border border-base-300 mb-8">
         <table className="table table-sm w-full">
@@ -434,16 +437,20 @@ export default function Architecture() {
           </tbody>
         </table>
       </div>
+      </div>
 
       {/* Data flows */}
+      <div id="arch-flows" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Data Flows</h3>
       <div className="space-y-4 mb-8">
         {FLOWS.map((f) => (
           <SwimlaneDiagram key={f.title} flow={f} />
         ))}
       </div>
+      </div>
 
       {/* Security model */}
+      <div id="arch-security" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Security Model</h3>
       <div className="border border-base-300 p-4 mb-8">
         <ul className="space-y-2">
@@ -455,8 +462,10 @@ export default function Architecture() {
           <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Localhost only</span> — daemon and app server bind to 127.0.0.1 by default.</li>
         </ul>
       </div>
+      </div>
 
       {/* Workspace packages */}
+      <div id="arch-packages" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Workspace Packages</h3>
       <div className="overflow-x-auto border border-base-300 mb-8">
         <table className="table table-sm w-full">
@@ -482,8 +491,10 @@ export default function Architecture() {
           </tbody>
         </table>
       </div>
+      </div>
 
       {/* Build order */}
+      <div id="arch-build" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Build Order</h3>
       <div className="border border-base-300 p-4">
         <div className="flex flex-wrap items-center gap-2 font-mono text-sm">
@@ -495,6 +506,7 @@ export default function Architecture() {
           ))}
         </div>
         <p className="text-sm opacity-60 mt-2">Run <code className="font-mono text-xs bg-base-200 px-1 py-0.5">npm run build</code> from the commandGarden root to build all packages in dependency order.</p>
+      </div>
       </div>
     </div>
   );

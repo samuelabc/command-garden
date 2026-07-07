@@ -49,7 +49,7 @@ function ConnectorSubRow({ c, approvingKey, onApprove }: { c: Connector; approvi
 function ConnectorGroup({ site, connectors, approvingKey, onApprove }: { site: string; connectors: Connector[]; approvingKey: string | null; onApprove: (key: string) => void }) {
   const [collapsed, setCollapsed] = useState(false);
   return (
-    <div className="border border-base-300 p-4">
+    <div id={`conn-${site}`} className="border border-base-300 p-4 scroll-mt-4">
       <button className="flex items-center gap-2 w-full text-left" onClick={() => setCollapsed(!collapsed)}>
         <span className="text-xs opacity-50">{collapsed ? '▸' : '▾'}</span>
         <span className="font-mono font-semibold">{site}</span>
@@ -113,7 +113,7 @@ export default function Connectors() {
           <p className="font-mono text-xs opacity-30">Check the daemon is running and connectors are installed in ~/.commandgarden/connectors/</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div id="connectors-list" className="space-y-3 scroll-mt-4">
           {grouped.map(([site, siteConnectors]) => (
             <ConnectorGroup key={site} site={site} connectors={siteConnectors} approvingKey={approvingKey} onApprove={handleApprove} />
           ))}

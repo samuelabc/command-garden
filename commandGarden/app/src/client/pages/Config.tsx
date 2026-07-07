@@ -228,12 +228,12 @@ export default function Config() {
       )}
 
       <div className="space-y-8">
-        <ServerSection config={edited} actions={formActions} />
-        <ConnectorSecuritySection config={edited} connectors={connectors} actions={formActions} />
-        <ConnectorSourcesSection config={edited} actions={formActions} />
-        <AuditSection config={edited} actions={formActions} />
-        <OutputSection config={edited} actions={formActions} />
-        <JournalSettingsSection />
+        <div id="cfg-server" className="scroll-mt-4"><ServerSection config={edited} actions={formActions} /></div>
+        <div id="cfg-security" className="scroll-mt-4"><ConnectorSecuritySection config={edited} connectors={connectors} actions={formActions} /></div>
+        <div id="cfg-sources" className="scroll-mt-4"><ConnectorSourcesSection config={edited} actions={formActions} /></div>
+        <div id="cfg-audit" className="scroll-mt-4"><AuditSection config={edited} actions={formActions} /></div>
+        <div id="cfg-output" className="scroll-mt-4"><OutputSection config={edited} actions={formActions} /></div>
+        <div id="cfg-journal" className="scroll-mt-4"><JournalSettingsSection /></div>
       </div>
 
       {/* Raw Config Editor */}

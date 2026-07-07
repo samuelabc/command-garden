@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Badge, type BadgeVariant } from '../components/Badge';
 
 type TabId = 'daemon-api' | 'app-api' | 'cli';
@@ -153,13 +153,35 @@ function EndpointRow({ ep }: { ep: Endpoint }) {
   );
 }
 
+const HASH_TO_TAB: Record<string, TabId> = {
+  'api-cli': 'cli',
+  'api-daemon': 'daemon-api',
+  'api-app': 'app-api',
+};
+
 export default function ApiReference() {
   const [tab, setTab] = useState<TabId>('cli');
+
+  useEffect(() => {
+    const onHash = () => {
+      const hash = window.location.hash.replace('#', '');
+      const mapped = HASH_TO_TAB[hash];
+      if (mapped) setTab(mapped);
+    };
+    onHash();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-1">API & CLI Reference</h2>
       <p className="text-sm opacity-60 mb-6">CLI commands, Daemon API endpoints, and App Server endpoints.</p>
+
+      {/* Section anchors for sidebar sub-nav */}
+      <div id="api-cli" className="scroll-mt-4" />
+      <div id="api-daemon" className="scroll-mt-4" />
+      <div id="api-app" className="scroll-mt-4" />
 
       {/* Auth note */}
       <div className="border border-base-300 bg-base-200/30 p-3 mb-6">
@@ -245,6 +267,7 @@ export default function ApiReference() {
       )}
 
       {/* Pipeline steps reference (always visible) */}
+      <div id="api-pipeline" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Pipeline Steps</h3>
       <p className="text-sm opacity-50 mb-3">Available steps for connector YAML pipeline definitions.</p>
       <div className="overflow-x-auto border border-base-300 mb-8">
@@ -267,8 +290,10 @@ export default function ApiReference() {
           </tbody>
         </table>
       </div>
+      </div>
 
       {/* Expression syntax */}
+      <div id="api-expressions" className="scroll-mt-4">
       <h3 className="font-display text-base font-semibold mb-3">Expression Syntax</h3>
       <div className="border border-base-300 p-4">
         <p className="text-sm opacity-60 mb-3">Use <code className="font-mono text-xs bg-base-200 px-1 py-0.5">{'${{ }}'}</code> for template expressions (no JS eval):</p>
@@ -290,6 +315,7 @@ export default function ApiReference() {
             <code className="opacity-70">{'args.month | default("2026-06"), value | number, text | trim'}</code>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

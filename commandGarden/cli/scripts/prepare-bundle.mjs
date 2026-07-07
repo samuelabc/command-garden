@@ -68,4 +68,15 @@ if (hasErrors) {
   process.exit(1);
 }
 
+// Copy skills/ into the bundled app package so the app server can serve them
+const skillsSrc = join(monorepoDir, 'skills');
+const skillsDest = join(cliDir, 'node_modules', '@commandgarden', 'app', 'skills');
+if (existsSync(skillsSrc)) {
+  rmSync(skillsDest, { recursive: true, force: true });
+  cpSync(skillsSrc, skillsDest, { recursive: true });
+  console.log('  Bundled skills/ into @commandgarden/app');
+} else {
+  console.log('  WARN: skills/ directory not found — skipping');
+}
+
 console.log('\nDone. Ready for npm pack / npm publish.\n');
