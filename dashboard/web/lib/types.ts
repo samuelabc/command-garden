@@ -55,6 +55,25 @@ export interface JournalCrossRef {
   codingHours: number;
 }
 
+// --- Saba training types ---
+
+export interface SabaTrainingRow {
+  title?: string;
+  type?: string;
+  status?: string;
+  dueDate?: string;
+  daysUntilDue?: number;
+  isOverdue?: boolean;
+}
+
+export interface SabaPendingTrainingResponse {
+  status: RunStatus;
+  items: SabaTrainingRow[];
+  overdueCount: number;
+  dueSoonCount: number;
+  errorMessage?: string;
+}
+
 export interface JournalResponse {
   status: JournalStatus;
   week: string;

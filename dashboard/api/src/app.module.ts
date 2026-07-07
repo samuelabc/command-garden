@@ -8,6 +8,7 @@ import { GoalsModule } from './goals/goals.module';
 import { TimetrackingModule } from './timetracking/timetracking.module';
 import { TeamsModule } from './teams/teams.module';
 import { JournalModule } from './journal/journal.module';
+import { SabaModule } from './saba/saba.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { JournalModule } from './journal/journal.module';
     TimetrackingModule,
     TeamsModule,
     JournalModule,
+    SabaModule,
   ],
 })
 export class AppModule {}

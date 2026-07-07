@@ -1,4 +1,4 @@
-import type { TtReportResponse, RoomFreeBusyResponse, AuditPage, Goal, JournalResponse } from './types';
+import type { TtReportResponse, RoomFreeBusyResponse, AuditPage, Goal, JournalResponse, SabaPendingTrainingResponse } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3001/api';
 
@@ -50,4 +50,6 @@ export const api = {
   deleteGoal: (id: number) => del<{ deleted: true }>(`/goals/${id}`),
   generateJournal: (body: { weekStart: string }) =>
     post<JournalResponse>('/journal/generate', body),
+  sabaPendingTraining: () =>
+    post<SabaPendingTrainingResponse>('/saba/pending-training', {}),
 };

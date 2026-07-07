@@ -5,6 +5,7 @@ import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 const APP_ROUTES: Record<string, string> = {
   'timetracking/report': '/apps/timetracking',
   'teams/room-availability': '/apps/rooms',
+  'saba/pending-training': '/apps/saba',
   'tokenmaster/clients-list': '/apps/trusted-peer-expiry',
   'tokenmaster/client-trustedby': '/apps/trusted-peer-expiry',
 };

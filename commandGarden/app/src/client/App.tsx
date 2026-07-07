@@ -11,6 +11,7 @@ import Guide from './pages/Guide';
 import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
+import Saba from './pages/Saba';
 import SecurityNews from './pages/SecurityNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
 import Architecture from './pages/Architecture';
@@ -177,6 +178,7 @@ function Layout() {
           <NavLink to="/apps/timetracking" className={navClass}>Time Tracking</NavLink>
           <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
           <NavLink to="/apps/journal" className={navClass}>Dev Journal</NavLink>
+          <NavLink to="/apps/saba" className={navClass}>Saba Training</NavLink>
           <NavLink to="/apps/security-news" className={navClass}>Security News</NavLink>
           <NavLink to="/apps/trusted-peer-expiry" className={navClass}>Trusted Peer Expiry</NavLink>
 
@@ -223,6 +225,7 @@ export default function App() {
           <Route path="apps/timetracking" element={<Timetracking />} />
           <Route path="apps/rooms" element={<Rooms />} />
           <Route path="apps/journal" element={<Journal />} />
+          <Route path="apps/saba" element={<Saba />} />
           <Route path="apps/security-news" element={<SecurityNews />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
           <Route path="architecture" element={<Architecture />} />
