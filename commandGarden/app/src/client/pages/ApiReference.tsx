@@ -154,12 +154,12 @@ function EndpointRow({ ep }: { ep: Endpoint }) {
 }
 
 export default function ApiReference() {
-  const [tab, setTab] = useState<TabId>('daemon-api');
+  const [tab, setTab] = useState<TabId>('cli');
 
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-1">API & CLI Reference</h2>
-      <p className="text-sm opacity-60 mb-6">Daemon API endpoints, App Server endpoints, and CLI commands.</p>
+      <p className="text-sm opacity-60 mb-6">CLI commands, Daemon API endpoints, and App Server endpoints.</p>
 
       {/* Auth note */}
       <div className="border border-base-300 bg-base-200/30 p-3 mb-6">
@@ -174,9 +174,9 @@ export default function ApiReference() {
       {/* Tabs */}
       <div className="flex border-b border-base-300 mb-4">
         {([
+          { id: 'cli' as TabId, label: 'CLI Commands', sub: 'cg' },
           { id: 'daemon-api' as TabId, label: 'Daemon API', sub: ':9091' },
           { id: 'app-api' as TabId, label: 'App Server API', sub: ':9092' },
-          { id: 'cli' as TabId, label: 'CLI Commands', sub: 'cg' },
         ]).map((t) => (
           <button
             key={t.id}
@@ -187,30 +187,6 @@ export default function ApiReference() {
           </button>
         ))}
       </div>
-
-      {/* Daemon API tab */}
-      {tab === 'daemon-api' && (
-        <div className="border border-base-300 mb-8">
-          {DAEMON_ENDPOINTS.map((ep, i) => (
-            <EndpointRow key={i} ep={ep} />
-          ))}
-        </div>
-      )}
-
-      {/* App Server API tab */}
-      {tab === 'app-api' && (
-        <>
-          <p className="text-sm opacity-50 mb-3">
-            The App Server on <code className="font-mono text-xs bg-base-200 px-1 py-0.5">:9092</code> proxies
-            all daemon endpoints and adds app-specific routes for preferences, caching, goals, and journal generation.
-          </p>
-          <div className="border border-base-300 mb-8">
-            {APP_ENDPOINTS.map((ep, i) => (
-              <EndpointRow key={i} ep={ep} />
-            ))}
-          </div>
-        </>
-      )}
 
       {/* CLI Commands tab */}
       {tab === 'cli' && (
@@ -242,6 +218,30 @@ export default function ApiReference() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Daemon API tab */}
+      {tab === 'daemon-api' && (
+        <div className="border border-base-300 mb-8">
+          {DAEMON_ENDPOINTS.map((ep, i) => (
+            <EndpointRow key={i} ep={ep} />
+          ))}
+        </div>
+      )}
+
+      {/* App Server API tab */}
+      {tab === 'app-api' && (
+        <>
+          <p className="text-sm opacity-50 mb-3">
+            The App Server on <code className="font-mono text-xs bg-base-200 px-1 py-0.5">:9092</code> proxies
+            all daemon endpoints and adds app-specific routes for preferences, caching, goals, and journal generation.
+          </p>
+          <div className="border border-base-300 mb-8">
+            {APP_ENDPOINTS.map((ep, i) => (
+              <EndpointRow key={i} ep={ep} />
+            ))}
+          </div>
+        </>
       )}
 
       {/* Pipeline steps reference (always visible) */}

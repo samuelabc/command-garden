@@ -67,26 +67,41 @@ const LANE_LINE: Record<string, string> = {
 
 const FLOWS: FlowDef[] = [
   {
-    title: 'Command execution',
+    title: 'Command execution (CLI path)',
     lanes: [
-      { id: 'client', label: 'CLI / GUI', color: 'client' },
-      { id: 'daemon', label: 'Daemon', color: 'daemon' },
+      { id: 'cli', label: 'CLI', color: 'client' },
+      { id: 'daemon', label: 'Daemon :9091', color: 'daemon' },
       { id: 'ext', label: 'Extension', color: 'extension' },
       { id: 'browser', label: 'Browser Tab', color: 'browser' },
     ],
     steps: [
-      { type: 'arrow', from: 'client', to: 'daemon', label: 'POST /api/run' },
-      { type: 'action', lane: 'daemon', label: 'validate auth + CSRF' },
-      { type: 'action', lane: 'daemon', label: 'check connector & capabilities' },
+      { type: 'arrow', from: 'cli', to: 'daemon', label: 'POST /api/run (HTTP)' },
+      { type: 'action', lane: 'daemon', label: 'validate token + CSRF' },
+      { type: 'action', lane: 'daemon', label: 'check connector, domains, capabilities' },
       { type: 'action', lane: 'daemon', label: 'audit: command.start' },
-      { type: 'action', lane: 'daemon', label: 'split pipeline' },
-      { type: 'arrow', from: 'daemon', to: 'ext', label: 'relay steps (WS)' },
-      { type: 'arrow', from: 'ext', to: 'browser', label: 'run pipeline' },
+      { type: 'action', lane: 'daemon', label: 'split pipeline (extension vs daemon steps)' },
+      { type: 'arrow', from: 'daemon', to: 'ext', label: 'relay extension steps (WS)' },
+      { type: 'arrow', from: 'ext', to: 'browser', label: 'execute pipeline steps' },
       { type: 'arrow', from: 'browser', to: 'ext', label: 'page data' },
       { type: 'arrow', from: 'ext', to: 'daemon', label: 'results (WS)' },
-      { type: 'action', lane: 'daemon', label: 'server-side steps' },
-      { type: 'action', lane: 'daemon', label: 'audit: success / error' },
-      { type: 'arrow', from: 'daemon', to: 'client', label: 'structured data' },
+      { type: 'action', lane: 'daemon', label: 'run daemon-side steps (transform, map)' },
+      { type: 'action', lane: 'daemon', label: 'audit: command.success / error' },
+      { type: 'arrow', from: 'daemon', to: 'cli', label: 'structured data response' },
+    ],
+  },
+  {
+    title: 'Command execution (GUI path)',
+    lanes: [
+      { id: 'gui', label: 'GUI', color: 'client' },
+      { id: 'app', label: 'App Server :9092', color: 'daemon' },
+      { id: 'daemon', label: 'Daemon :9091', color: 'daemon' },
+    ],
+    steps: [
+      { type: 'arrow', from: 'gui', to: 'app', label: 'POST /api/run (HTTP)' },
+      { type: 'arrow', from: 'app', to: 'daemon', label: 'proxy to daemon (HTTP)' },
+      { type: 'action', lane: 'daemon', label: 'validate, execute, audit (same as CLI path)' },
+      { type: 'arrow', from: 'daemon', to: 'app', label: 'structured data' },
+      { type: 'arrow', from: 'app', to: 'gui', label: 'enriched response' },
     ],
   },
   {
@@ -97,13 +112,14 @@ const FLOWS: FlowDef[] = [
       { id: 'ext', label: 'Extension', color: 'extension' },
     ],
     steps: [
-      { type: 'action', lane: 'daemon', label: 'detect approval-required step' },
+      { type: 'action', lane: 'daemon', label: 'detect approval-required capability' },
       { type: 'arrow', from: 'daemon', to: 'client', label: 'HTTP 202 + requestId' },
-      { type: 'arrow', from: 'daemon', to: 'client', label: 'prompt (SSE)' },
-      { type: 'arrow', from: 'daemon', to: 'ext', label: 'notification' },
-      { type: 'arrow', from: 'client', to: 'daemon', label: 'first responder resolves' },
-      { type: 'action', lane: 'daemon', label: 'continue or abort pipeline' },
-      { type: 'action', lane: 'daemon', label: 'audit: granted / rejected' },
+      { type: 'arrow', from: 'daemon', to: 'client', label: 'approval prompt (SSE)' },
+      { type: 'arrow', from: 'daemon', to: 'ext', label: 'approval notification (WS)' },
+      { type: 'arrow', from: 'client', to: 'daemon', label: 'POST /api/approval' },
+      { type: 'arrow', from: 'ext', to: 'daemon', label: 'resolve via WS' },
+      { type: 'action', lane: 'daemon', label: 'first responder wins → continue or abort' },
+      { type: 'action', lane: 'daemon', label: 'audit: approval.granted / rejected' },
     ],
   },
   {
@@ -237,24 +253,145 @@ export default function Architecture() {
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-1">Architecture</h2>
       <p className="text-sm opacity-60 mb-6">How commandGarden's components fit together.</p>
 
-      {/* ASCII diagram */}
-      <div className="border border-base-300 bg-base-200/30 p-4 mb-8 overflow-x-auto">
-        <pre className="font-mono text-xs leading-relaxed whitespace-pre opacity-80">{`┌──────────────┐       HTTP        ┌──────────────┐     WebSocket     ┌────────────────────┐
-│  CLI Client  │ ────────────────→ │    Daemon    │ ←───────────────→ │  Chrome Extension  │
-│  (Node.js)   │  localhost:9091   │  (Fastify)   │                   │  (MV3, TypeScript) │
-└──────────────┘                   └──────────────┘                   └────────────────────┘
-                                     ↑         │                         │            │
-                                     │         │               Content   │    CDP     │
-┌──────────────┐   ┌──────────────┐  │         │               Scripts   │  (debugger)│
-│  GUI (React) │──→│  App Server  │──┘         │                         ↓            ↓
-│  SPA         │   │  (Fastify)   │            │               ┌────────────────────────┐
-└──────────────┘   │  :9092       │            │               │      Browser Tab       │
-                   └──────────────┘            │               │  (target web page)     │
-                          │                    │               └────────────────────────┘
-                   ┌──────────────┐    ┌──────────────┐
-                   │   App DB     │    │  Audit Log   │
-                   │   (SQLite)   │    │  (SQLite)    │
-                   └──────────────┘    └──────────────┘`}</pre>
+      {/* Architecture diagram */}
+      <div className="border border-base-300 p-5 mb-8 overflow-x-auto">
+        <svg viewBox="0 0 780 300" className="w-full text-base-content" style={{ minWidth: 620 }}>
+          <defs>
+            <marker id="arch-ah" viewBox="0 0 10 8" refX="10" refY="4" markerWidth="7" markerHeight="5" orient="auto">
+              <path d="M0 0L10 4L0 8z" fill="currentColor" fillOpacity={0.3} />
+            </marker>
+            <marker id="arch-ah-rev" viewBox="0 0 10 8" refX="0" refY="4" markerWidth="7" markerHeight="5" orient="auto">
+              <path d="M10 0L0 4L10 8z" fill="currentColor" fillOpacity={0.3} />
+            </marker>
+          </defs>
+
+          {/* ── CLI Client ── */}
+          <rect x={15} y={8} width={120} height={50} rx={3}
+            fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.4)" strokeWidth={1} />
+          <text x={75} y={29} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>CLI Client</text>
+          <text x={75} y={44} textAnchor="middle" fill="currentColor" fontSize={9} opacity={0.4}
+            fontFamily="ui-monospace,monospace">Node.js</text>
+
+          {/* ── GUI ── */}
+          <rect x={15} y={120} width={120} height={50} rx={3}
+            fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.4)" strokeWidth={1} />
+          <text x={75} y={141} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>GUI</text>
+          <text x={75} y={156} textAnchor="middle" fill="currentColor" fontSize={9} opacity={0.4}
+            fontFamily="ui-monospace,monospace">React SPA</text>
+
+          {/* ── App Server ── */}
+          <rect x={190} y={120} width={145} height={50} rx={3}
+            fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.4)" strokeWidth={1} />
+          <text x={262} y={141} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>App Server</text>
+          <text x={262} y={156} textAnchor="middle" fill="currentColor" fontSize={9} opacity={0.4}
+            fontFamily="ui-monospace,monospace">Fastify :9092</text>
+
+          {/* ── Daemon (hub, larger) ── */}
+          <rect x={395} y={10} width={160} height={84} rx={3}
+            fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.5)" strokeWidth={1.5} />
+          <text x={475} y={38} textAnchor="middle" fill="currentColor" fontSize={13} fontWeight={700}>Daemon</text>
+          <text x={475} y={56} textAnchor="middle" fill="currentColor" fontSize={9} opacity={0.4}
+            fontFamily="ui-monospace,monospace">Fastify :9091</text>
+          <text x={475} y={78} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.25}
+            fontFamily="ui-monospace,monospace">auth · registry · audit</text>
+
+          {/* ── Extension ── */}
+          <rect x={615} y={20} width={150} height={60} rx={3}
+            fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.4)" strokeWidth={1} />
+          <text x={690} y={44} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>Extension</text>
+          <text x={690} y={62} textAnchor="middle" fill="currentColor" fontSize={9} opacity={0.4}
+            fontFamily="ui-monospace,monospace">Chrome MV3</text>
+
+          {/* ── Browser Tab ── */}
+          <rect x={630} y={200} width={130} height={50} rx={3}
+            fill="rgba(167,139,250,0.08)" stroke="rgba(167,139,250,0.4)" strokeWidth={1} />
+          <text x={695} y={221} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>Browser Tab</text>
+          <text x={695} y={237} textAnchor="middle" fill="currentColor" fontSize={9} opacity={0.4}
+            fontFamily="ui-monospace,monospace">target page</text>
+
+          {/* ── Data stores ── */}
+
+          {/* App DB */}
+          <rect x={195} y={240} width={100} height={36} rx={3}
+            fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+          <text x={245} y={257} textAnchor="middle" fill="currentColor" fontSize={9} fontWeight={500} opacity={0.45}>App DB</text>
+          <text x={245} y={269} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.25}
+            fontFamily="ui-monospace,monospace">SQLite</text>
+
+          {/* Audit Log */}
+          <rect x={390} y={200} width={105} height={36} rx={3}
+            fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+          <text x={442} y={217} textAnchor="middle" fill="currentColor" fontSize={9} fontWeight={500} opacity={0.45}>Audit Log</text>
+          <text x={442} y={229} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.25}
+            fontFamily="ui-monospace,monospace">SQLite</text>
+
+          {/* Config */}
+          <rect x={500} y={200} width={85} height={36} rx={3}
+            fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+          <text x={542} y={217} textAnchor="middle" fill="currentColor" fontSize={9} fontWeight={500} opacity={0.45}>Config</text>
+          <text x={542} y={229} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.25}
+            fontFamily="ui-monospace,monospace">YAML</text>
+
+          {/* Session Token */}
+          <rect x={75} y={200} width={105} height={36} rx={3}
+            fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+          <text x={127} y={217} textAnchor="middle" fill="currentColor" fontSize={9} fontWeight={500} opacity={0.45}>Session Token</text>
+          <text x={127} y={229} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.25}
+            fontFamily="ui-monospace,monospace">file</text>
+
+          {/* ═══ Connection arrows ═══ */}
+
+          {/* CLI → Daemon (direct HTTP) */}
+          <line x1={137} y1={33} x2={393} y2={45}
+            stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#arch-ah)" />
+          <text x={255} y={28} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            fontFamily="ui-monospace,monospace">HTTP :9091</text>
+
+          {/* GUI → App Server */}
+          <line x1={137} y1={145} x2={188} y2={145}
+            stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#arch-ah)" />
+
+          {/* App Server → Daemon (proxy) */}
+          <line x1={337} y1={138} x2={393} y2={78}
+            stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#arch-ah)" />
+          <text x={354} y={97} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            fontFamily="ui-monospace,monospace">proxy</text>
+
+          {/* Daemon ↔ Extension (WebSocket) */}
+          <line x1={557} y1={50} x2={613} y2={50}
+            stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.5}
+            markerEnd="url(#arch-ah)" markerStart="url(#arch-ah-rev)" />
+          <text x={585} y={40} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            fontFamily="ui-monospace,monospace">WebSocket</text>
+
+          {/* Extension → Browser Tab */}
+          <line x1={695} y1={82} x2={695} y2={198}
+            stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#arch-ah)" />
+          <text x={720} y={132} fill="currentColor" fontSize={8} opacity={0.35}
+            fontFamily="ui-monospace,monospace">Content</text>
+          <text x={720} y={144} fill="currentColor" fontSize={8} opacity={0.35}
+            fontFamily="ui-monospace,monospace">Scripts</text>
+          <text x={720} y={160} fill="currentColor" fontSize={8} opacity={0.35}
+            fontFamily="ui-monospace,monospace">+ CDP</text>
+
+          {/* App Server ↓ App DB (dashed) */}
+          <line x1={245} y1={172} x2={245} y2={238}
+            stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+
+          {/* Daemon ↓ Audit Log (dashed) */}
+          <line x1={442} y1={96} x2={442} y2={198}
+            stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+
+          {/* Daemon ↓ Config (dashed) */}
+          <line x1={520} y1={96} x2={542} y2={198}
+            stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+
+          {/* Session Token read by CLI + App Server (dashed) */}
+          <line x1={75} y1={60} x2={110} y2={198}
+            stroke="currentColor" strokeOpacity={0.08} strokeDasharray="3 2" />
+          <line x1={200} y1={172} x2={155} y2={198}
+            stroke="currentColor" strokeOpacity={0.08} strokeDasharray="3 2" />
+        </svg>
       </div>
 
       {/* Components */}
