@@ -1,6 +1,6 @@
 {
   "name": "@commandgarden/cli",
-  "version": "1.4.2",
+  "version": "2.0.0",
   "description": "Enterprise browser automation CLI",
   "type": "module",
   "license": "MIT",
