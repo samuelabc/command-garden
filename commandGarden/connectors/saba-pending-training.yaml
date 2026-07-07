@@ -1,0 +1,34 @@
+site: saba
+name: pending-training
+version: "1.0"
+description: "Pending mandatory learning plan items from Saba Cloud (daimler.sabacloud.com)"
+access: read
+
+domains:
+  - "daimler.sabacloud.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+columns:
+  - name: title
+    type: string
+  - name: type
+    type: string
+  - name: status
+    type: string
+  - name: dueDate
+    type: string
+  - name: daysUntilDue
+    type: number
+  - name: isOverdue
+    type: boolean
+
+pipeline:
+  - step: navigate
+    url: "https://daimler.sabacloud.com/"
+  - step: wait
+    selector: "body"
+    timeout: 60000
+  - step: js_evaluate
+    file: saba-pending-training.eval.js
