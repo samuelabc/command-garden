@@ -5,6 +5,7 @@ import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 const APP_ROUTES: Record<string, string> = {
   'timetracking/report': '/apps/timetracking',
   'teams/room-availability': '/apps/rooms',
+  'saba/pending-training': '/apps/saba',
 };
 
 export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): void {
