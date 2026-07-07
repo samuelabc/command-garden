@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { api, type RunResponse } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
@@ -72,6 +72,16 @@ type SourceStatus = 'idle' | 'loading' | 'done' | 'error';
 type RangeDays = 7 | 30;
 const RANGE_LABELS: Record<RangeDays, string> = { 7: 'Past 7 days', 30: 'Past 30 days' };
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 export default function SecurityNews() {
   const [range, setRange] = useState<RangeDays>(7);
   const [socketStatus, setSocketStatus] = useState<SourceStatus>('idle');
@@ -80,6 +90,37 @@ export default function SecurityNews() {
   const [wizItems, setWizItems] = useState<NewsItem[]>([]);
   const [socketError, setSocketError] = useState<string | null>(null);
   const [wizError, setWizError] = useState<string | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
+
+  // Load cached data on mount
+  useEffect(() => {
+    let stale = false;
+    api.getCachedSecurityNews().then((res) => {
+      if (stale) return;
+      if (res.data && res.data.length > 0) {
+        // Skip if a fresh fetch is already running
+        setSocketStatus((cur) => {
+          if (cur === 'loading') { stale = true; return cur; }
+          return 'done';
+        });
+        if (stale) return;
+        const socket: NewsItem[] = [];
+        const wiz: NewsItem[] = [];
+        for (const r of res.data) {
+          const item = r as unknown as NewsItem;
+          if (item.source === 'wiz') wiz.push(item);
+          else socket.push(item);
+        }
+        setSocketItems(socket);
+        setWizItems(wiz);
+        setFetchedAt(res.fetchedAt);
+        setIsCached(true);
+        setWizStatus('done');
+      }
+    }).catch(() => {});
+    return () => { stale = true; };
+  }, []);
 
   const loading = socketStatus === 'loading' || wizStatus === 'loading';
   const hasResults = socketItems.length > 0 || wizItems.length > 0;
@@ -104,6 +145,10 @@ export default function SecurityNews() {
     setWizError(null);
     setSocketItems([]);
     setWizItems([]);
+    setIsCached(false);
+
+    let freshSocket: NewsItem[] = [];
+    let freshWiz: NewsItem[] = [];
 
     // Fetch both sources in parallel
     const socketPromise = api.run('socket/security-news', {})
@@ -112,7 +157,8 @@ export default function SecurityNews() {
           setSocketError(resp.error);
           setSocketStatus('error');
         } else {
-          setSocketItems(parseSocketRows(resp));
+          freshSocket = parseSocketRows(resp);
+          setSocketItems(freshSocket);
           setSocketStatus('done');
         }
       })
@@ -127,7 +173,8 @@ export default function SecurityNews() {
           setWizError(resp.error);
           setWizStatus('error');
         } else {
-          setWizItems(parseWizRows(resp));
+          freshWiz = parseWizRows(resp);
+          setWizItems(freshWiz);
           setWizStatus('done');
         }
       })
@@ -137,6 +184,14 @@ export default function SecurityNews() {
       });
 
     await Promise.allSettled([socketPromise, wizPromise]);
+
+    // Cache combined results
+    const all = [...freshSocket, ...freshWiz];
+    if (all.length > 0) {
+      const now = new Date().toISOString();
+      setFetchedAt(now);
+      api.cacheSecurityNews(all as unknown as Record<string, unknown>[]).catch(() => {});
+    }
   }, []);
 
   const isAuthRequired = (err: string | null) =>
@@ -187,6 +242,13 @@ export default function SecurityNews() {
             <span><span className="font-semibold">Wiz:</span> {wizError}</span>
           </div>
         )
+      )}
+
+      {/* Last fetched indicator */}
+      {fetchedAt && !loading && (
+        <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-2">
+          {isCached ? 'Showing cached data from' : 'Last fetched'} {timeAgo(fetchedAt)}
+        </div>
       )}
 
       {/* Stats bar */}
