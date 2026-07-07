@@ -123,7 +123,7 @@ The GUI provides a browser-based interface at `http://127.0.0.1:9092` with:
 
 - **Dashboard** — system health cards (daemon, extension, connectors) and recent activity
 - **Connectors** — browse all connectors with approval status badges, inline approve action for high-risk connectors, run any connector via an auto-generated form
-- **App pages** — dedicated UI for Time Tracking (month picker, summary cards, grouped-by-project table) and Room Availability (room combobox, timeline bar)
+- **App pages** — dedicated UI for Time Tracking (month picker, summary cards, grouped-by-project table), Room Availability (room combobox, timeline bar), and Security News (aggregated feed from Socket, Wiz, and tl;dr sec with caching, source indicators, and date range filtering)
 - **Audit Log** — filterable, paginated event viewer with expandable pipeline step detail
 - **Configuration** — task-oriented settings page with Server, Connector Security (per-connector approval table with toggles), Connector Sources, Audit & Retention, and Output sections; includes a raw YAML editor and sticky save bar with dirty tracking
 - **Setup Guide** — interactive checklist with live status polling
@@ -148,6 +148,9 @@ tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, 
 tokenmaster/client-trustedby   read    tma.query.api.dvb.corp…      navigate, cookie_read
 gcs/kb-pages                   read    pages.i.mercedes-benz.com    navigate, js_evaluate
 gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, js_evaluate
+socket/security-news           read    socket.dev                   navigate, cookie_read
+wiz/blog-security              read    www.wiz.io                   navigate, js_evaluate
+tldrsec/newsletter             read    tldrsec.com                  navigate, js_evaluate
 ```
 
 ### Timetracking report
@@ -220,6 +223,25 @@ cg run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
 ```
 
 This connector retrieves a single GCS Knowledge Base page and converts it to Markdown. Use the `path` from the `gcs/kb-pages` index. Returns one row with `title`, `path`, `author`, `lastUpdated`, and the full page `content` as Markdown (headings, code blocks, tables, and lists preserved). Uses declarative `extract` + `extract_html` + server-side `transform` steps — no `js_evaluate`.
+
+### Security news connectors
+
+Three connectors power the **Security News** app page, fetching the latest posts from different sources:
+
+```bash
+# Socket.dev blog feed (declarative fetch, no js_evaluate)
+cg run socket/security-news --format table
+
+# Wiz security blog (extracts from Next.js __NEXT_DATA__)
+cg run wiz/blog-security --format table
+
+# tl;dr sec newsletter (extracts from Remix __remixContext)
+cg run tldrsec/newsletter --format table
+```
+
+The **tl;dr sec** connector navigates to `https://tldrsec.com/t/Newsletter` (a Beehiiv-hosted Remix app), reads the embedded `__remixContext` loader data, and extracts newsletter issues with title, slug, URL, publish date, excerpt, authors, and tags. Returns the first page of results (~12 issues).
+
+> **Note:** `wiz/blog-security` and `tldrsec/newsletter` use `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
 ---
 
@@ -552,6 +574,9 @@ node cli/dist/main.js run tokenmaster/clients-list --region emea --format table
 node cli/dist/main.js run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --format table
 node cli/dist/main.js run gcs/kb-pages --format table
 node cli/dist/main.js run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
+node cli/dist/main.js run socket/security-news --format table
+node cli/dist/main.js run wiz/blog-security --format table
+node cli/dist/main.js run tldrsec/newsletter --format table
 ```
 
 ### Linking globally (optional)
@@ -613,8 +638,8 @@ commandGarden/
                  domain guard, pipeline step execution engine
   app/           Web GUI — Fastify app server (facade endpoints, SQLite
                  store for preferences/views) + React SPA (Vite, Tailwind,
-                 DaisyUI) with 8 pages including custom app pages for
-                 timetracking and room availability
+                 DaisyUI) with 9 pages including custom app pages for
+                 timetracking, room availability, and security news
   connectors/    Built-in YAML connector definitions
   package.json   Workspace root (npm workspaces)
 ```

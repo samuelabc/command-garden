@@ -10,7 +10,7 @@ Internal enterprise users ranging from developers to non-technical staff (manage
 
 ## Product Purpose
 
-commandGarden turns websites into secure, auditable CLI commands using declarative YAML connectors. It reuses existing Chrome sessions — no credentials stored or transmitted. The web GUI provides a browser-based interface for running connectors, reviewing audit logs, managing configuration, and accessing dedicated app pages (timetracking, room availability). Success looks like: a user runs a connector in under 10 seconds and trusts the result.
+commandGarden turns websites into secure, auditable CLI commands using declarative YAML connectors. It reuses existing Chrome sessions — no credentials stored or transmitted. The web GUI provides a browser-based interface for running connectors, reviewing audit logs, managing configuration, and accessing dedicated app pages (timetracking, room availability, security news). Success looks like: a user runs a connector in under 10 seconds and trusts the result.
 
 ## Brand Personality
 
