@@ -1,0 +1,63 @@
+site: socket
+name: security-news
+version: "1.0"
+description: "Latest security news from Socket.dev blog"
+access: read
+
+domains:
+  - "socket.dev"
+capabilities:
+  - navigate
+  - cookie_read
+
+args:
+  - name: tag
+    type: string
+    required: false
+    default: ""
+    help: "Filter by tag (e.g. 'Research', 'Security News')"
+
+columns:
+  - name: title
+    type: string
+  - name: summary
+    type: string
+  - name: url
+    type: string
+  - name: date
+    type: string
+  - name: author
+    type: string
+  - name: tags
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://socket.dev/"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: fetch
+    url: "https://socket.dev/api/blog/feed.json"
+    method: "GET"
+    headers:
+      Accept: "application/json"
+    as: "feed"
+  - step: transform
+    type: json_unwrap
+    input: feed
+    as: _data
+    options:
+      path: "items"
+  - step: map
+    fields:
+      title: "${{ row.title }}"
+      summary: "${{ row.summary }}"
+      url: "${{ row.url }}"
+      date: "${{ row.date_published }}"
+      author: "${{ row.author.name }}"
+      tags: "${{ row.tags }}"
+  - step: filter  # empty tag = show all (contains '' is always true)
+    field: tags
+    operator: contains
+    value: "${{ args.tag | default('') }}"

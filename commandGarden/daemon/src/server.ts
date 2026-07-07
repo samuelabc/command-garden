@@ -248,7 +248,7 @@ export async function createServer(deps: ServerDeps) {
           // Also include data row fields as vars for daemon transforms
           const dataVars = finalData.length > 0 ? finalData[0] : {};
           const mergedVars = { ...dataVars, ...finalVars };
-          const daemonResult = runDaemonSteps({ steps: daemonSteps, data: finalData, vars: mergedVars });
+          const daemonResult = runDaemonSteps({ steps: daemonSteps, data: finalData, vars: mergedVars, args: runArgs as Record<string, string | number | boolean> });
           finalData = daemonResult.data;
           finalVars = daemonResult.vars;
           // Merge daemon vars back into data rows

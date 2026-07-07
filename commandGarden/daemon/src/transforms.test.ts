@@ -35,6 +35,41 @@ describe('html_to_markdown', () => {
   });
 });
 
+describe('json_unwrap', () => {
+  const unwrap = getTransform('json_unwrap');
+
+  it('extracts a nested array by path', () => {
+    const input = {
+      version: 'https://jsonfeed.org/version/1',
+      title: 'Feed',
+      items: [{ id: 1 }, { id: 2 }],
+    };
+    const result = unwrap(input, { path: 'items' });
+    expect(result).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it('handles dot-separated paths', () => {
+    const input = { data: { results: [{ name: 'A' }] } };
+    const result = unwrap(input, { path: 'data.results' });
+    expect(result).toEqual([{ name: 'A' }]);
+  });
+
+  it('returns empty array when path not found', () => {
+    const result = unwrap({ other: 'value' }, { path: 'items' });
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array when nested value is not an array', () => {
+    const result = unwrap({ items: 'not-an-array' }, { path: 'items' });
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array for null input', () => {
+    const result = unwrap(null, { path: 'items' });
+    expect(result).toEqual([]);
+  });
+});
+
 describe('split_metadata', () => {
   const split = getTransform('split_metadata');
 

@@ -43,11 +43,21 @@ async function handleRequest(req: DomRequest): Promise<unknown> {
     case 'type':
       await typeIntoElement(p.selector as string, p.value as string);
       return undefined;
-    case 'fetch':
-      return fetchFromPage(
+    case 'fetch': {
+      const result = await fetchFromPage(
         p.url as string, p.method as string,
         p.headers as Record<string, string>, p.body as string,
       );
+      if (p.dataPath && result != null && typeof result === 'object' && !Array.isArray(result)) {
+        let nested: unknown = result;
+        for (const key of (p.dataPath as string).split('.')) {
+          if (nested == null || typeof nested !== 'object') return [];
+          nested = (nested as Record<string, unknown>)[key];
+        }
+        return Array.isArray(nested) ? nested : [];
+      }
+      return result;
+    }
     default:
       throw new Error(`Unknown action: ${req.action}`);
   }

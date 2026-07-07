@@ -195,18 +195,19 @@ Without an explicit `Accept` header, some APIs perform content negotiation and m
 
 ### Wrapped API responses
 
-If the API returns a wrapper object instead of a plain array (e.g., `{ "results": [...], "total": 100 }`), the `Array.isArray` check will fail. Use the `as` keyword to capture the response, then access the nested array:
+If the API returns a wrapper object instead of a plain array (e.g., `{ "results": [...], "total": 100 }`), the `Array.isArray` check will fail. Use the `dataPath` parameter to drill into the response and extract the nested array:
 
 ```yaml
 - step: fetch
   url: "https://api.example.com/v1/items"
-  as: "response"
   headers:
     Accept: "application/json"
-# Then use vars.response.results in subsequent steps
+  dataPath: "results"
 ```
 
-> **Note:** As of v1.0, there is no built-in step to unwrap a nested array into pipeline data. The expression engine already resolves nested paths like `${{ vars.response.results }}`, so a future `unwrap` or `set_data` step could handle this declaratively. For now, use `js_evaluate` as a workaround or request the feature.
+The `dataPath` supports dot-separated paths for deeply nested responses (e.g., `dataPath: "data.results"`). If the path doesn't resolve to an array, the pipeline data remains empty (0 rows, no error).
+
+Alternatively, use `as` to capture the full response as a variable for manual handling in subsequent steps.
 
 ---
 

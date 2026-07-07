@@ -42,4 +42,54 @@ describe('runDaemonSteps', () => {
     ];
     expect(() => runDaemonSteps({ steps, data: [], vars: { x: 'val' } })).toThrow('Unknown transform');
   });
+
+  it('map step transforms data rows using expressions', () => {
+    const steps = [
+      { step: 'map', fields: { label: '${{ row.name }}', upper: '${{ row.name }}' } },
+    ] as PipelineStep[];
+    const data = [{ name: 'Alice' }, { name: 'Bob' }];
+    const result = runDaemonSteps({ steps, data, vars: {}, args: {} });
+    expect(result.data).toEqual([
+      { label: 'Alice', upper: 'Alice' },
+      { label: 'Bob', upper: 'Bob' },
+    ]);
+  });
+
+  it('filter step filters data rows by contains', () => {
+    const steps = [
+      { step: 'filter', field: 'tags', operator: 'contains', value: 'Security' },
+    ] as PipelineStep[];
+    const data = [
+      { title: 'A', tags: 'Security News' },
+      { title: 'B', tags: 'Research' },
+      { title: 'C', tags: 'Security Alert' },
+    ];
+    const result = runDaemonSteps({ steps, data, vars: {} });
+    expect(result.data).toEqual([
+      { title: 'A', tags: 'Security News' },
+      { title: 'C', tags: 'Security Alert' },
+    ]);
+  });
+
+  it('json_unwrap → map → filter chain', () => {
+    const steps = [
+      { step: 'transform', type: 'json_unwrap', input: 'feed', as: '_data', options: { path: 'items' } },
+      { step: 'map', fields: { name: '${{ row.title }}', tag: '${{ row.category }}' } },
+      { step: 'filter', field: 'tag', operator: 'eq', value: 'news' },
+    ] as PipelineStep[];
+    const vars = {
+      feed: { items: [{ title: 'Post 1', category: 'news' }, { title: 'Post 2', category: 'blog' }] },
+    };
+    const result = runDaemonSteps({ steps, data: [], vars });
+    expect(result.data).toEqual([{ name: 'Post 1', tag: 'news' }]);
+  });
+
+  it('filter with matches and invalid regex returns false (no throw)', () => {
+    const steps = [
+      { step: 'filter', field: 'name', operator: 'matches', value: '(invalid[' },
+    ] as PipelineStep[];
+    const data = [{ name: 'Alice' }, { name: 'Bob' }];
+    const result = runDaemonSteps({ steps, data, vars: {} });
+    expect(result.data).toEqual([]);
+  });
 });

@@ -75,6 +75,7 @@ const fetchStepSchema = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
   as: z.string().optional(),
+  dataPath: z.string().optional(),
 });
 
 const mapStepSchema = z.object({
@@ -176,6 +177,9 @@ export type ExtractHtmlStep = z.infer<typeof extractHtmlStepSchema>;
 export type TransformStep = z.infer<typeof transformStepSchema>;
 export type JsEvaluateStep = z.infer<typeof jsEvaluateStepSchema>;
 
+// Steps that trigger the extension/daemon split point.  Only 'transform' is
+// listed here — map and filter are dual-mode: they run extension-side when
+// they appear before the split, and daemon-side when they follow a transform.
 export const DAEMON_STEPS = ['transform'] as const;
 export type DaemonStepType = (typeof DAEMON_STEPS)[number];
 

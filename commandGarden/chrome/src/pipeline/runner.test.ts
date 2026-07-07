@@ -145,6 +145,53 @@ describe('PipelineRunner', () => {
     expect(result.data).toEqual(mockRows);
   });
 
+  it('fetch step with dataPath: content-script unwraps, runner receives array', async () => {
+    // Content-script handles dataPath unwrapping; runner sees the resulting array
+    const unwrappedItems = [{ name: 'Article 1' }, { name: 'Article 2' }];
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue(unwrappedItems),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'fetch', url: 'https://example.com/feed.json', dataPath: 'items' },
+    ] as unknown as import('@commandgarden/shared').PipelineStep[]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual([{ name: 'Article 1' }, { name: 'Article 2' }]);
+  });
+
+  it('fetch step with dot-separated dataPath: content-script unwraps nested path', async () => {
+    // Content-script resolves dot-separated dataPath; runner sees the resulting array
+    const unwrappedResults = [{ id: 1 }, { id: 2 }];
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue(unwrappedResults),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'fetch', url: 'https://example.com/api', dataPath: 'data.results' },
+    ] as unknown as import('@commandgarden/shared').PipelineStep[]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it('fetch step with dataPath: content-script returns [] when path not found', async () => {
+    // Content-script returns [] for missing dataPath; runner sees empty array
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue([]),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'fetch', url: 'https://example.com/api', dataPath: 'items' },
+    ] as unknown as import('@commandgarden/shared').PipelineStep[]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual([]);
+  });
+
   it('returns error result on step failure', async () => {
     const adapter = mockAdapter({
       navigateTab: vi.fn().mockRejectedValue(new Error('Tab error')),

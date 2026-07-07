@@ -252,8 +252,9 @@ Executes a `fetch()` call from the page's content script with `credentials: 'inc
 | `headers` | object | no | — | Request headers. Values support `${{ }}` expressions. |
 | `body` | string | no | — | Request body. Supports `${{ }}` expressions. |
 | `as` | string | no | — | Variable name to store the response |
+| `dataPath` | string | no | — | Dot-separated path to a nested array in the response (e.g. `"items"`, `"data.results"`) |
 
-If the response is a JSON array and `as` is not set, the array becomes pipeline data. If `as` is set, the full response is stored as a variable.
+If the response is a JSON array and `as` is not set, the array becomes pipeline data. If `as` is set, the full response is stored as a variable. If the response is a wrapper object (not an array) and `dataPath` is set, the runner drills into the response at the given path and uses the nested array as pipeline data.
 
 **Capability:** `cookie_read` (medium risk)
 **Output:** Sets pipeline data (if array) or stores in `vars.<as>`
@@ -387,6 +388,7 @@ Runs a named data transformation **server-side in the daemon** (not in the brows
 | Name | Input | Output | Description |
 |---|---|---|---|
 | `html_to_markdown` | HTML string | Markdown string | Converts HTML to Markdown (headings, code blocks, tables, lists, links preserved) |
+| `json_unwrap` | JSON object (var) | Array → pipeline data | Extracts a nested array from a JSON wrapper object by dot-separated path |
 | `split_metadata` | Delimited string | Record of named fields | Splits a string by delimiter into named fields |
 
 **`split_metadata` options:**
@@ -404,6 +406,19 @@ Runs a named data transformation **server-side in the daemon** (not in the brows
 ```
 
 When `split_metadata` runs, each named field is stored as a separate variable (e.g., `vars.author`, `vars.lastUpdated`), not as a single object.
+
+**`json_unwrap` options:**
+
+```yaml
+- step: transform
+  type: json_unwrap
+  input: feed
+  as: _data
+  options:
+    path: "items"
+```
+
+When `json_unwrap` runs, it drills into the input variable at the dot-separated `path` and sets the result as pipeline data. Use this when a `fetch` step returns a wrapper object (e.g., `{ "items": [...] }`) instead of a plain array.
 
 **Capability:** None (runs server-side)
 **Pipeline ordering:** All `transform` steps must come after all browser-side steps. The daemon splits the pipeline at the first `transform` step — everything before runs in the extension, everything after runs in the daemon.
