@@ -194,26 +194,33 @@ export default function Guide() {
       )}
 
       {!allDone && connectors.length > 0 && (
-        <>
-          <h3 className="font-display text-base font-semibold mb-3">Available connectors</h3>
-          <div className="space-y-3">
+        <div className="border-t border-base-300 pt-6">
+          <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em] mb-4">Installed connectors</div>
+          <div className="space-y-4">
             {grouped.map(([site, siteConnectors]) => (
               <div key={site}>
-                <span className="font-mono font-semibold text-sm">{site}</span>
-                <div className="flex flex-wrap gap-2 mt-1">
+                <div className="font-mono font-semibold text-sm mb-1.5">{site}</div>
+                <div className="space-y-1">
                   {siteConnectors.map((c) => {
                     const name = c.key.split('/')[1];
                     return (
-                      <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-ghost">
-                        <span className="font-mono">{name}</span>
-                      </Link>
+                      <div key={c.key}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono text-sm">{name}</span>
+                          <Badge size="xs">{c.access}</Badge>
+                        </div>
+                        {c.description && <div className="text-xs opacity-40 mb-1">{c.description}</div>}
+                      </div>
                     );
                   })}
                 </div>
               </div>
             ))}
           </div>
-        </>
+          <Link to="/connectors" className="inline-flex items-center gap-1 font-mono text-xs mt-5 opacity-50 hover:opacity-80 transition-opacity">
+            View all connectors →
+          </Link>
+        </div>
       )}
     </div>
   );

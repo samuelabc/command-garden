@@ -12,6 +12,8 @@ import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
 import SecurityNews from './pages/SecurityNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
+import Architecture from './pages/Architecture';
+import ApiReference from './pages/ApiReference';
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
@@ -101,6 +103,8 @@ function Layout() {
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Help</div>
           <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
+          <NavLink to="/architecture" className={navClass}>Architecture</NavLink>
+          <NavLink to="/api-reference" className={navClass}>API & CLI</NavLink>
         </nav>
         <div className="px-3 py-2.5 border-t border-base-300">
           <div className="flex items-center gap-2 text-xs font-mono">
@@ -136,6 +140,8 @@ export default function App() {
           <Route path="apps/journal" element={<Journal />} />
           <Route path="apps/security-news" element={<SecurityNews />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
+          <Route path="architecture" element={<Architecture />} />
+          <Route path="api-reference" element={<ApiReference />} />
         </Route>
       </Routes>
     </BrowserRouter>
