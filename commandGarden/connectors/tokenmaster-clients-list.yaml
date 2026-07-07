@@ -7,8 +7,8 @@ access: read
 vars:
   domains:
     emea: tma.query.api.dvb.corpinter.net
-    amap: tma.query.api.amap.corpinter.net
-    cn: tma.query.api.cn.corpinter.net
+    amap: tma.query.api.am.dvb.corpinter.net
+    cn: tma.query.api.dvb.corpinter.net.cn
 
 args:
   - name: region
@@ -16,12 +16,12 @@ args:
     required: false
     default: "all"
     enum: [emea, amap, cn]
-    help: "Region (emea, amap, cn, or 'all' for all regions)"
+    help: "Region to query (emea, amap, cn, or 'all' for fan-out). Default: all"
 
 domains:
   - "tma.query.api.dvb.corpinter.net"
-  - "tma.query.api.amap.corpinter.net"
-  - "tma.query.api.cn.corpinter.net"
+  - "tma.query.api.am.dvb.corpinter.net"
+  - "tma.query.api.dvb.corpinter.net.cn"
 capabilities:
   - navigate
   - cookie_read
@@ -38,7 +38,7 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://${{ args.region | lookup(vars.domains) }}/"
+    url: "https://${{ args.region | lookup(vars.domains) }}/v1/clients"
   - step: wait
     selector: "body"
     timeout: 30000

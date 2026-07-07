@@ -162,8 +162,19 @@ This connector navigates to the timetracking portal, fetches the monthly report 
 ### TokenMaster clients
 
 ```bash
+# List clients from all regions (default)
 cg run tokenmaster/clients-list --format table
+
+# List clients from a specific region
+cg run tokenmaster/clients-list --region emea --format table
+cg run tokenmaster/clients-list --region amap --format table
+cg run tokenmaster/clients-list --region cn --format table
+
+# Explicitly list from all regions (same as default)
+cg run tokenmaster/clients-list --region all --format table
 ```
+
+The `--region` argument accepts `emea`, `amap`, `cn`, or `all` (default). When set to `all`, the daemon **fans out** — it runs the pipeline once per region sequentially, merges the results, and prepends a `region` column to the output so you can tell which region each client belongs to.
 
 This connector calls the TokenMaster API (`/v1/clients`) using your browser session cookies — no JS evaluation, no DOM scraping. It's the first **declarative-only** connector: the pipeline uses `navigate → wait → fetch → map` with `cookie_read` capability.
 
@@ -524,6 +535,7 @@ node cli/dist/main.js list
 node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
 node cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node cli/dist/main.js run tokenmaster/clients-list --format table
+node cli/dist/main.js run tokenmaster/clients-list --region emea --format table
 node cli/dist/main.js run gcs/kb-pages --format table
 node cli/dist/main.js run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
 ```
