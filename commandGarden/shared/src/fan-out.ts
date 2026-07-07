@@ -5,6 +5,25 @@ export type FanOutResult =
   | { isFanOut: true; fanOutArgName: string; argSets: Record<string, string>[] };
 
 /**
+ * Fill in default values for any arg definitions that have a default
+ * but are missing from the provided args.
+ * Numeric/boolean defaults are coerced to strings since all args are
+ * string-valued at the wire level.
+ */
+export function applyArgDefaults(
+  args: Record<string, string>,
+  argDefs: ConnectorArg[],
+): Record<string, string> {
+  const result = { ...args };
+  for (const def of argDefs) {
+    if (def.default != null && !(def.name in result)) {
+      result[def.name] = String(def.default);
+    }
+  }
+  return result;
+}
+
+/**
  * Expand "all" on enum args into multiple arg sets for sequential fan-out.
  * If no enum arg has the value "all", returns the original args as a single-item array.
  * Only one arg can fan out per invocation (first match wins).
@@ -21,11 +40,11 @@ export function expandFanOut(
     return {
       isFanOut: true,
       fanOutArgName: def.name,
-      argSets: def.enum.map(enumVal => ({ ...args, [def.name]: enumVal })),
+      argSets: def.enum.map(enumVal => applyArgDefaults({ ...args, [def.name]: enumVal }, argDefs)),
     };
   }
 
-  return { isFanOut: false, argSets: [args] };
+  return { isFanOut: false, argSets: [applyArgDefaults(args, argDefs)] };
 }
 
 /**

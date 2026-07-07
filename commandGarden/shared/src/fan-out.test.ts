@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandFanOut, validateEnumArgs } from './fan-out.js';
+import { applyArgDefaults, expandFanOut, validateEnumArgs } from './fan-out.js';
 import type { ConnectorArg } from './connector.js';
 
 const REGION_ARG: ConnectorArg = {
@@ -29,7 +29,7 @@ describe('expandFanOut', () => {
     expect(result.argSets).toEqual([{ region: 'emea' }]);
   });
 
-  it('expands "all" into one arg set per enum value', () => {
+  it('expands "all" into one arg set per enum value (with defaults applied)', () => {
     const result = expandFanOut({ region: 'all' }, [REGION_ARG]);
     expect(result.isFanOut).toBe(true);
     if (!result.isFanOut) throw new Error('expected fan-out');
@@ -59,6 +59,16 @@ describe('expandFanOut', () => {
     ]);
   });
 
+  it('applies defaults to non-fan-out argSets', () => {
+    const regionWithDefault: ConnectorArg = {
+      name: 'region', type: 'string', required: false,
+      default: 'emea', enum: ['emea', 'amap', 'cn'],
+    };
+    const result = expandFanOut({}, [regionWithDefault]);
+    expect(result.isFanOut).toBe(false);
+    expect(result.argSets).toEqual([{ region: 'emea' }]);
+  });
+
   it('only fans out the first matching enum arg', () => {
     const secondEnum: ConnectorArg = {
       name: 'env',
@@ -72,6 +82,16 @@ describe('expandFanOut', () => {
     expect(result.fanOutArgName).toBe('region');
   });
 
+  it('applies region default when clientid is provided but region is not', () => {
+    const argDefs: ConnectorArg[] = [
+      { name: 'clientid', type: 'string', required: true },
+      { name: 'region', type: 'string', required: false, default: 'emea', enum: ['emea', 'amap', 'cn'] },
+    ];
+    const result = expandFanOut({ clientid: 'abc-123' }, argDefs);
+    expect(result.isFanOut).toBe(false);
+    expect(result.argSets).toEqual([{ clientid: 'abc-123', region: 'emea' }]);
+  });
+
   it('returns isFanOut=false for empty args and no default', () => {
     const noDefault: ConnectorArg = {
       name: 'region',
@@ -81,6 +101,37 @@ describe('expandFanOut', () => {
     };
     const result = expandFanOut({}, [noDefault]);
     expect(result.isFanOut).toBe(false);
+  });
+});
+
+describe('applyArgDefaults', () => {
+  it('fills in missing args that have defaults', () => {
+    const argDefs: ConnectorArg[] = [
+      { name: 'region', type: 'string', required: false, default: 'emea' },
+      { name: 'month', type: 'string', required: true },
+    ];
+    expect(applyArgDefaults({}, argDefs)).toEqual({ region: 'emea' });
+  });
+
+  it('does not override user-provided values', () => {
+    const argDefs: ConnectorArg[] = [
+      { name: 'region', type: 'string', required: false, default: 'emea' },
+    ];
+    expect(applyArgDefaults({ region: 'cn' }, argDefs)).toEqual({ region: 'cn' });
+  });
+
+  it('converts numeric defaults to strings', () => {
+    const argDefs: ConnectorArg[] = [
+      { name: 'limit', type: 'number', required: false, default: 10 },
+    ];
+    expect(applyArgDefaults({}, argDefs)).toEqual({ limit: '10' });
+  });
+
+  it('preserves all existing args', () => {
+    const argDefs: ConnectorArg[] = [
+      { name: 'region', type: 'string', required: false, default: 'emea' },
+    ];
+    expect(applyArgDefaults({ clientid: 'abc' }, argDefs)).toEqual({ clientid: 'abc', region: 'emea' });
   });
 });
 

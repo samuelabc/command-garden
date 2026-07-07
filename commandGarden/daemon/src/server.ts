@@ -209,10 +209,24 @@ export async function createServer(deps: ServerDeps) {
       ? createHash('sha256').update(meta.yamlContent).digest('hex').slice(0, 16)
       : undefined;
     const startTime = Date.now();
+
+    // Fan-out: expand "all" on enum args into sequential runs
+    const fanOut = expandFanOut(body.args as Record<string, string>, connector.args ?? []);
+
+    if (fanOut.isFanOut && requiresApproval) {
+      reply.code(400).send({
+        ok: false,
+        error: 'Fan-out (--region all) is not supported with approval-required connectors. Specify a single region.',
+      });
+      return;
+    }
+
+    const resolvedArgs = fanOut.argSets[0];
+
     try {
       deps.auditStore.insert(createAuditEvent({
         type: 'command.start', connector: body.connector, user,
-        args: body.args as Record<string, string>,
+        args: fanOut.isFanOut ? body.args as Record<string, string> : resolvedArgs,
         domains: connector.domains, capabilities: [...connector.capabilities],
         correlationId, connectorHash,
       }));
@@ -220,8 +234,7 @@ export async function createServer(deps: ServerDeps) {
       reply.code(500).send({ ok: false, error: 'Audit system unavailable \u2014 command blocked' }); return;
     }
 
-    const runPipeline = async (requestId: string, argsOverride?: Record<string, string | number | boolean>) => {
-      const runArgs = argsOverride ?? body.args;
+    const runPipeline = async (requestId: string, runArgs: Record<string, string>) => {
       try {
         // Split pipeline: extension steps run in browser, daemon steps run here
         const { extensionSteps, daemonSteps } = splitPipeline(connector.pipeline);
@@ -254,7 +267,7 @@ export async function createServer(deps: ServerDeps) {
         deps.auditStore.insert(createAuditEvent({
           type: resp.ok ? 'command.success' : 'command.error',
           connector: body.connector, user,
-          args: runArgs as Record<string, string>,
+          args: runArgs,
           domains: connector.domains, capabilities: [...connector.capabilities],
           rowCount: finalData.length,
           columns: connector.columns?.map(c => c.name),
@@ -272,23 +285,12 @@ export async function createServer(deps: ServerDeps) {
         const error = err instanceof Error ? err.message : 'Unknown error';
         deps.auditStore.insert(createAuditEvent({
           type: 'command.error', connector: body.connector, user,
-          args: runArgs as Record<string, string>, durationMs, error,
+          args: runArgs, durationMs, error,
           correlationId, connectorHash,
         }));
         return { ok: false, data: [], error, durationMs, requestId, requiresApproval };
       }
     };
-
-    // Fan-out: expand "all" on enum args into sequential runs
-    const fanOut = expandFanOut(body.args as Record<string, string>, connector.args ?? []);
-
-    if (fanOut.isFanOut && requiresApproval) {
-      reply.code(400).send({
-        ok: false,
-        error: 'Fan-out (--region all) is not supported with approval-required connectors. Specify a single region.',
-      });
-      return;
-    }
 
     if (fanOut.isFanOut) {
       const { fanOutArgName } = fanOut;
@@ -327,7 +329,7 @@ export async function createServer(deps: ServerDeps) {
     if (requiresApproval) {
       const requestId = randomUUID();
       sse.waitForConnection(requestId, SSE_CONNECT_TIMEOUT_MS)
-        .then(() => runPipeline(requestId))
+        .then(() => runPipeline(requestId, resolvedArgs))
         .then(result => {
           sse.send(requestId, 'result', result);
           sse.remove(requestId);
@@ -336,7 +338,7 @@ export async function createServer(deps: ServerDeps) {
           const durationMs = Date.now() - startTime;
           deps.auditStore.insert(createAuditEvent({
             type: 'command.error', connector: body.connector, user,
-            args: body.args as Record<string, string>, durationMs,
+            args: resolvedArgs, durationMs,
             error: err instanceof Error ? err.message : 'SSE timeout',
           }));
         });
@@ -345,7 +347,7 @@ export async function createServer(deps: ServerDeps) {
         connector: body.connector,
       });
     } else {
-      const result = await runPipeline('');
+      const result = await runPipeline('', resolvedArgs);
       if (!result.ok) {
         reply.code(500).send(result); return;
       }

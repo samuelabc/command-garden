@@ -1,0 +1,62 @@
+site: tokenmaster
+name: client-trustedby
+version: "2.0"
+description: "List the clients that trust a given client in TokenMaster"
+access: read
+
+vars:
+  domains:
+    emea: tma.query.api.dvb.corpinter.net
+    amap: tma.query.api.am.dvb.corpinter.net
+    cn: tma.query.api.dvb.corpinter.net.cn
+
+args:
+  - name: clientid
+    type: string
+    required: true
+    help: "The client ID to look up trustedby relationships for"
+  - name: region
+    type: string
+    required: false
+    default: "emea"
+    enum: [emea, amap, cn]
+    help: "Region to query (emea, amap, cn, or 'all' for fan-out). Default: emea"
+
+domains:
+  - "tma.query.api.dvb.corpinter.net"
+  - "tma.query.api.am.dvb.corpinter.net"
+  - "tma.query.api.dvb.corpinter.net.cn"
+capabilities:
+  - navigate
+  - cookie_read
+
+columns:
+  - name: id
+    type: string
+  - name: name
+    type: string
+  - name: is_onboard_client
+    type: boolean
+  - name: idDisplay
+    type: string
+  - name: expiry_date
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://${{ args.region | lookup(vars.domains) }}/v2/clients/${{ args.clientid }}/trustedby"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: fetch
+    url: "https://${{ args.region | lookup(vars.domains) }}/v2/clients/${{ args.clientid }}/trustedby"
+    method: "GET"
+    headers:
+      Accept: "application/json"
+  - step: map
+    fields:
+      id: "${{ row.id }}"
+      name: "${{ row.name }}"
+      is_onboard_client: "${{ row.is_onboard_client }}"
+      idDisplay: "${{ row.idDisplay }}"
+      expiry_date: "${{ row.expiry_date }}"

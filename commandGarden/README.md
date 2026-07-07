@@ -145,6 +145,7 @@ CONNECTOR                      ACCESS  DOMAINS                      CAPABILITIES
 timetracking/report            read    timetracking.mercedes…       navigate, js_evaluate
 teams/room-availability        read    outlook.cloud.microsoft.…    navigate, js_evaluate
 tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, cookie_read
+tokenmaster/client-trustedby   read    tma.query.api.dvb.corp…      navigate, cookie_read
 gcs/kb-pages                   read    pages.i.mercedes-benz.com    navigate, js_evaluate
 gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, js_evaluate
 ```
@@ -177,6 +178,18 @@ cg run tokenmaster/clients-list --region all --format table
 The `--region` argument accepts `emea`, `amap`, `cn`, or `all` (default). When set to `all`, the daemon **fans out** — it runs the pipeline once per region sequentially, merges the results, and prepends a `region` column to the output so you can tell which region each client belongs to.
 
 This connector calls the TokenMaster API (`/v1/clients`) using your browser session cookies — no JS evaluation, no DOM scraping. It's the first **declarative-only** connector: the pipeline uses `navigate → wait → fetch → map` with `cookie_read` capability.
+
+### TokenMaster client trustedby
+
+```bash
+# List clients that trust a given client
+cg run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --format table
+
+# Query a different region
+cg run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --region amap --format table
+```
+
+This connector calls the TokenMaster API (`/v2/clients/{clientid}/trustedby`) to retrieve the list of clients that trust a given client. Returns `id`, `name`, `is_onboard_client`, `idDisplay`, and `expiry_date`. Same declarative `navigate → wait → fetch → map` pipeline as `clients-list`.
 
 ### Room availability (Teams/Outlook)
 
@@ -536,6 +549,7 @@ node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --for
 node cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node cli/dist/main.js run tokenmaster/clients-list --format table
 node cli/dist/main.js run tokenmaster/clients-list --region emea --format table
+node cli/dist/main.js run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --format table
 node cli/dist/main.js run gcs/kb-pages --format table
 node cli/dist/main.js run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
 ```

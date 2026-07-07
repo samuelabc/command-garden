@@ -92,6 +92,7 @@ export {
 
 // Fan-out
 export {
+  applyArgDefaults,
   expandFanOut,
   validateEnumArgs,
   type FanOutResult,
