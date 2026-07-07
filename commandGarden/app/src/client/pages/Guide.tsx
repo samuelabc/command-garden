@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { api, type Connector } from '../api';
+import { api, groupBySite, type Connector } from '../api';
 import { Badge } from '../components/Badge';
 
 const CHECK_ICON = (
@@ -107,6 +107,8 @@ export default function Guide() {
   const totalCount = steps.length;
   const allDone = doneCount === totalCount;
 
+  const grouped = useMemo(() => groupBySite(connectors), [connectors]);
+
   return (
     <div className="max-w-3xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-1">Setup Guide</h2>
@@ -171,16 +173,22 @@ export default function Guide() {
       {allDone && connectors.length > 0 && (
         <div className="border border-success/30 bg-success/5 p-5">
           <p className="font-semibold text-success mb-3">Everything's ready. Pick a connector to try.</p>
-          <div className="flex flex-wrap gap-2">
-            {connectors.map((c) => {
-              const [site, name] = c.key.split('/');
-              return (
-                <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-outline">
-                  <span className="font-mono">{name}</span>
-                  <span className="opacity-50 font-normal ml-1">{site}</span>
-                </Link>
-              );
-            })}
+          <div className="space-y-3">
+            {grouped.map(([site, siteConnectors]) => (
+              <div key={site}>
+                <span className="font-mono font-semibold text-sm">{site}</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {siteConnectors.map((c) => {
+                    const name = c.key.split('/')[1];
+                    return (
+                      <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-outline">
+                        <span className="font-mono">{name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -188,16 +196,22 @@ export default function Guide() {
       {!allDone && connectors.length > 0 && (
         <>
           <h3 className="font-display text-base font-semibold mb-3">Available connectors</h3>
-          <div className="flex flex-wrap gap-2">
-            {connectors.map((c) => {
-              const [site, name] = c.key.split('/');
-              return (
-                <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-ghost">
-                  <span className="font-mono">{name}</span>
-                  <span className="opacity-40 font-normal ml-1">{site}</span>
-                </Link>
-              );
-            })}
+          <div className="space-y-3">
+            {grouped.map(([site, siteConnectors]) => (
+              <div key={site}>
+                <span className="font-mono font-semibold text-sm">{site}</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {siteConnectors.map((c) => {
+                    const name = c.key.split('/')[1];
+                    return (
+                      <Link key={c.key} to={`/connectors/${site}/${name}`} className="btn btn-sm btn-ghost">
+                        <span className="font-mono">{name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}

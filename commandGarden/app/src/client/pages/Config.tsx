@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Fragment, useEffect, useState, useCallback, useMemo } from 'react';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
-import { api, type Connector } from '../api';
+import { api, groupBySite, type Connector } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 const RESTART_REQUIRED_KEYS = new Set(['daemon.host', 'daemon.port', 'app.port']);
@@ -357,59 +357,71 @@ function ConnectorSecuritySection({ config, connectors, actions }: {
 }) {
   const { updateField, addToArray, removeFromArray } = actions;
   const highRiskCaps = new Set(config.security.highRiskCapabilities);
+  const grouped = useMemo(() => groupBySite(connectors), [connectors]);
 
   return (
     <SectionCard title="Connector Security" description="Manage which connectors are approved and which capabilities require approval">
-      {/* Per-connector table */}
+      {/* Per-connector table grouped by site */}
       {connectors.length > 0 && (
-        <div className="overflow-x-auto mb-4">
-          <table className="table table-sm">
-            <thead>
-              <tr>
-                <th>Connector</th>
-                <th>Capabilities</th>
-                <th>Risk</th>
-                <th>Approved</th>
-                <th>Auto-Approve</th>
-              </tr>
-            </thead>
-            <tbody>
-              {connectors.map(c => {
-                const isHighRisk = c.capabilities.some(cap => highRiskCaps.has(cap));
-                const isApproved = config.security.approvedHighRisk.includes(c.key);
-                const isAutoApproved = config.security.autoApproveConnectors.includes(c.key);
-                return (
-                  <tr key={c.key}>
-                    <td className="font-mono text-sm">{c.key}</td>
-                    <td>
-                      <div className="flex flex-wrap gap-1">
-                        {c.capabilities.map(cap => (
-                          <Badge key={cap} variant={highRiskCaps.has(cap) ? 'warning' : 'neutral'} size="xs">{cap}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td>{isHighRisk ? <Badge variant="warning" size="xs">High</Badge> : <span className="opacity-40">—</span>}</td>
-                    <td>
-                      {isHighRisk ? (
-                        <input type="checkbox" className="toggle toggle-sm toggle-success" checked={isApproved}
-                          onChange={() => isApproved
-                            ? removeFromArray('security', 'approvedHighRisk', c.key)
-                            : addToArray('security', 'approvedHighRisk', c.key)} />
-                      ) : <span className="opacity-40">—</span>}
-                    </td>
-                    <td>
-                      <input type="checkbox" className="toggle toggle-sm" checked={isAutoApproved}
-                        title="Skip approval prompts — pipeline steps execute without confirmation"
-                        onChange={() => isAutoApproved
-                          ? removeFromArray('security', 'autoApproveConnectors', c.key)
-                          : addToArray('security', 'autoApproveConnectors', c.key)} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+          <div className="overflow-x-auto mb-4">
+            <table className="table table-sm">
+              <thead>
+                <tr>
+                  <th>Connector</th>
+                  <th>Capabilities</th>
+                  <th>Risk</th>
+                  <th>Approved</th>
+                  <th>Auto-Approve</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grouped.map(([site, siteConnectors]) => (
+                  <Fragment key={site}>
+                    <tr>
+                      <td colSpan={5} className="bg-base-200/50 font-mono font-semibold text-xs pt-3 pb-1">
+                        {site}
+                        <span className="font-normal opacity-40 ml-2">{siteConnectors.length} {siteConnectors.length === 1 ? 'connector' : 'connectors'}</span>
+                      </td>
+                    </tr>
+                    {siteConnectors.map(c => {
+                      const name = c.key.split('/')[1];
+                      const isHighRisk = c.capabilities.some(cap => highRiskCaps.has(cap));
+                      const isApproved = config.security.approvedHighRisk.includes(c.key);
+                      const isAutoApproved = config.security.autoApproveConnectors.includes(c.key);
+                      return (
+                        <tr key={c.key}>
+                          <td className="font-mono text-sm pl-6">{name}</td>
+                          <td>
+                            <div className="flex flex-wrap gap-1">
+                              {c.capabilities.map(cap => (
+                                <Badge key={cap} variant={highRiskCaps.has(cap) ? 'warning' : 'neutral'} size="xs">{cap}</Badge>
+                              ))}
+                            </div>
+                          </td>
+                          <td>{isHighRisk ? <Badge variant="warning" size="xs">High</Badge> : <span className="opacity-40">—</span>}</td>
+                          <td>
+                            {isHighRisk ? (
+                              <input type="checkbox" className="toggle toggle-sm toggle-success" checked={isApproved}
+                                onChange={() => isApproved
+                                  ? removeFromArray('security', 'approvedHighRisk', c.key)
+                                  : addToArray('security', 'approvedHighRisk', c.key)} />
+                            ) : <span className="opacity-40">—</span>}
+                          </td>
+                          <td>
+                            <input type="checkbox" className="toggle toggle-sm" checked={isAutoApproved}
+                              title="Skip approval prompts — pipeline steps execute without confirmation"
+                              onChange={() => isAutoApproved
+                                ? removeFromArray('security', 'autoApproveConnectors', c.key)
+                                : addToArray('security', 'autoApproveConnectors', c.key)} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
       )}
 
       {/* Capability-level policy */}
