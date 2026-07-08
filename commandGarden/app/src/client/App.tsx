@@ -11,12 +11,12 @@ import Guide from './pages/Guide';
 import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
-import Saba from './pages/Saba';
 import SecurityNews from './pages/SecurityNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
 import Architecture from './pages/Architecture';
 import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
+import Overview from './pages/Overview';
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
@@ -173,12 +173,12 @@ function Layout() {
         <nav className="flex-1 px-2 py-2 space-y-px overflow-y-auto">
           <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Overview</div>
           <NavLink to="/" end className={navClass}>Dashboard</NavLink>
+          <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Apps</div>
           <NavLink to="/apps/timetracking" className={navClass}>Time Tracking</NavLink>
           <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
           <NavLink to="/apps/journal" className={navClass}>Dev Journal</NavLink>
-          <NavLink to="/apps/saba" className={navClass}>Saba Training</NavLink>
           <NavLink to="/apps/security-news" className={navClass}>Security News</NavLink>
           <NavLink to="/apps/trusted-peer-expiry" className={navClass}>Trusted Peer Expiry</NavLink>
 
@@ -187,11 +187,11 @@ function Layout() {
           <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
           <NavItemWithSections to="/config" label="Configuration" sections={PAGE_SECTIONS['/config']} />
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Help</div>
-          <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
-          <NavLink to="/skills" className={navClass}>Skills</NavLink>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Reference</div>
+          <NavLink to="/why" className={navClass}>Why commandGarden</NavLink>
           <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
           <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
+          <NavLink to="/skills" className={navClass}>Skills</NavLink>
         </nav>
         <div className="px-3 py-2.5 border-t border-base-300">
           <div className="flex items-center gap-2 text-xs font-mono">
@@ -225,12 +225,12 @@ export default function App() {
           <Route path="apps/timetracking" element={<Timetracking />} />
           <Route path="apps/rooms" element={<Rooms />} />
           <Route path="apps/journal" element={<Journal />} />
-          <Route path="apps/saba" element={<Saba />} />
           <Route path="apps/security-news" element={<SecurityNews />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
           <Route path="architecture" element={<Architecture />} />
           <Route path="api-reference" element={<ApiReference />} />
           <Route path="skills" element={<Skills />} />
+          <Route path="why" element={<Overview />} />
         </Route>
       </Routes>
     </BrowserRouter>
