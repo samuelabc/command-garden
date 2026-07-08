@@ -1,6 +1,6 @@
 // src/resolve-script.ts
 import { join, dirname } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
@@ -20,8 +20,12 @@ export function resolveScript(
 ): string {
   const looked: string[] = [];
 
+  // Resolve symlinks/junctions so Windows npm-link junctions point to the real monorepo path
+  let resolvedBase = baseDir;
+  try { resolvedBase = realpathSync(baseDir); } catch { /* use original if resolution fails */ }
+
   // 1. Relative path — works inside the monorepo
-  const relative = join(baseDir, relativePath);
+  const relative = join(resolvedBase, relativePath);
   if (existsSync(relative)) return relative;
   looked.push(`  - ${relative}  (relative — not found)`);
 

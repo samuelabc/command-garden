@@ -592,6 +592,8 @@ npm link --workspace=cli
 
 After linking, use `cg` commands as documented in the [Setup](#setup) section.
 
+> **Windows note:** `npm link` creates a directory junction. Node.js ESM may not resolve junctions when computing `import.meta.url`, causing the CLI to find sibling packages (daemon, app) via package resolution instead of the relative monorepo path. If the daemon fails with `ERR_MODULE_NOT_FOUND`, ensure `resolve-script.ts` uses `realpathSync` to resolve the junction before computing relative paths (this is the current behavior). Always **rebuild before re-linking**: `npm run build && cd cli && npm link`.
+
 ### GUI development
 
 ```bash

@@ -17,5 +17,6 @@
 - [x] Connector Authoring Guide — `docs/connector-authoring.md` with pipeline patterns, debugging techniques, and common pitfalls
 - [x] Code review fixes — formalized `row` in `ExprContext`, removed fragile connector count assertion, added missing-field edge-case test, cleaned up stray `yarn.lock`, improved docs
 - [x] Wiz blog security connector (`wiz/blog-security`) — Next.js `__NEXT_DATA__` extraction pattern, 13 posts, documented Pattern 4 + IIFE pitfall in `docs/connector-authoring.md`
+- [x] Bugfix: `cg up` ERR_MODULE_NOT_FOUND for `turndown` on Windows — added `realpathSync` to `resolveScript` so Windows junctions from `npm link` resolve to the real monorepo path (107 CLI tests passing)
 
 See `TODO_ARCHIVE.md` for completed work.
