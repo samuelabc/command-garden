@@ -161,10 +161,10 @@ function Layout() {
       )}
 
       <aside className={`w-56 bg-base-100 border-r border-base-300 flex flex-col fixed top-0 left-0 bottom-0 z-40 transition-transform duration-150 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="flex items-center justify-between px-3 py-3 border-b border-base-300">
+        <div className="flex items-start justify-between px-3 py-3 border-b border-base-300">
           <Link to="/" className="hover:opacity-80 transition-opacity">
-            <h1 className="font-display text-base font-bold tracking-tight"><span className="font-normal opacity-60">command</span>Garden</h1>
-            <p className="font-mono text-[0.6rem] opacity-40 mt-0.5 uppercase tracking-widest">browser automation</p>
+            <h1 className="font-display text-lg font-bold tracking-tight"><span className="font-normal opacity-50">command</span>Garden</h1>
+            <p className="font-mono text-[0.65rem] opacity-30 mt-1 uppercase tracking-[0.14em]">browser automation</p>
           </Link>
           <button
             className="btn btn-ghost btn-sm btn-square"

@@ -243,6 +243,13 @@ export default function TrustedPeerExpiry() {
     <div className="max-w-5xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Trusted Peer Expiry</h2>
 
+      {/* Last fetched indicator */}
+      {fetchedAt && !loading && (
+        <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-3">
+          {isCached ? 'Showing cached data from' : 'Last fetched'} {timeAgo(fetchedAt)}
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-6">
         <label className="form-control w-full sm:w-auto">
           <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Region</span>
@@ -333,13 +340,6 @@ export default function TrustedPeerExpiry() {
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* Last fetched indicator */}
-      {fetchedAt && !loading && (
-        <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mt-3">
-          {isCached ? 'Showing cached data from' : 'Last fetched'} {timeAgo(fetchedAt)}
         </div>
       )}
 
