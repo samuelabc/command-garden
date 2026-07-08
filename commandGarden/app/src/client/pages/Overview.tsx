@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Terminal, Globe, FileText, Server, Shield, Database, Layout, Clock, DoorOpen, BookOpen, GraduationCap, Newspaper, KeyRound, Library, ArrowRight } from 'lucide-react';
+import { Terminal, Globe, FileText, Server, Shield, Database, Layout, Clock, DoorOpen, BookOpen, Newspaper, KeyRound, Library, ArrowRight, Lock, Eye, Fingerprint, ScrollText, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Badge } from '../components/Badge';
 
 /* ─── tiny helpers ─────────────────────────────────────────── */
 
@@ -27,87 +28,139 @@ export default function Overview() {
 
       {/* ── Section 1: Hero ─────────────────────────────────── */}
       <section className="pt-8 pb-16 border-b border-base-300">
+        <SectionKicker>Browser automation for the rest of us</SectionKicker>
         <h1
-          className="font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-4"
+          className="font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-3"
           style={{ textWrap: 'balance' } as React.CSSProperties}
         >
           Turn any website into a CLI command.
         </h1>
         <p className="text-base sm:text-lg opacity-70 max-w-[65ch] mb-8 leading-relaxed" style={{ textWrap: 'pretty' } as React.CSSProperties}>
-          commandGarden reuses your existing browser sessions to extract structured data from authenticated websites — no API keys, no service accounts, no tokens burned. One command. Structured output. Every time.
+          commandGarden reuses your existing browser sessions to extract structured data from authenticated websites. No API keys, no service accounts, no token overhead.
         </p>
+
+        {/* Mini-flow diagram */}
+        <div className="flex flex-wrap items-center gap-2 mb-8 font-mono text-xs">
+          {[
+            { label: 'cg run', color: 'border-sky-500/50 bg-sky-500/10 text-sky-700 dark:text-sky-400' },
+            { label: 'Daemon', color: 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+            { label: 'Chrome Extension', color: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
+            { label: 'Browser Tab', color: 'border-violet-500/50 bg-violet-500/10 text-violet-700 dark:text-violet-400' },
+            { label: 'Structured JSON', color: 'border-primary/50 bg-primary/10 text-primary' },
+          ].map((item, i) => (
+            <span key={item.label} className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 border font-semibold ${item.color}`}>{item.label}</span>
+              {i < 4 && <span className="opacity-30">→</span>}
+            </span>
+          ))}
+        </div>
+
         <CodeBlock>{`npm install -g @commandgarden/cli`}</CodeBlock>
       </section>
 
       {/* ── Section 2: The Problem ──────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
-        <SectionKicker>The real-world gap</SectionKicker>
+      <section id="why-problem" className="py-16 border-b border-base-300 scroll-mt-4">
+        <SectionKicker>Where the data actually lives</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">The Problem</h2>
 
-        <div className="space-y-8 mb-10">
-          <div>
-            <h3 className="font-display font-semibold mb-2">AI agents need to interact with the real world</h3>
-            <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed">
-              AI agents are powerful at reasoning and code generation, but they hit a wall when they need data from real-world systems: internal portals, enterprise tools, SaaS dashboards. These are the systems where actual work happens.
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="border border-base-300 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Globe className="w-4 h-4 text-primary" />
+              <h3 className="font-display font-semibold text-sm">Real-world data lives in browsers</h3>
+            </div>
+            <p className="text-sm opacity-70 leading-relaxed">
+              AI agents can't reach data inside internal portals, enterprise tools, and SaaS dashboards. These systems are where the work happens, but they're locked behind browser sessions.
             </p>
           </div>
 
-          <div>
-            <h3 className="font-display font-semibold mb-2">APIs are the exception, not the rule</h3>
-            <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed">
-              Not every site provides an API. When one exists, you often need a service account, manage secrets and certificates, and handle OAuth flows. Worse, the API may not expose the functionality you actually need — the data visible in the UI simply isn't available programmatically.
+          <div className="border border-base-300 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <XCircle className="w-4 h-4 text-error" />
+              <h3 className="font-display font-semibold text-sm">APIs are the exception</h3>
+            </div>
+            <p className="text-sm opacity-70 leading-relaxed">
+              Most sites don't provide APIs. When one exists, you need service accounts, managed secrets, and OAuth flows. The data visible in the UI often has no programmatic equivalent.
             </p>
           </div>
 
-          <div>
-            <h3 className="font-display font-semibold mb-2">Browser automation is expensive</h3>
-            <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed">
-              AI agents do have browser tools (Playwright, Puppeteer, etc.), but driving a browser step-by-step is slow, fragile, and token-intensive. The agent must navigate pages, parse unstructured HTML, handle auth redirects, and spend thousands of tokens per interaction just to understand what's on screen.
+          <div className="border border-base-300 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle className="w-4 h-4 text-warning" />
+              <h3 className="font-display font-semibold text-sm">Browser automation is expensive</h3>
+            </div>
+            <p className="text-sm opacity-70 leading-relaxed">
+              AI browser tools (Playwright, Puppeteer) are slow, fragile, and token-intensive. Each interaction burns tokens just to understand what's on screen, even when the page layout hasn't changed.
             </p>
           </div>
         </div>
 
-        <h3 className="font-display font-semibold text-sm mb-3">Current approaches fall short</h3>
-        <div className="overflow-x-auto border border-base-300">
-          <table className="table table-sm w-full">
-            <thead>
-              <tr className="bg-base-200">
-                <th>Approach</th>
-                <th>Strength</th>
-                <th>Limitation</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="font-mono text-sm">AI Skills</td>
-                <td className="text-sm opacity-70">Flexible, can do anything visible in the browser</td>
-                <td className="text-sm opacity-70">Loose return format. AI parses raw page data every time. Burns tokens per call.</td>
-              </tr>
-              <tr>
-                <td className="font-mono text-sm">MCP Servers</td>
-                <td className="text-sm opacity-70">Stronger contract, typed schemas</td>
-                <td className="text-sm opacity-70">Limited to what the server exposes. Agent manages auth tokens. Burns tokens per call.</td>
-              </tr>
-              <tr>
-                <td className="font-mono text-sm">Browser tools</td>
-                <td className="text-sm opacity-70">Full control of the browser</td>
-                <td className="text-sm opacity-70">Extremely slow. Thousands of tokens per page. Fragile selectors.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="text-sm opacity-50 mt-4 max-w-[65ch]">
-          All three share the same fundamental problem: the AI agent is doing the parsing work, every single time, burning tokens to understand page structure that hasn't changed.
+        <p className="text-sm opacity-50 max-w-[65ch]">
+          AI skills, MCP servers, and browser tools all share this flaw: the agent re-parses page structure on every call, repeating work that could be done once.
         </p>
       </section>
 
       {/* ── Section 3: The Solution ─────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
+      <section id="why-solution" className="py-16 border-b border-base-300 scroll-mt-4">
         <SectionKicker>How commandGarden works</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">The Solution</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-10">
-          Instead of making the AI agent figure out each website every time, we pre-define extraction recipes — called <strong className="text-base-content">connectors</strong> — that know exactly how to navigate a site and return structured data. The AI agent (or human user) just calls a CLI command and gets clean JSON back. Zero tokens spent on parsing. Zero credentials to manage.
+          Instead of making the agent figure out each website on every call, commandGarden uses pre-defined extraction recipes, called <strong className="text-base-content">connectors</strong>, that know how to navigate a site and return structured JSON. The agent (or a human) runs a single CLI command and gets back a fixed-schema response.
         </p>
+
+        {/* Before / After flow diagram */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+          <div className="border border-error/20 bg-error/[0.03] p-5">
+            <div className="font-mono text-[0.6rem] font-medium text-error/60 uppercase tracking-[0.12em] mb-4">Without commandGarden</div>
+            <div className="space-y-2.5">
+              {[
+                { label: 'AI Agent', note: 'receives task' },
+                { label: 'Browser Tool', note: 'launch headless' },
+                { label: 'Navigate + Wait', note: 'handle auth redirects' },
+                { label: 'Parse HTML', note: 'tokens for structure' },
+                { label: 'Extract Data', note: 'tokens for content' },
+                { label: 'Loose Output', note: 'varies per run' },
+              ].map((s, i) => (
+                <div key={i}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 border border-error/30 bg-error/10 flex items-center justify-center font-mono text-[0.6rem] text-error/60 shrink-0">{i + 1}</span>
+                    <span className="text-sm font-medium">{s.label}</span>
+                    <span className="text-xs opacity-40 font-mono">{s.note}</span>
+                  </div>
+                  {i < 5 && <div className="ml-2.5 w-px h-2 bg-error/20" />}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-3 border-t border-error/15 flex items-center gap-2">
+              <Badge variant="error" size="xs">thousands of tokens</Badge>
+              <span className="text-xs opacity-50">per interaction</span>
+            </div>
+          </div>
+
+          <div className="border border-primary/20 bg-primary/[0.03] p-5">
+            <div className="font-mono text-[0.6rem] font-medium text-primary/60 uppercase tracking-[0.12em] mb-4">With commandGarden</div>
+            <div className="space-y-2.5">
+              {[
+                { label: 'AI Agent', note: 'receives task' },
+                { label: 'cg run site/command', note: 'one CLI call' },
+                { label: 'Structured JSON', note: 'fixed schema' },
+              ].map((s, i) => (
+                <div key={i}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 border border-primary/30 bg-primary/10 flex items-center justify-center font-mono text-[0.6rem] text-primary/60 shrink-0">{i + 1}</span>
+                    <span className="text-sm font-medium">{s.label}</span>
+                    <span className="text-xs opacity-40 font-mono">{s.note}</span>
+                  </div>
+                  {i < 2 && <div className="ml-2.5 w-px h-2 bg-primary/20" />}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-3 border-t border-primary/15 flex items-center gap-2">
+              <Badge variant="success" size="xs">0 tokens</Badge>
+              <span className="text-xs opacity-50">parsing done locally</span>
+            </div>
+          </div>
+        </div>
 
         <div className="space-y-8 mb-12">
           <div className="flex gap-4">
@@ -115,7 +168,7 @@ export default function Overview() {
             <div>
               <h3 className="font-display font-semibold mb-1">Reuse your browser session</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">
-                commandGarden talks to a Chrome extension that runs in your already-authenticated browser. If you can see the data in Chrome, commandGarden can extract it. No credentials stored or transmitted.
+                A Chrome extension runs inside your already-authenticated browser. If you can see the data, commandGarden can extract it.
               </p>
             </div>
           </div>
@@ -125,7 +178,7 @@ export default function Overview() {
             <div>
               <h3 className="font-display font-semibold mb-1">Fixed-format parsing, done locally</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">
-                Each connector defines a pipeline that produces the same structured output every time. The parsing logic runs locally in the extension and daemon. No data leaves your machine. No AI tokens consumed.
+                Each connector defines a pipeline that produces the same structured output on every run. Parsing runs locally in the extension and daemon, so nothing leaves your machine.
               </p>
             </div>
           </div>
@@ -135,7 +188,7 @@ export default function Overview() {
             <div>
               <h3 className="font-display font-semibold mb-1">One CLI for humans and AI agents</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed mb-3">
-                The same command works whether a human types it or an AI agent calls it via a skill. Structured JSON output with declared columns, every time.
+                The same command works whether a human types it or an AI agent calls it via a skill. Same arguments, same JSON schema.
               </p>
               <CodeBlock>{`cg run timetracking/report --month 2026-06 --format json`}</CodeBlock>
             </div>
@@ -149,134 +202,211 @@ export default function Overview() {
             <thead>
               <tr className="bg-base-200">
                 <th></th>
-                <th>commandGarden</th>
+                <th className="text-primary">commandGarden</th>
                 <th>AI Skills</th>
                 <th>MCP Servers</th>
               </tr>
             </thead>
             <tbody>
-              {[
-                ['Return format', 'Fixed schema, declared columns', 'Loose, varies per run', 'Typed schema'],
-                ['Parsing cost', 'Zero tokens (local pipeline)', 'Tokens per call', 'Tokens per call'],
-                ['Auth handling', 'Reuses browser session', 'Agent navigates login flows', 'Agent manages tokens'],
-                ['Processing', 'Local only', 'Cloud / agent-side', 'Server-side'],
-                ['Privacy', 'Data stays on your machine', 'Data passes through AI', 'Data passes through server'],
-                ['Coverage', 'Any website you can see', 'Any website (expensive)', 'Only what server exposes'],
-              ].map(([label, cg, skills, mcp]) => (
+              {([
+                { label: 'Return format', cg: ['Fixed schema', 'success'], skills: ['Loose, varies', 'warning'], mcp: ['Typed schema', 'success'] },
+                { label: 'Parsing cost', cg: ['Zero tokens', 'success'], skills: ['Tokens/call', 'error'], mcp: ['Tokens/call', 'error'] },
+                { label: 'Auth handling', cg: ['Browser session', 'success'], skills: ['Agent navigates', 'warning'], mcp: ['Agent manages', 'warning'] },
+                { label: 'Processing', cg: ['Local only', 'success'], skills: ['Cloud/agent', 'warning'], mcp: ['Server-side', 'warning'] },
+                { label: 'Privacy', cg: ['Stays on machine', 'success'], skills: ['Through AI', 'error'], mcp: ['Through server', 'warning'] },
+                { label: 'Coverage', cg: ['Any website', 'success'], skills: ['Any (expensive)', 'warning'], mcp: ['Server-limited', 'error'] },
+              ] as const).map(({ label, cg, skills, mcp }) => (
                 <tr key={label}>
                   <td className="font-mono text-xs font-medium">{label}</td>
-                  <td className="text-sm text-primary font-medium">{cg}</td>
-                  <td className="text-sm opacity-60">{skills}</td>
-                  <td className="text-sm opacity-60">{mcp}</td>
+                  <td className="bg-primary/[0.03]"><Badge variant={cg[1] as 'success' | 'error' | 'warning'} size="xs">{cg[0]}</Badge></td>
+                  <td><Badge variant={skills[1] as 'success' | 'error' | 'warning'} size="xs">{skills[0]}</Badge></td>
+                  <td><Badge variant={mcp[1] as 'success' | 'error' | 'warning'} size="xs">{mcp[0]}</Badge></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="text-sm opacity-50 mt-4 max-w-[65ch]">
-          commandGarden isn't a replacement for skills or MCP — it's the engine underneath. The <span className="font-mono">cg</span> skill lets AI agents call commandGarden commands with zero overhead. Skills and MCP provide the integration layer; commandGarden handles the heavy lifting locally.
+          Skills and MCP provide the integration layer; commandGarden does the extraction and parsing locally. The <span className="font-mono">cg</span> skill lets AI agents call commandGarden commands directly.
         </p>
       </section>
 
       {/* ── Section 4: Architecture ─────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
+      <section id="why-architecture" className="py-16 border-b border-base-300 bg-base-200/30 -mx-4 px-4 md:-mx-5 md:px-5 scroll-mt-4">
+        <div className="max-w-4xl mx-auto">
         <SectionKicker>Built for security and efficiency</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Architecture</h2>
-        <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-10">
-          Every component exists for a specific reason.
+        <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
+          Every component exists for a specific reason. All communication stays on localhost.
         </p>
 
-        <div className="space-y-6 mb-10">
+        {/* SVG Architecture Diagram */}
+        <div className="border border-base-300 bg-base-100 p-5 mb-8 overflow-x-auto">
+          <svg viewBox="0 0 700 260" className="w-full text-base-content" style={{ minWidth: 560 }}>
+            <defs>
+              <marker id="why-ah" viewBox="0 0 10 8" refX="10" refY="4" markerWidth="7" markerHeight="5" orient="auto">
+                <path d="M0 0L10 4L0 8z" fill="currentColor" fillOpacity={0.3} />
+              </marker>
+              <marker id="why-ah-rev" viewBox="0 0 10 8" refX="0" refY="4" markerWidth="7" markerHeight="5" orient="auto">
+                <path d="M10 0L0 4L10 8z" fill="currentColor" fillOpacity={0.3} />
+              </marker>
+            </defs>
+
+            {/* CLI Client */}
+            <rect x={10} y={10} width={110} height={46} rx={0}
+              fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.4)" strokeWidth={1} />
+            <text x={65} y={30} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>CLI</text>
+            <text x={65} y={44} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+              fontFamily="ui-monospace,monospace">cg run ...</text>
+
+            {/* GUI */}
+            <rect x={10} y={80} width={110} height={46} rx={0}
+              fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.4)" strokeWidth={1} />
+            <text x={65} y={100} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>GUI</text>
+            <text x={65} y={114} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+              fontFamily="ui-monospace,monospace">React SPA</text>
+
+            {/* App Server */}
+            <rect x={160} y={80} width={120} height={46} rx={0}
+              fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.4)" strokeWidth={1} />
+            <text x={220} y={100} textAnchor="middle" fill="currentColor" fontSize={10} fontWeight={600}>App Server</text>
+            <text x={220} y={114} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+              fontFamily="ui-monospace,monospace">:9092</text>
+
+            {/* Daemon */}
+            <rect x={320} y={15} width={150} height={76} rx={0}
+              fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.5)" strokeWidth={1.5} />
+            <text x={395} y={40} textAnchor="middle" fill="currentColor" fontSize={13} fontWeight={700}>Daemon</text>
+            <text x={395} y={56} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+              fontFamily="ui-monospace,monospace">Fastify :9091</text>
+            <text x={395} y={78} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.25}
+              fontFamily="ui-monospace,monospace">auth · registry · audit</text>
+
+            {/* Extension */}
+            <rect x={520} y={20} width={130} height={55} rx={0}
+              fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.4)" strokeWidth={1} />
+            <text x={585} y={42} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>Extension</text>
+            <text x={585} y={58} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+              fontFamily="ui-monospace,monospace">Chrome MV3</text>
+
+            {/* Browser Tab */}
+            <rect x={530} y={160} width={120} height={46} rx={0}
+              fill="rgba(167,139,250,0.08)" stroke="rgba(167,139,250,0.4)" strokeWidth={1} />
+            <text x={590} y={180} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>Browser Tab</text>
+            <text x={590} y={194} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+              fontFamily="ui-monospace,monospace">target page</text>
+
+            {/* Data stores */}
+            <rect x={310} y={170} width={90} height={30} rx={0}
+              fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+            <text x={355} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.45}>Audit Log</text>
+
+            <rect x={410} y={170} width={80} height={30} rx={0}
+              fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+            <text x={450} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.45}>Config</text>
+
+            <rect x={160} y={170} width={90} height={30} rx={0}
+              fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
+            <text x={205} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.45}>App DB</text>
+
+            {/* Arrows */}
+            {/* CLI → Daemon */}
+            <line x1={122} y1={33} x2={318} y2={45}
+              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
+            <text x={210} y={28} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.4}
+              fontFamily="ui-monospace,monospace">HTTP</text>
+
+            {/* GUI → App Server */}
+            <line x1={122} y1={103} x2={158} y2={103}
+              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
+
+            {/* App Server → Daemon */}
+            <line x1={282} y1={96} x2={318} y2={72}
+              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
+            <text x={295} y={76} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.4}
+              fontFamily="ui-monospace,monospace">proxy</text>
+
+            {/* Daemon ↔ Extension */}
+            <line x1={472} y1={48} x2={518} y2={48}
+              stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.5}
+              markerEnd="url(#why-ah)" markerStart="url(#why-ah-rev)" />
+            <text x={495} y={38} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.4}
+              fontFamily="ui-monospace,monospace">WebSocket</text>
+
+            {/* Extension → Browser Tab */}
+            <line x1={590} y1={77} x2={590} y2={158}
+              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
+
+            {/* Daemon ↓ stores */}
+            <line x1={370} y1={93} x2={365} y2={168}
+              stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+            <line x1={430} y1={93} x2={445} y2={168}
+              stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+
+            {/* App Server ↓ App DB */}
+            <line x1={210} y1={128} x2={210} y2={168}
+              stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+          </svg>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           {[
-            {
-              icon: Terminal,
-              title: 'CLI',
-              mono: 'cg',
-              desc: 'The contact point for humans and AI agents. One command, one JSON output. Works the same whether typed in a terminal or called by a skill.',
-            },
-            {
-              icon: Globe,
-              title: 'Chrome Extension',
-              mono: null,
-              desc: 'Runs inside Chrome where you\'re already logged in. Accesses cookies, intercepts network responses, and reads page data using your existing authentication.',
-            },
-            {
-              icon: FileText,
-              title: 'Connectors',
-              mono: 'YAML',
-              desc: 'Declarative pipelines that define how to extract data from a site. Navigate → wait → extract → map. Same operations, same format, every time. No code execution by default.',
-            },
-            {
-              icon: Server,
-              title: 'Daemon',
-              mono: 'localhost:9091',
-              desc: 'The orchestrator. Validates every command against declared domains and capabilities before relaying to the extension. Never exposed to the network.',
-            },
-            {
-              icon: Shield,
-              title: 'Configuration',
-              mono: 'config.yaml',
-              desc: 'Security policy you control. Defines which domains are allowed, which capabilities require approval, and which connectors are trusted.',
-            },
-            {
-              icon: Database,
-              title: 'Audit Log',
-              mono: 'SQLite',
-              desc: 'Every command execution is logged: connector, domains, row count, step timing, approval decisions. Sensitive values automatically redacted.',
-            },
-            {
-              icon: Layout,
-              title: 'App Server + GUI',
-              mono: 'localhost:9092',
-              desc: 'React SPA with dedicated app pages, connector browsing, audit log, and configuration management. Uses the same API as the CLI.',
-            },
+            { icon: Terminal, title: 'CLI', mono: 'cg', desc: 'Contact point for humans and AI agents. One command, structured JSON output.' },
+            { icon: Server, title: 'Daemon', mono: ':9091', desc: 'Validates auth and capabilities, loads connectors, writes audit log.' },
+            { icon: Globe, title: 'Extension', mono: 'MV3', desc: 'Runs inside your authenticated Chrome. Accesses cookies and page data.' },
+            { icon: FileText, title: 'Connectors', mono: 'YAML', desc: 'Declarative pipelines: navigate → wait → extract → map. No code execution.' },
+            { icon: Database, title: 'Audit Log', mono: 'SQLite', desc: 'Every execution logged: connector, domains, timing, approvals.' },
+            { icon: Layout, title: 'GUI', mono: ':9092', desc: 'React SPA with app pages, connector browsing, and config management.' },
           ].map(({ icon: Icon, title, mono, desc }) => (
-            <div key={title} className="flex gap-4">
-              <Icon className="w-4 h-4 shrink-0 mt-1 opacity-40" />
+            <div key={title} className="flex gap-3 p-3 border border-base-300 bg-base-100">
+              <Icon className="w-4 h-4 shrink-0 mt-0.5 opacity-40" />
               <div>
-                <div className="flex items-baseline gap-2 mb-1">
+                <div className="flex items-baseline gap-1.5 mb-0.5">
                   <span className="font-display font-semibold text-sm">{title}</span>
-                  {mono && <span className="font-mono text-xs opacity-40">{mono}</span>}
+                  <span className="font-mono text-[0.65rem] opacity-40">{mono}</span>
                 </div>
-                <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">{desc}</p>
+                <p className="text-xs opacity-60 leading-relaxed">{desc}</p>
               </div>
             </div>
           ))}
         </div>
 
-        <CodeBlock>{`CLI / GUI  →  Daemon (localhost)  ←→  Chrome Extension  →  Browser Tab
-                  ↕                                            ↕
-            Audit Log (SQLite)                          Your authenticated
-            App DB (SQLite)                             browser session
-            Config (YAML)`}</CodeBlock>
+        <Link to="/architecture" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
+          Full architecture details <ArrowRight className="w-3 h-3" />
+        </Link>
+        </div>
       </section>
 
       {/* ── Section 5: Built-in Apps ────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
+      <section id="why-apps" className="py-16 border-b border-base-300 scroll-mt-4">
         <SectionKicker>Ready-to-use tools</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Built-in Apps</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
           commandGarden ships with connectors and dedicated app pages for common enterprise tasks. Each one runs entirely on your local machine using your browser session.
         </p>
 
-        <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {([
-            { icon: Clock, title: 'Time Tracking', desc: 'Monthly report with project breakdown and summary cards', route: '/apps/timetracking', cmd: 'cg run timetracking/report --month 2026-06' },
-            { icon: DoorOpen, title: 'Room Availability', desc: 'Meeting room free/busy timeline from Outlook Scheduling Assistant', route: '/apps/rooms', cmd: 'cg run teams/room-availability --room "The Vista"' },
-            { icon: BookOpen, title: 'Dev Journal', desc: 'Auto-generated daily journal from Git commits and Jira tickets', route: '/apps/journal', cmd: 'cg run ado/git-commits' },
-            { icon: GraduationCap, title: 'Saba Training', desc: 'Pending training courses from your Saba Learning portal', route: '/apps/saba', cmd: 'cg run saba/pending-training' },
-            { icon: Newspaper, title: 'Security News', desc: 'Aggregated feed from Socket.dev, Wiz, and tl;dr sec', route: '/apps/security-news', cmd: 'cg run socket/security-news' },
-            { icon: KeyRound, title: 'Trusted Peer Expiry', desc: 'TokenMaster client trust relationships with expiry tracking', route: '/apps/trusted-peer-expiry', cmd: 'cg run tokenmaster/clients-list' },
-            { icon: Library, title: 'GCS Knowledge Base', desc: 'Browse and read internal security docs, converted to Markdown', route: null, cmd: 'cg run gcs/kb-pages' },
-          ] as const).map(({ icon: Icon, title, desc, route, cmd }) => (
-            <div key={title} className="border border-base-300 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-              <Icon className="w-4 h-4 shrink-0 opacity-40" />
-              <div className="flex-1 min-w-0">
-                <span className="font-display font-semibold text-sm">{title}</span>
-                <span className="text-sm opacity-50 ml-2">{desc}</span>
+            { icon: Clock, title: 'Time Tracking', tag: 'Administrative', desc: 'Monthly report with project breakdown and summary cards', route: '/apps/timetracking', cmd: 'timetracking/report' },
+            { icon: DoorOpen, title: 'Room Availability', tag: 'Administrative', desc: 'Meeting room free/busy from Outlook Scheduling Assistant', route: '/apps/rooms', cmd: 'teams/room-availability' },
+            { icon: BookOpen, title: 'Dev Journal', tag: 'Productivity', desc: 'Auto-generated daily journal from Git commits and Jira tickets', route: '/apps/journal', cmd: 'ado/git-commits' },
+            { icon: Newspaper, title: 'Security News', tag: 'Security', desc: 'Aggregated feed from Socket.dev, Wiz, and tl;dr sec', route: '/apps/security-news', cmd: 'socket/security-news' },
+            { icon: KeyRound, title: 'Trusted Peer Expiry', tag: 'Productivity', desc: 'TokenMaster client trust relationships with expiry tracking', route: '/apps/trusted-peer-expiry', cmd: 'tokenmaster/clients-list' },
+            { icon: Library, title: 'GCS Knowledge Base', tag: 'Security', desc: 'Browse and read internal security docs, converted to Markdown', route: null as string | null, cmd: 'gcs/kb-pages' },
+          ]).map(({ icon: Icon, title, tag, desc, route, cmd }) => (
+            <div key={title} className="border border-base-300 p-4">
+              <div className="flex items-start gap-3 mb-2">
+                <Icon className="w-4 h-4 shrink-0 mt-0.5 opacity-40" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-display font-semibold text-sm">{title}</span>
+                    <Badge size="xs">{tag}</Badge>
+                  </div>
+                  <p className="text-xs opacity-60 leading-relaxed">{desc}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="font-mono text-xs opacity-30 hidden lg:inline">{cmd}</span>
+              <div className="flex items-center justify-between mt-3 pt-2 border-t border-base-300/50">
+                <span className="font-mono text-[0.65rem] opacity-30">cg run {cmd}</span>
                 {route && (
                   <Link to={route} className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
                     Open <ArrowRight className="w-3 h-3" />
@@ -287,102 +417,130 @@ export default function Overview() {
           ))}
         </div>
         <p className="text-xs opacity-40 mt-4 max-w-[65ch]">
-          Each app page combines multiple connector calls into a cohesive interface. The GUI handles orchestration, caching, and presentation — the connectors provide the raw data.
+          Each app page combines multiple connector calls into a single view. The GUI handles orchestration, caching, and presentation; the connectors provide the raw data.
         </p>
       </section>
 
-      {/* ── Section 6: Happy Path ───────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
-        <SectionKicker>How it works in practice</SectionKicker>
-        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">Happy Path</h2>
+      {/* ── Section 6: Typical workflow ─────────────────────── */}
+      <section id="why-happy-path" className="py-16 border-b border-base-300 scroll-mt-4">
+        <SectionKicker>From install to first result</SectionKicker>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">Typical workflow</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-display font-semibold text-sm mb-3">Human user</h3>
-            <CodeBlock>{`# Install
-npm install -g @commandgarden/cli
-
-# Start everything
-cg up
-
-# Load extension in Chrome
-chrome://extensions → Load unpacked
-
-# Verify
-cg daemon status
-
-# Run a connector
-cg run timetracking/report \\
-  --month 2026-06 --format table`}</CodeBlock>
-            <p className="text-xs opacity-50 mt-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Terminal className="w-4 h-4 opacity-40" />
+              <h3 className="font-display font-semibold text-sm">Human user</h3>
+            </div>
+            <div className="space-y-3 mb-4">
+              {[
+                { step: 'Install', cmd: 'npm install -g @commandgarden/cli' },
+                { step: 'Start', cmd: 'cg up' },
+                { step: 'Load extension', cmd: 'chrome://extensions → Load unpacked' },
+                { step: 'Verify', cmd: 'cg daemon status' },
+                { step: 'Run', cmd: 'cg run timetracking/report --month 2026-06' },
+              ].map((s, i) => (
+                <div key={i}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 border border-base-300 bg-base-200 flex items-center justify-center font-mono text-[0.6rem] opacity-50 shrink-0">{i + 1}</span>
+                    <span className="text-xs font-medium opacity-60">{s.step}</span>
+                  </div>
+                  <div className="ml-[1.875rem] mt-1">
+                    <code className="text-xs font-mono bg-base-200 border border-base-300 px-2 py-0.5 opacity-70">{s.cmd}</code>
+                  </div>
+                  {i < 4 && <div className="ml-2.5 w-px h-2 bg-base-300" />}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs opacity-50 ml-[1.875rem]">
               Or open the GUI at <span className="font-mono">localhost:9092</span> and use the visual interface.
             </p>
           </div>
 
           <div>
-            <h3 className="font-display font-semibold text-sm mb-3">AI agent</h3>
-            <CodeBlock>{`# Agent loads the cg skill
-# Then calls:
-
-cg daemon status
-# → confirms system is ready
-
-cg list
-# → discovers available connectors
-
-cg inspect timetracking/report
-# → sees args and columns
-
-cg run timetracking/report \\
-  --month 2026-06 --format json
-# → { ok: true, rowCount: 42, data: [...] }`}</CodeBlock>
-            <p className="text-xs opacity-50 mt-3">
-              No page parsing, no token cost. Structured JSON back in seconds.
+            <div className="flex items-center gap-2 mb-3">
+              <Globe className="w-4 h-4 opacity-40" />
+              <h3 className="font-display font-semibold text-sm">AI agent</h3>
+            </div>
+            <div className="space-y-3 mb-4">
+              {[
+                { step: 'Load skill', cmd: 'cg skill loaded' },
+                { step: 'Check status', cmd: 'cg daemon status → ready' },
+                { step: 'Discover', cmd: 'cg list → available connectors' },
+                { step: 'Inspect', cmd: 'cg inspect timetracking/report → args, columns' },
+                { step: 'Run', cmd: 'cg run timetracking/report --format json' },
+              ].map((s, i) => (
+                <div key={i}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-5 h-5 border border-base-300 bg-base-200 flex items-center justify-center font-mono text-[0.6rem] opacity-50 shrink-0">{i + 1}</span>
+                    <span className="text-xs font-medium opacity-60">{s.step}</span>
+                  </div>
+                  <div className="ml-[1.875rem] mt-1">
+                    <code className="text-xs font-mono bg-base-200 border border-base-300 px-2 py-0.5 opacity-70">{s.cmd}</code>
+                  </div>
+                  {i < 4 && <div className="ml-2.5 w-px h-2 bg-base-300" />}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs opacity-50 ml-[1.875rem]">
+              Structured JSON back in seconds.
             </p>
           </div>
+        </div>
+
+        <div className="mt-8 border border-primary/20 bg-primary/[0.03] p-4 flex items-center gap-3">
+          <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+          <p className="text-sm opacity-70">
+            Both paths produce identical output. Same connector, same schema, regardless of who calls it.
+          </p>
         </div>
       </section>
 
       {/* ── Section 7: Security ─────────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
+      <section id="why-security" className="py-16 border-b border-base-300 bg-base-200/30 -mx-4 px-4 md:-mx-5 md:px-5 scroll-mt-4">
+        <div className="max-w-4xl mx-auto">
         <SectionKicker>Security by design</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Security</h2>
-        <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-10">
-          commandGarden handles sensitive enterprise data. Every design decision prioritizes security and privacy.
+        <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
+          commandGarden touches authenticated enterprise data, so the security model is strict by default.
         </p>
 
-        <div className="space-y-6 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           {[
-            { title: 'No credentials stored or transmitted', desc: 'Reuses session cookies and tokens already present in your Chrome browser. Nothing stored on disk, nothing sent to external servers.' },
-            { title: 'Domain-scoped permissions', desc: 'Every connector declares exactly which domains it will access. The daemon validates each request — if a connector tries to reach an undeclared domain, the command is blocked.' },
-            { title: 'Capability declarations', desc: 'Connectors declare what they need: navigate, dom_read, cookie_read, js_evaluate. High-risk capabilities are blocked by default until explicitly approved.' },
-            { title: 'Step-by-step approval', desc: 'Sensitive operations can pause and wait for your confirmation. Approve in the CLI terminal or via Chrome extension notification.' },
-            { title: 'Local-only processing', desc: 'Daemon on localhost:9091, app server on localhost:9092. No ports exposed to the network. All processing happens on your machine.' },
-            { title: 'Declarative connectors', desc: 'Most connectors are pure YAML: navigate, wait, extract, map. No JavaScript evaluation, no arbitrary code by default.' },
-            { title: 'Comprehensive audit trail', desc: 'Every execution is logged to local SQLite: connector name, domains accessed, row count, step timing, approval decisions. Sensitive values are automatically redacted.' },
-            { title: 'Per-session auth tokens', desc: 'CLI-to-daemon communication uses a session token generated on startup with owner-only file permissions. The extension verifies its own ID in every message.' },
-          ].map(({ title, desc }) => (
-            <div key={title}>
-              <h3 className="font-display font-semibold text-sm mb-1">{title}</h3>
-              <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">{desc}</p>
+            { icon: Lock, title: 'No credentials stored', desc: 'Reuses session cookies already in Chrome. Nothing stored on disk, nothing sent externally.' },
+            { icon: Shield, title: 'Domain-scoped permissions', desc: 'Connectors declare allowed domains. Undeclared domains are blocked by the daemon.' },
+            { icon: Eye, title: 'Capability gating', desc: 'Each step requires a declared capability. High-risk ops (js_evaluate, cookie_write) need approval.' },
+            { icon: Fingerprint, title: 'Step-by-step approval', desc: 'Sensitive operations pause for confirmation. Approve in CLI or via Chrome notification.' },
+            { icon: Server, title: 'Local-only processing', desc: 'Daemon on :9091, app server on :9092. Bound to localhost. No network exposure.' },
+            { icon: FileText, title: 'Declarative connectors', desc: 'Pure YAML pipelines. No JavaScript evaluation, no arbitrary code execution by default.' },
+            { icon: ScrollText, title: 'Audit-or-fail', desc: 'Every execution logged to SQLite. Domains, timing, approvals, row counts. If audit fails, commands are blocked.' },
+            { icon: Database, title: 'Per-session auth', desc: 'Session token generated on startup with owner-only permissions. Extension verifies its own ID per message.' },
+          ].map(({ icon: Icon, title, desc }) => (
+            <div key={title} className="flex gap-3 p-3 border border-base-300 bg-base-100">
+              <Icon className="w-4 h-4 shrink-0 mt-0.5 opacity-40" />
+              <div>
+                <h3 className="font-display font-semibold text-sm mb-0.5">{title}</h3>
+                <p className="text-xs opacity-60 leading-relaxed">{desc}</p>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="border border-base-300 bg-base-200/50 p-5">
-          <h3 className="font-mono text-xs font-medium opacity-50 uppercase tracking-wide mb-3">What we don't do</h3>
-          <div className="space-y-1.5 text-sm opacity-70">
-            <p>We don't store credentials.</p>
-            <p>We don't transmit data to external servers.</p>
-            <p>We don't execute arbitrary code by default.</p>
-            <p>We don't grant ambient access to all websites.</p>
-            <p>We don't skip logging, ever.</p>
+        <div className="border border-base-300 bg-base-100 p-5">
+          <h3 className="font-mono text-xs font-medium opacity-50 uppercase tracking-wide mb-3">Limitations</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm opacity-70">
+            <p>Only works while Chrome is open and you're logged in.</p>
+            <p>Connectors may break when a site redesigns its HTML.</p>
+            <p>Chrome-only for now (no Firefox or Edge support).</p>
+            <p>No credential storage, so sessions expire when you log out.</p>
+            <p>Extraction runs one connector at a time per tab.</p>
           </div>
+        </div>
         </div>
       </section>
 
       {/* ── Section 8: Get Started ──────────────────────────── */}
-      <section className="py-16 border-b border-base-300">
+      <section id="why-get-started" className="py-16 border-b border-base-300 scroll-mt-4">
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Get started in 60 seconds</h2>
 
         <CodeBlock>{`# Install
@@ -414,11 +572,11 @@ cg run socket/security-news --format table`}</CodeBlock>
       </section>
 
       {/* ── Section 9: Extend ───────────────────────────────── */}
-      <section className="pt-16">
+      <section id="why-extend" className="pt-16 scroll-mt-4">
         <SectionKicker>Extend to any website</SectionKicker>
-        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Write Your Own Connector</h2>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Write your own connector</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          commandGarden ships with built-in connectors, but the real power is creating your own. If you can see it in Chrome, you can turn it into a CLI command.
+          commandGarden ships with built-in connectors, but you can write your own for any site. If you can see it in Chrome, you can turn it into a CLI command.
         </p>
 
         <div className="space-y-3 mb-8">

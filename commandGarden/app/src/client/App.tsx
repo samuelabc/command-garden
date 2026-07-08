@@ -47,6 +47,16 @@ const PAGE_SECTIONS: Record<string, SectionDef[]> = {
     { label: 'Pipeline Steps', id: 'api-pipeline' },
     { label: 'Expressions', id: 'api-expressions' },
   ],
+  '/why': [
+    { label: 'The Problem', id: 'why-problem' },
+    { label: 'The Solution', id: 'why-solution' },
+    { label: 'Architecture', id: 'why-architecture' },
+    { label: 'Built-in Apps', id: 'why-apps' },
+    { label: 'Workflow', id: 'why-happy-path' },
+    { label: 'Security', id: 'why-security' },
+    { label: 'Get Started', id: 'why-get-started' },
+    { label: 'Extend', id: 'why-extend' },
+  ],
 };
 
 function SectionSubNav({ sections }: { sections: SectionDef[] }) {
@@ -176,11 +186,14 @@ function Layout() {
           <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Apps</div>
+          <div className="px-3 pl-5 pt-2 pb-1 font-mono text-[0.55rem] font-medium opacity-30 uppercase tracking-[0.12em]">Administrative</div>
           <NavLink to="/apps/timetracking" className={navClass}>Time Tracking</NavLink>
           <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
+          <div className="px-3 pl-5 pt-2 pb-1 font-mono text-[0.55rem] font-medium opacity-30 uppercase tracking-[0.12em]">Productivity</div>
           <NavLink to="/apps/journal" className={navClass}>Dev Journal</NavLink>
-          <NavLink to="/apps/security-news" className={navClass}>Security News</NavLink>
           <NavLink to="/apps/trusted-peer-expiry" className={navClass}>Trusted Peer Expiry</NavLink>
+          <div className="px-3 pl-5 pt-2 pb-1 font-mono text-[0.55rem] font-medium opacity-30 uppercase tracking-[0.12em]">Security</div>
+          <NavLink to="/apps/security-news" className={navClass}>Security News</NavLink>
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Platform</div>
           <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
@@ -188,7 +201,7 @@ function Layout() {
           <NavItemWithSections to="/config" label="Configuration" sections={PAGE_SECTIONS['/config']} />
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Reference</div>
-          <NavLink to="/why" className={navClass}>Why commandGarden</NavLink>
+          <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
           <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
           <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
           <NavLink to="/skills" className={navClass}>Skills</NavLink>
