@@ -121,6 +121,11 @@ export class AppStore {
       data       TEXT NOT NULL,
       fetched_at TEXT NOT NULL
     )`);
+    this.db.run(`CREATE TABLE IF NOT EXISTS trusted_peers_cache (
+      id         INTEGER PRIMARY KEY CHECK (id = 1),
+      data       TEXT NOT NULL,
+      fetched_at TEXT NOT NULL
+    )`);
   }
 
   getPreference(key: string): string | undefined {
@@ -242,6 +247,24 @@ export class AppStore {
 
   getCachedProjects(): { data: Record<string, unknown>[]; fetchedAt: string } | null {
     const rows = this.query('SELECT data, fetched_at FROM projects_cache WHERE id = 1');
+    if (rows.length === 0) return null;
+    return {
+      data: JSON.parse(rows[0].data as string),
+      fetchedAt: rows[0].fetched_at as string,
+    };
+  }
+
+  cacheTrustedPeers(data: Record<string, unknown>[]): void {
+    const now = new Date().toISOString();
+    this.db.run(
+      'INSERT OR REPLACE INTO trusted_peers_cache (id, data, fetched_at) VALUES (1, ?, ?)',
+      [JSON.stringify(data), now],
+    );
+    this.persist();
+  }
+
+  getCachedTrustedPeers(): { data: Record<string, unknown>[]; fetchedAt: string } | null {
+    const rows = this.query('SELECT data, fetched_at FROM trusted_peers_cache WHERE id = 1');
     if (rows.length === 0) return null;
     return {
       data: JSON.parse(rows[0].data as string),

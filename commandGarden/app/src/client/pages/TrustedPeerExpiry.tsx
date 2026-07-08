@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
@@ -46,6 +46,8 @@ function tierBadge(tier: ReturnType<typeof expiryTier>, days: number | null) {
       return <Badge variant="error" size="xs">{days}d LEFT</Badge>;
     case 'warning':
       return <Badge variant="warning" size="xs">{days}d LEFT</Badge>;
+    case 'ok':
+      return <Badge variant="success" size="xs">{days}d LEFT</Badge>;
     case 'none':
       return <Badge variant="neutral" size="xs">NO EXPIRY</Badge>;
     default:
@@ -77,19 +79,54 @@ function tierRowClass(tier: ReturnType<typeof expiryTier>): string {
   }
 }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
 export default function TrustedPeerExpiry() {
   const [phase, setPhase] = useState<LoadPhase>('idle');
   const [progress, setProgress] = useState('');
   const [peers, setPeers] = useState<TrustedPeer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [regionFilter, setRegionFilter] = useState<string>('all');
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
 
   const loading = phase === 'clients' || phase === 'trustedby';
+
+  // Load cached data on mount
+  useEffect(() => {
+    let stale = false;
+    api.getCachedTrustedPeers().then((res) => {
+      if (stale) return;
+      if (res.data && res.data.length > 0) {
+        // Skip if a fresh fetch is already running
+        setPhase((cur) => {
+          if (cur === 'clients' || cur === 'trustedby') { stale = true; return cur; }
+          return 'done';
+        });
+        if (stale) return;
+        const restored: TrustedPeer[] = (res.data as unknown as TrustedPeer[]);
+        setPeers(restored);
+        setFetchedAt(res.fetchedAt);
+        setIsCached(true);
+        setProgress(`Loaded ${restored.length} trusted peers from cache.`);
+      }
+    }).catch(() => {});
+    return () => { stale = true; };
+  }, []);
 
   const handleLoad = useCallback(async () => {
     setPhase('clients');
     setError(null);
     setPeers([]);
+    setIsCached(false);
     setProgress('Fetching client list (all regions)...');
 
     try {
@@ -149,6 +186,13 @@ export default function TrustedPeerExpiry() {
       setPeers(allPeers);
       setProgress(`Loaded ${allPeers.length} trusted peers from ${total} clients.`);
       setPhase('done');
+
+      // Cache results
+      if (allPeers.length > 0) {
+        const now = new Date().toISOString();
+        setFetchedAt(now);
+        api.cacheTrustedPeers(allPeers as unknown as Record<string, unknown>[]).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
       setPhase('error');
@@ -292,9 +336,16 @@ export default function TrustedPeerExpiry() {
         </div>
       )}
 
+      {/* Last fetched indicator */}
+      {fetchedAt && !loading && (
+        <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mt-3">
+          {isCached ? 'Showing cached data from' : 'Last fetched'} {timeAgo(fetchedAt)}
+        </div>
+      )}
+
       {/* Done with progress message */}
       {phase === 'done' && !loading && peers.length > 0 && (
-        <div className="mt-3 font-mono text-xs opacity-40">{progress}</div>
+        <div className="mt-1 font-mono text-xs opacity-40">{progress}</div>
       )}
 
       {/* Empty states */}
