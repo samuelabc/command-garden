@@ -21,5 +21,6 @@
 - [x] Enhanced "Why commandGarden" page — SVG architecture diagram, before/after flow visualization, colored Badge comparison tables, 2-column security grid with icons, category-tagged Built-in Apps grid, step-numbered Happy Path, scrollspy sub-navigation, visual rhythm with background bands
 - [x] Categorized Apps navigation — sidebar "Apps" section split into three sub-groups (Administrative, Productivity, Security) with inline sub-labels; Overview page tags updated to match
 - [x] Overview.tsx writing review (humanizer pass) — deduplicated redundant claims (credentials/tokens/local ×4 each), removed overlapping Section 2 table, replaced clichés (hit a wall, heavy lifting, tokens burned), renamed Happy Path → Typical Workflow, softened unsubstantiated token numbers, reworked "What we don't do" → real Limitations section, fixed em dashes, synonym cycling, negative parallelism, cleaned unused import
+- [x] Sidebar hierarchy fix — fixed backwards indentation (sub-category labels were indented more than children), bumped ghost-text sub-categories from 0.55rem/30% to 0.65rem/50% opacity, indented sub-grouped nav items with `navClassIndented`, removed `font-mono` from scroll-spy items, bumped section header opacity to 50%
 
 See `TODO_ARCHIVE.md` for completed work.

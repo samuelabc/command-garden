@@ -22,6 +22,10 @@ function navClass({ isActive }: { isActive: boolean }) {
   return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
 }
 
+function navClassIndented({ isActive }: { isActive: boolean }) {
+  return `block pl-5 pr-3 py-1.5 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
+}
+
 interface SectionDef { label: string; id: string }
 
 const PAGE_SECTIONS: Record<string, SectionDef[]> = {
@@ -74,10 +78,10 @@ function SectionSubNav({ sections }: { sections: SectionDef[] }) {
         <button
           key={s.id}
           onClick={() => handleClick(s.id)}
-          className={`block w-full text-left pl-3 py-1 text-[0.7rem] font-mono transition-colors ${
+          className={`block w-full text-left pl-3 py-1 text-[0.7rem] transition-colors ${
             activeId === s.id
               ? 'text-primary opacity-100'
-              : 'opacity-40 hover:opacity-70'
+              : 'opacity-50 hover:opacity-70'
           }`}
         >
           {s.label}
@@ -181,26 +185,26 @@ function Layout() {
           </button>
         </div>
         <nav className="flex-1 px-2 py-2 space-y-px overflow-y-auto">
-          <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Overview</div>
+          <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Overview</div>
           <NavLink to="/" end className={navClass}>Dashboard</NavLink>
           <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Apps</div>
-          <div className="px-3 pl-5 pt-2 pb-1 font-mono text-[0.55rem] font-medium opacity-30 uppercase tracking-[0.12em]">Administrative</div>
-          <NavLink to="/apps/timetracking" className={navClass}>Time Tracking</NavLink>
-          <NavLink to="/apps/rooms" className={navClass}>Room Availability</NavLink>
-          <div className="px-3 pl-5 pt-2 pb-1 font-mono text-[0.55rem] font-medium opacity-30 uppercase tracking-[0.12em]">Productivity</div>
-          <NavLink to="/apps/journal" className={navClass}>Dev Journal</NavLink>
-          <NavLink to="/apps/trusted-peer-expiry" className={navClass}>Trusted Peer Expiry</NavLink>
-          <div className="px-3 pl-5 pt-2 pb-1 font-mono text-[0.55rem] font-medium opacity-30 uppercase tracking-[0.12em]">Security</div>
-          <NavLink to="/apps/security-news" className={navClass}>Security News</NavLink>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Apps</div>
+          <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Administrative</div>
+          <NavLink to="/apps/timetracking" className={navClassIndented}>Time Tracking</NavLink>
+          <NavLink to="/apps/rooms" className={navClassIndented}>Room Availability</NavLink>
+          <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Productivity</div>
+          <NavLink to="/apps/journal" className={navClassIndented}>Dev Journal</NavLink>
+          <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
+          <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Security</div>
+          <NavLink to="/apps/security-news" className={navClassIndented}>Security News</NavLink>
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Platform</div>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Platform</div>
           <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
           <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
           <NavItemWithSections to="/config" label="Configuration" sections={PAGE_SECTIONS['/config']} />
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em]">Reference</div>
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Reference</div>
           <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
           <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
           <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
