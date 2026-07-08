@@ -193,6 +193,46 @@ export default function DailyJournalPage() {
           </>
         )}
 
+        {release && ttData!.goals.length > 0 && (() => {
+          const hoursByProject = new Map<string, number>();
+          for (const g of ttData!.aggregated) {
+            hoursByProject.set(g.projectId, (hoursByProject.get(g.projectId) ?? 0) + g.totalHours);
+          }
+          return (
+            <div className="border border-base-300 p-4 space-y-3">
+              <p className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.1em]">Goals Progress</p>
+              <div className="space-y-3">
+                {ttData!.goals.map((goal) => {
+                  const logged = Math.round((hoursByProject.get(goal.projectId) ?? 0) * 100) / 100;
+                  const remaining = Math.round((goal.targetHours - logged) * 100) / 100;
+                  const pct = Math.min(100, Math.round((logged / goal.targetHours) * 100));
+                  const achieved = remaining <= 0;
+                  return (
+                    <div key={goal.projectId} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium">{goal.projectId}</span>
+                        <span className={`font-mono text-xs ${achieved ? 'text-success' : 'text-warning'}`}>
+                          {achieved ? '✓ Goal met' : `${remaining}h remaining`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <progress
+                          className={`progress flex-1 ${achieved ? 'progress-success' : 'progress-warning'}`}
+                          value={pct}
+                          max={100}
+                        />
+                        <span className="font-mono text-xs opacity-50 w-24 text-right">
+                          {logged}h / {goal.targetHours}h
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {ttData?.status === 'empty' && (
           <div className="alert"><span>No time tracking entries found for {formatMonth(month)}.</span></div>
         )}

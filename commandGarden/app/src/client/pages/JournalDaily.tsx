@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useApprovalRun } from '../hooks/useApprovalRun';
+import { api, type Goal } from '../api';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 
@@ -93,6 +94,7 @@ function urgencyLabel(row: { isOverdue?: boolean; daysUntilDue?: number }): stri
 
 export default function JournalDaily() {
   const [month] = useState(currentMonth());
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   const tt = useApprovalRun();
   const saba = useApprovalRun();
@@ -100,8 +102,10 @@ export default function JournalDaily() {
   function load() {
     tt.reset();
     saba.reset();
+    setGoals([]);
     tt.run('timetracking/report', { month });
     saba.run('saba/pending-training', {});
+    api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => {});
   }
 
   const ttRaw = useMemo(
@@ -113,6 +117,18 @@ export default function JournalDaily() {
     () => (ttRaw ? computeReleaseSummary(ttRaw, month) : null),
     [ttRaw, month],
   );
+
+  const hoursByProject = useMemo(() => {
+    const map = new Map<string, number>();
+    if (ttRaw) {
+      for (const row of ttRaw) {
+        const pid = typeof row.projectId === 'string' ? row.projectId : null;
+        const hrs = typeof row.hours === 'number' ? row.hours : 0;
+        if (pid) map.set(pid, (map.get(pid) ?? 0) + hrs);
+      }
+    }
+    return map;
+  }, [ttRaw]);
 
   const sabaRows = useMemo(
     () => (saba.result?.data ?? []) as { title?: string; type?: string; status?: string; dueDate?: string; daysUntilDue?: number; isOverdue?: boolean }[],
@@ -208,6 +224,40 @@ export default function JournalDaily() {
               </div>
             )}
           </>
+        )}
+
+        {release && goals.length > 0 && (
+          <div className="border border-base-300 p-4 space-y-3">
+            <p className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Goals Progress</p>
+            <div className="space-y-3">
+              {goals.map((goal) => {
+                const logged = Math.round((hoursByProject.get(goal.projectId) ?? 0) * 100) / 100;
+                const remaining = Math.round((goal.targetHours - logged) * 100) / 100;
+                const pct = Math.min(100, Math.round((logged / goal.targetHours) * 100));
+                const achieved = remaining <= 0;
+                return (
+                  <div key={goal.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{goal.projectId}</span>
+                      <span className={`font-mono text-xs ${achieved ? 'text-success' : 'text-warning'}`}>
+                        {achieved ? '✓ Goal met' : `${remaining}h to go`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <progress
+                        className={`progress flex-1 ${achieved ? 'progress-success' : 'progress-warning'}`}
+                        value={pct}
+                        max={100}
+                      />
+                      <span className="font-mono text-xs opacity-50 w-24 text-right">
+                        {logged}h / {goal.targetHours}h
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {ttRaw === null && !tt.error && !tt.running && (
