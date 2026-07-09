@@ -194,7 +194,7 @@ const __deadline = Date.now() + 30000;
 while (Date.now() < __deadline) {
   if (exists("button[aria-label='Open Scheduling Assistant']") ||
       exists("input[aria-label='Start date']")) break;
-  await sleep(1000);
+  await sleep(400);
 }
 if (!exists("button[aria-label='Open Scheduling Assistant']") &&
     !exists("input[aria-label='Start date']")) {
@@ -205,9 +205,9 @@ if (!exists("button[aria-label='Open Scheduling Assistant']") &&
 }
 
 // Open the Scheduling Assistant (free/busy view).
-for (let i = 0; i < 12 && !schedulingAssistantOpen(); i++) {
+for (let i = 0; i < 20 && !schedulingAssistantOpen(); i++) {
   clickByName('Open Scheduling Assistant');
-  await sleep(1000);
+  await sleep(400);
 }
 if (!schedulingAssistantOpen()) {
   throw new Error('Could not open the Scheduling Assistant');
@@ -235,7 +235,7 @@ for (let i = 0; i < 30; i++) {
     const di = $("input[aria-label='Start date']");
     if (di) di.click();
   }
-  await sleep(1000);
+  await sleep(500);
 }
 if (!exists(cellSel)) {
   // If the cell is gone, the click succeeded; otherwise error.
@@ -245,22 +245,23 @@ if (!exists(cellSel)) {
 // ── Capture pre-existing mailbox IDs (organizer) ─────────────────────
 const seen = new Set();
 for (let i = 0; i < 3; i++) {
-  await sleep(1000);
+  await sleep(500);
   for (const pair of readCapture()) {
     for (const id of schedulesFromPair(pair).keys()) seen.add(id);
   }
+  if (seen.size > 0) break;
 }
 
 // ── Add the room ─────────────────────────────────────────────────────
 if (isEmail) {
   // Email -> attendee picker (resolves SMTP).
   clickByName('Expand Required attendees');
-  await sleep(1000);
+  await sleep(400);
 
   const inputSel = "input[aria-label*='required attendees']";
-  for (let i = 0; i < 12 && !exists(inputSel); i++) {
+  for (let i = 0; i < 20 && !exists(inputSel); i++) {
     clickByName('Add required attendee');
-    await sleep(1000);
+    await sleep(400);
   }
   if (!exists(inputSel)) {
     throw new Error('Could not open the required-attendee field');
@@ -269,8 +270,8 @@ if (isEmail) {
 
   const optionSel = `[role=option][aria-label*='${room}']`;
   let found = false;
-  for (let i = 0; i < 12 && !found; i++) {
-    await sleep(1000);
+  for (let i = 0; i < 20 && !found; i++) {
+    await sleep(400);
     found = exists(optionSel);
   }
   if (!found) {
@@ -280,9 +281,9 @@ if (isEmail) {
 } else {
   // Name -> room finder.
   const inputSel = "input[aria-label='Add a room']";
-  for (let i = 0; i < 10 && !exists(inputSel); i++) {
+  for (let i = 0; i < 20 && !exists(inputSel); i++) {
     clickByName('Add a room');
-    await sleep(1000);
+    await sleep(400);
   }
   if (!exists(inputSel)) {
     throw new Error('Could not open the room finder');
@@ -290,8 +291,8 @@ if (isEmail) {
   typeText(inputSel, room);
 
   let label = null;
-  for (let i = 0; i < 14 && !label; i++) {
-    await sleep(1000);
+  for (let i = 0; i < 25 && !label; i++) {
+    await sleep(400);
     const opts = Array.from(document.querySelectorAll('[role=option]'));
     const el = opts.find(o => /capacity/i.test(o.getAttribute('aria-label') || '') && o.offsetParent);
     if (el) {
@@ -313,8 +314,8 @@ const itemsById = new Map();
 const isRoomId = id => (isEmail ? id === room.toLowerCase() : !seen.has(id));
 
 let stable = 0;
-for (let i = 0; i < 30; i++) {
-  await sleep(1000);
+for (let i = 0; i < 50; i++) {
+  await sleep(500);
   for (const pair of readCapture()) {
     for (const [id, s] of schedulesFromPair(pair)) {
       if (!isRoomId(id)) continue;
@@ -327,7 +328,7 @@ for (let i = 0; i < 30; i++) {
       }
     }
   }
-  if (sawView) { stable += 1; if (stable >= 3) break; }
+  if (sawView) { stable += 1; if (stable >= 2) break; }
 }
 
 if (!roomId) {
