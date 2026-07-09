@@ -1,21 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-const ROOM_OPTIONS = [
-  'MBTMY THE BASE CAMP',
-  'MBTMY THE TRAILHEAD',
-  'MBTMY THE FOOTHILLS',
-  'MBTMY THE BRIDGE',
-  'MBTMY THE MEADOW',
-  'MBTMY THE FOREST',
-  'MBTMY THE LOOKOUT',
-  'MBTMY THE CLIFFSIDE',
-  'MBTMY THE LEDGE',
-  'MBTMY THE HIGHPOINT',
-  'MBTMY THE VISTA',
-  'MBTMY THE SHOULDER',
-  'MBTMY THE PINNACLE',
-  'MBTMY THE DESCENT',
-];
+export const ROOM_EMAIL_MAP: Record<string, string> = {
+  'MBTMY THE BASE CAMP': 'res-rere-m6vz23ty@mercedes-benz.com',
+  'MBTMY THE TRAILHEAD': 'res-rere-m6vc2q4d@mercedes-benz.com',
+  'MBTMY THE FOOTHILLS': 'res-rere-m6vcb79c@mercedes-benz.com',
+  'MBTMY THE BRIDGE': 'res-rere-m6vgcah6@mercedes-benz.com',
+  'MBTMY THE MEADOW': 'res-rere-m6vhkzmd@mercedes-benz.com',
+  'MBTMY THE FOREST': 'res-rere-m6vhsc6h@mercedes-benz.com',
+  'MBTMY THE LOOKOUT': 'res-rere-m6vjqgrq@mercedes-benz.com',
+  'MBTMY THE CLIFFSIDE': 'res-rere-m6vjl2tw@mercedes-benz.com',
+  'MBTMY THE LEDGE': 'res-rere-m6vjfbmr@mercedes-benz.com',
+  'MBTMY THE HIGHPOINT': 'res-rere-m6vjblgb@mercedes-benz.com',
+  'MBTMY THE VISTA': 'RES-RERE-M6VJ7ZUW@mercedes-benz.com',
+  'MBTMY THE SHOULDER': 'res-rere-m6vj3tuq@mercedes-benz.com',
+  'MBTMY THE PINNACLE': 'res-rere-m6vhxd4c@mercedes-benz.com',
+  'MBTMY THE DESCENT': 'res-rere-m6vzgysp@mercedes-benz.com',
+};
+
+const ROOM_OPTIONS = Object.keys(ROOM_EMAIL_MAP);
 
 interface RoomComboboxProps {
   value: string;

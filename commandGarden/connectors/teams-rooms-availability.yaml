@@ -15,7 +15,7 @@ args:
   - name: rooms
     type: string
     required: true
-    help: "Comma-separated room names or emails (e.g. 'MBTMY The Vista,MBTMY The Cliffside' or 'RES-A@mb.com,RES-B@mb.com')"
+    help: "Comma-separated room names, emails, or name:email pairs (e.g. 'MBTMY The Vista:RES-RERE-M6VJ7ZUW@mercedes-benz.com,MBTMY The Cliffside:res-rere-m6vjl2tw@mercedes-benz.com' for batch mode, or 'MBTMY The Vista,res-rere-m6vj7zuw@mercedes-benz.com' for sequential)"
   - name: date
     type: string
     required: false

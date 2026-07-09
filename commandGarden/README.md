@@ -214,16 +214,22 @@ This connector drives the Outlook Scheduling Assistant in your authenticated bro
 ### Room availability — multiple rooms (Teams/Outlook)
 
 ```bash
-# Check multiple rooms at once (comma-separated)
-cg run teams/rooms-availability --rooms "MBTMY THE VISTA,MBTMY THE MEADOW,MBTMY THE LOOKOUT" --format table
+# Batch mode (name:email pairs) — ~2x faster, adds all rooms then captures once
+cg run teams/rooms-availability --rooms "MBTMY The Vista:RES-RERE-M6VJ7ZUW@mercedes-benz.com,MBTMY The Cliffside:res-rere-m6vjl2tw@mercedes-benz.com" --format table
 
-# Mix room names and emails
-cg run teams/rooms-availability --rooms "MBTMY THE VISTA,RES-RERE-M6VJ7ZUW@mercedes-benz.com" --date 2026-07-10 --format json
+# Sequential mode (names only) — adds/captures/dismisses one room at a time
+cg run teams/rooms-availability --rooms "MBTMY The Vista,MBTMY The Cliffside" --format table
+
+# Sequential mode (mix names and emails)
+cg run teams/rooms-availability --rooms "MBTMY The Vista,res-rere-m6vjl2tw@mercedes-benz.com" --date 2026-07-10 --format json
 ```
 
-Same approach as `teams/room-availability`, but adds multiple rooms sequentially and returns a combined timeline with `roomName` (original input) and `roomEmail` (resolved schedule ID) columns. Rooms that fail to resolve produce an error row while successful rooms return their full timeline.
+Same approach as `teams/room-availability`, but handles multiple rooms and returns a combined timeline with `roomName` (original input) and `roomEmail` (resolved schedule ID) columns. Two modes:
 
-> **Note:** Works reliably for 2 rooms; 3+ rooms may intermittently fail due to OWA room finder dismiss behavior. See [design notes](docs/teams-rooms-availability-notes.md) for details and future improvement plans.
+- **Batch mode** — when every room is a `name:email` pair, all rooms are added via the room finder without dismiss/capture between each, then a single batch capture maps scheduleIds using the pre-known emails. ~2s per room + one capture.
+- **Sequential mode** — when any room lacks an email, rooms are processed one at a time (add → capture → dismiss). ~4-8s per room.
+
+Rooms that fail to resolve produce an error row while successful rooms return their full timeline. See [design notes](docs/teams-rooms-availability-notes.md) for details.
 
 ### GCS Knowledge Base pages
 
@@ -585,8 +591,9 @@ curl http://127.0.0.1:9091/api/status
 node cli/dist/main.js daemon status
 node cli/dist/main.js list
 node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
-node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY THE VISTA,MBTMY THE MEADOW, MBTMY THE CLIFFSIDE, MBTMY THE BRIDGE" --format json
-node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY THE BASE CAMP, MBTMY THE TRAILHEAD, MBTMY THE FOOTHILLS, MBTMY THE BRIDGE, MBTMY THE MEADOW, MBTMY THE FOREST, MBTMY THE LOOKOUT, MBTMY THE CLIFFSIDE, MBTMY THE LEDGE, MBTMY THE HIGHPOINT, MBTMY THE VISTA, MBTMY THE SHOULDER, MBTMY THE PINNACLE, MBTMY THE DESCENT" --format json
+node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY The Vista:RES-RERE-M6VJ7ZUW@mercedes-benz.com,MBTMY The Cliffside:res-rere-m6vjl2tw@mercedes-benz.com" --format json
+node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY The Vista,MBTMY The Cliffside" --format json
+node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY THE BASE CAMP:res-rere-m6vz23ty@mercedes-benz.com,MBTMY THE TRAILHEAD:res-rere-m6vc2q4d@mercedes-benz.com,MBTMY THE FOOTHILLS:res-rere-m6vcb79c@mercedes-benz.com,MBTMY THE BRIDGE:res-rere-m6vgcah6@mercedes-benz.com,MBTMY THE MEADOW:res-rere-m6vhkzmd@mercedes-benz.com,MBTMY THE FOREST:res-rere-m6vhsc6h@mercedes-benz.com,MBTMY THE LOOKOUT:res-rere-m6vjqgrq@mercedes-benz.com,MBTMY THE CLIFFSIDE:res-rere-m6vjl2tw@mercedes-benz.com,MBTMY THE LEDGE:res-rere-m6vjfbmr@mercedes-benz.com,MBTMY THE HIGHPOINT:res-rere-m6vjblgb@mercedes-benz.com,MBTMY THE VISTA:RES-RERE-M6VJ7ZUW@mercedes-benz.com,MBTMY THE SHOULDER:res-rere-m6vj3tuq@mercedes-benz.com,MBTMY THE PINNACLE:res-rere-m6vhxd4c@mercedes-benz.com,MBTMY THE DESCENT:res-rere-m6vzgysp@mercedes-benz.com" --format json
 
 node cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node cli/dist/main.js run tokenmaster/clients-list --format table

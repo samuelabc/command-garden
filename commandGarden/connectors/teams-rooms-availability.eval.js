@@ -191,8 +191,25 @@ function buildTimeline(items, dateIso) {
 
 const rawRooms = '${{ args.rooms }}'.trim();
 if (!rawRooms) throw new Error('Missing rooms argument — pass comma-separated room names or emails');
-const rooms = rawRooms.split(',').map(r => r.trim()).filter(r => r.length > 0);
-if (rooms.length === 0) throw new Error('No rooms provided after parsing');
+const roomTokens = rawRooms.split(',').map(r => r.trim()).filter(r => r.length > 0);
+if (roomTokens.length === 0) throw new Error('No rooms provided after parsing');
+
+const parsedRooms = roomTokens.map(r => {
+  const colonIdx = r.lastIndexOf(':');
+  if (colonIdx > 0) {
+    const name = r.substring(0, colonIdx).trim();
+    const email = r.substring(colonIdx + 1).trim();
+    if (EMAIL_RE.test(email)) {
+      return { name, email: email.toLowerCase(), mode: 'pair' };
+    }
+  }
+  if (EMAIL_RE.test(r)) {
+    return { name: r, email: r.toLowerCase(), mode: 'email' };
+  }
+  return { name: r, email: null, mode: 'name' };
+});
+
+const canBatch = parsedRooms.every(r => r.mode === 'pair');
 
 let date = '${{ args.date | default("") }}'.trim();
 if (!date) date = todayLocalISO();
@@ -375,65 +392,154 @@ async function captureNewSchedule(knownIds) {
   return { newId, schedule, sawView, errMsg, items: [...itemsById.values()] };
 }
 
-// ── Sequential room processing ───────────────────────────────────────
+/**
+ * Batch capture: wait for getSchedule responses covering all expected emails.
+ * Returns a Map of email (lowercased) -> { schedule, items, sawView, errMsg }.
+ */
+async function captureBatchSchedules(expectedEmails, knownIds) {
+  const byEmail = new Map();
+
+  for (let i = 0; i < 80; i++) {
+    await sleep(100);
+    for (const pair of readCapture()) {
+      for (const [id, s] of schedulesFromPair(pair)) {
+        if (knownIds.has(id)) continue;
+        const idLower = id.toLowerCase();
+        if (!expectedEmails.has(idLower)) continue;
+        const items = (s.scheduleItems || []).filter(Boolean);
+        byEmail.set(idLower, {
+          schedule: s,
+          items,
+          sawView: !!(s.availabilityView && s.availabilityView.length),
+          errMsg: s.error ? (s.error.message || s.error.responseCode || 'unknown') : null,
+        });
+      }
+    }
+    if (expectedEmails.size > 0 && [...expectedEmails].every(e => byEmail.has(e))) break;
+  }
+
+  return byEmail;
+}
+
+// ── Room processing ──────────────────────────────────────────────────
 
 const allRows = [];
 const knownIds = new Set(seen);
 
-for (const room of rooms) {
-  const isEmail = EMAIL_RE.test(room);
+if (canBatch) {
+  // ── Batch mode: add all rooms via room finder, single capture ──────
+  const emailToName = new Map();
+  const expectedEmails = new Set();
+  for (const r of parsedRooms) {
+    emailToName.set(r.email, r.name);
+    expectedEmails.add(r.email);
+  }
 
-  // Clear any pending captures before adding this room.
+  // Clear stale captures, then add all rooms without dismissing.
   readCapture();
 
-  try {
-    if (isEmail) {
-      await addRoomByEmail(room);
-    } else {
-      await addRoomByName(room);
+  for (const r of parsedRooms) {
+    try {
+      await addRoomByName(r.name);
+      await sleep(300);
+    } catch (addErr) {
+      allRows.push({
+        roomName: r.name, roomEmail: r.email, date,
+        state: 'error', start: addErr.message, end: '', durationMin: 0,
+      });
+      expectedEmails.delete(r.email);
     }
-  } catch (addErr) {
-    allRows.push({
-      roomName: room, roomEmail: '', date,
-      state: 'error', start: addErr.message, end: '', durationMin: 0,
-    });
-    continue;
   }
 
-  // Capture the getSchedule response immediately after adding (before dismiss).
-  const result = await captureNewSchedule(knownIds);
+  // Single batch capture for all successfully added rooms.
+  if (expectedEmails.size > 0) {
+    const results = await captureBatchSchedules(expectedEmails, knownIds);
 
-  // Remove the room so "Add a room" reappears for the next room.
-  await dismissRoom();
+    for (const [email, data] of results) {
+      const name = emailToName.get(email);
+      knownIds.add(email);
+      if (data.errMsg && !data.sawView) {
+        allRows.push({
+          roomName: name, roomEmail: email, date,
+          state: 'error', start: `Free/busy error: ${data.errMsg}`,
+          end: '', durationMin: 0,
+        });
+      } else {
+        const timeline = buildTimeline(data.items, date);
+        for (const row of timeline) {
+          allRows.push({ roomName: name, roomEmail: email, ...row });
+        }
+      }
+    }
 
-  if (!result.newId) {
-    allRows.push({
-      roomName: room, roomEmail: '', date,
-      state: 'error', start: `No free/busy returned for "${room}" on ${date}`,
-      end: '', durationMin: 0,
-    });
-    continue;
+    // Report rooms not found in any captured response.
+    for (const email of expectedEmails) {
+      if (!results.has(email)) {
+        allRows.push({
+          roomName: emailToName.get(email), roomEmail: email, date,
+          state: 'error', start: `No free/busy returned for "${emailToName.get(email)}" on ${date}`,
+          end: '', durationMin: 0,
+        });
+      }
+    }
   }
+} else {
+  // ── Sequential mode (original behavior) ────────────────────────────
+  for (const r of parsedRooms) {
+    const isEmail = r.mode === 'email';
 
-  knownIds.add(result.newId);
+    // Clear any pending captures before adding this room.
+    readCapture();
 
-  if (result.errMsg && !result.sawView) {
-    allRows.push({
-      roomName: room, roomEmail: result.newId, date,
-      state: 'error', start: `Free/busy error: ${result.errMsg}`,
-      end: '', durationMin: 0,
-    });
-    continue;
-  }
+    try {
+      if (isEmail) {
+        await addRoomByEmail(r.name);
+      } else {
+        await addRoomByName(r.name);
+      }
+    } catch (addErr) {
+      allRows.push({
+        roomName: r.name, roomEmail: r.email || '', date,
+        state: 'error', start: addErr.message, end: '', durationMin: 0,
+      });
+      continue;
+    }
 
-  const timeline = buildTimeline(result.items, date);
-  for (const r of timeline) {
-    allRows.push({ roomName: room, roomEmail: result.newId, ...r });
+    // Capture the getSchedule response immediately after adding (before dismiss).
+    const result = await captureNewSchedule(knownIds);
+
+    // Remove the room so "Add a room" reappears for the next room.
+    await dismissRoom();
+
+    if (!result.newId) {
+      allRows.push({
+        roomName: r.name, roomEmail: r.email || '', date,
+        state: 'error', start: `No free/busy returned for "${r.name}" on ${date}`,
+        end: '', durationMin: 0,
+      });
+      continue;
+    }
+
+    knownIds.add(result.newId);
+
+    if (result.errMsg && !result.sawView) {
+      allRows.push({
+        roomName: r.name, roomEmail: result.newId, date,
+        state: 'error', start: `Free/busy error: ${result.errMsg}`,
+        end: '', durationMin: 0,
+      });
+      continue;
+    }
+
+    const timeline = buildTimeline(result.items, date);
+    for (const row of timeline) {
+      allRows.push({ roomName: r.name, roomEmail: result.newId, ...row });
+    }
   }
 }
 
 if (allRows.length === 0) {
-  throw new Error(`No results for any of the ${rooms.length} room(s) on ${date}`);
+  throw new Error(`No results for any of the ${parsedRooms.length} room(s) on ${date}`);
 }
 
 return allRows;

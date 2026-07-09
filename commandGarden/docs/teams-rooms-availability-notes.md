@@ -6,9 +6,12 @@ The `teams/rooms-availability` connector checks free/busy timelines for **multip
 
 ## Design Decisions
 
-- **Input**: Comma-separated `--rooms` argument (e.g. `"Room A,Room B,Room C"`)
-- **Mixed input**: Supports both room names and emails in the same invocation, auto-detected per-room via regex
-- **Strategy**: Sequential add → capture → remove per room. After capturing each room's schedule, the room is removed from the attendee list and the room finder input is reused for the next room via `reactType` (which uses `document.execCommand('insertText')` to properly trigger React's search)
+- **Input**: Comma-separated `--rooms` argument supporting three formats:
+  - **name:email pairs** (batch mode): `"Room A:roomA@co.com,Room B:roomB@co.com"`
+  - **names only** (sequential): `"Room A,Room B,Room C"`
+  - **emails only** (sequential): `"roomA@co.com,roomB@co.com"`
+- **Batch mode** (all entries are name:email pairs): Adds all rooms via room finder without dismiss/capture between each. A single batch capture at the end maps scheduleIds to room names using the pre-known emails. ~2x faster than sequential.
+- **Sequential mode** (any entry lacks an email): add → capture → remove per room. After capturing each room's schedule, the room is removed from the attendee list and the room finder input is reused for the next room via `reactType` (which uses `document.execCommand('insertText')` to properly trigger React's search)
 - **Error handling**: Partial results — failed rooms produce an error row (`state: "error"`) while successful rooms return their full timeline
 - **Output**: `roomName` (original input), `roomEmail` (resolved scheduleId), plus the standard timeline columns
 
@@ -46,9 +49,9 @@ Correct order: `addRoom() → captureNewSchedule() → dismissRoom()`
 
 ## Known Limitations
 
-1. **Speed**: Sequential processing takes ~4-8 seconds per room (capture polling at 100ms intervals, add/remove at 200ms intervals, 1s wait for search refresh on reused input).
+1. **Speed (sequential)**: ~4-8 seconds per room (capture polling at 100ms intervals, add/remove at 200ms intervals, 1s wait for search refresh on reused input).
+2. **Speed (batch)**: ~2 seconds per room + single capture at end (~8s total). Requires providing email for every room.
 
 ## Future Improvements
 
-- Batch approach: add all rooms at once → single capture → faster total time (requires solving the room-name-to-scheduleId mapping problem)
 - Reduce the 1s search refresh wait by polling for suggestion changes instead of a fixed delay
