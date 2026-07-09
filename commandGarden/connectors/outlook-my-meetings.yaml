@@ -3,6 +3,7 @@ name: my-meetings
 version: "1.0"
 description: "User's own meeting schedule from Outlook Calendar for a given day"
 access: read
+cdp: true
 
 domains:
   - "outlook.cloud.microsoft.mcas.ms"
