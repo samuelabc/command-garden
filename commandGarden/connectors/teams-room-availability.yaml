@@ -3,6 +3,7 @@ name: room-availability
 version: "1.0"
 description: "Meeting-room free/busy timeline for one room on a given day (Teams/Outlook calendar)"
 access: read
+cdp: true
 
 domains:
   - "outlook.cloud.microsoft.mcas.ms"

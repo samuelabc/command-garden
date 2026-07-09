@@ -25,6 +25,7 @@ export const connectorSchema = z.object({
   version: z.string(),
   description: z.string().optional(),
   access: z.enum(['read', 'write']).default('read'),
+  cdp: z.boolean().optional().default(false),
   vars: z.record(z.unknown()).optional(),
   domains: z.array(z.string()).min(1),
   capabilities: z.array(capabilityEnum).min(1),
