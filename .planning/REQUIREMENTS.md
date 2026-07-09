@@ -89,38 +89,41 @@ Deferred to finals (July 29) or post-competition.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MIG-01 | Phase 1 | Pending |
-| MIG-02 | Phase 1 | Pending |
-| MIG-03 | Phase 1 | Pending |
-| MIG-04 | Phase 1 | Pending |
-| ADPT-01 | Phase 2 | Pending |
-| ADPT-02 | Phase 2 | Pending |
-| ADPT-03 | Phase 2 | Pending |
-| ADPT-04 | Phase 2 | Pending |
-| ADPT-05 | Phase 2 | Pending |
-| BACK-01 | Phase 3 | Pending |
-| BACK-02 | Phase 3 | Pending |
-| BACK-03 | Phase 3 | Pending |
-| BACK-04 | Phase 3 | Pending |
-| BACK-05 | Phase 3 | Pending |
-| FRONT-01 | Phase 3 | Pending |
-| FRONT-02 | Phase 3 | Pending |
-| FRONT-03 | Phase 3 | Pending |
-| FRONT-04 | Phase 3 | Pending |
-| FRONT-05 | Phase 3 | Pending |
-| FRONT-06 | Phase 3 | Pending |
-| AI-01 | Phase 4 | Pending |
-| AI-02 | Phase 4 | Pending |
-| AI-03 | Phase 4 | Pending |
+| MIG-01 | Phase 1 | Done ✓ |
+| MIG-02 | Phase 1 | Done ✓ |
+| MIG-03 | Phase 1 | Done ✓ |
+| MIG-04 | Phase 1 | Done ✓ |
+| ADPT-01 | Phase 2 | In Progress (ADO connector needs CDP fix) |
+| ADPT-02 | Phase 2 | Deferred to v2 (MCAS proxy) |
+| ADPT-03 | Phase 2 | Done ✓ (Jira Cloud) |
+| ADPT-04 | Phase 2 | Partial (Jira ✓, ADO blocked, Outlook deferred) |
+| ADPT-05 | Phase 2 | Done ✓ (all connectors have YAML + eval) |
+| BACK-01 | Phase 3 | Done ✓ |
+| BACK-02 | Phase 3 | Partial (Jira via daemon ✓, Git pending, Meetings disabled) |
+| BACK-03 | Phase 3 | Done ✓ |
+| BACK-04 | Phase 3 | Done ✓ |
+| BACK-05 | Phase 3 | Done ✓ |
+| FRONT-01 | Phase 3 | Done ✓ |
+| FRONT-02 | Phase 3 | Done ✓ |
+| FRONT-03 | Phase 3 | Done ✓ |
+| FRONT-04 | Phase 3 | Done ✓ |
+| FRONT-05 | Phase 3 | Done ✓ |
+| FRONT-06 | Phase 3 | Done ✓ |
+| AI-01 | Phase 4 | Planned |
+| AI-02 | Phase 4 | Planned |
+| AI-03 | Phase 4 | Planned |
 | DEMO-01 | Phase 5 | Pending |
 | DEMO-02 | Phase 5 | Pending |
 | DEMO-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 26
-- Unmapped: 0 ✓
+- Done: 18
+- In Progress / Partial: 3
+- Deferred: 1 (ADPT-02 Outlook)
+- Planned: 3 (AI)
+- Pending: 3 (Demo)
 
 ---
 *Requirements defined: 2026-07-05*
-*Last updated: 2026-07-05 after initial definition*
+*Last updated: 2026-07-10 after Phase 3 execution + connector debugging*

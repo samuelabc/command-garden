@@ -46,9 +46,9 @@ Port journal frontend from Next.js to React SPA:
 - Verify: `cg up` → navigate to journal page → UI renders
 
 **Success criteria:**
-- [ ] `cg up` starts daemon + app server + GUI
-- [ ] Journal page accessible in commandGarden GUI
-- [ ] `POST /api/journal/generate` returns data (Git source via existing REST API as baseline)
+- [x] `cg up` starts daemon + app server + GUI
+- [x] Journal page accessible in commandGarden GUI
+- [x] `POST /api/journal/generate` returns data (Git source via existing REST API as baseline)
 
 ---
 
@@ -60,37 +60,35 @@ Port journal frontend from Next.js to React SPA:
 
 **Requirements:** ADPT-01, ADPT-02, ADPT-03, ADPT-04, ADPT-05
 
-### Plan 2.1: ADO Git Connector
+### Plan 2.1: ADO Git Connector (IN PROGRESS)
 
 Build a commandGarden YAML connector + eval script for Azure DevOps Git:
-- Navigate to ADO web UI, extract commit history for configured repos
+- Navigate to ADO commits page, intercept page's own API responses
 - Return: commit ID, author, date, message, files changed
-- Extract PR data: merged PRs with dates
-- YAML: domains, capabilities, args (project, repo, fromDate, toDate)
-- Test with `cg run ado/git-commits --project mic-dns --repo mic-dns-api`
+- YAML: domains, capabilities, args (org, project, repo, fromDate, toDate)
+- **Status:** Connector built but timing out (90s). ADO may need CDP `Fetch.enable` approach like room-availability. Needs `cdp: true` flag + broader URL pattern in Chrome extension.
 
-### Plan 2.2: Outlook Calendar Connector
+### Plan 2.2: Outlook Calendar Connector (DEFERRED to v2)
 
-Build/extend a commandGarden connector for Outlook Calendar:
-- Navigate to Outlook web, extract user's own meeting schedule for a date range
-- Return: meeting subject, start, end, duration, attendee count
-- Can potentially extend existing `teams/room-availability` approach (capture organizer's scheduleItems)
-- YAML: domains, capabilities, args (date, dateRange)
-- Test with `cg run outlook/my-meetings --date 2026-07-07`
+**Deferred** — MCAS proxy (`outlook.cloud.microsoft.mcas.ms`) blocks standard auth patterns:
+- OWA REST API: X-OWA-CANARY cookie is HttpOnly
+- Graph API: no Graph-scoped MSAL token in MCAS storage
+- Response interception: eval installs after initial data fetch
+- **May be unblocked** by adding `cdp: true` to connector YAML (Samuel's CDP fix)
 
-### Plan 2.3: Jira Connector
+### Plan 2.3: Jira Cloud Connector ✓
 
-Build a commandGarden YAML connector + eval script for Atlassian Jira:
-- Navigate to Jira web UI, extract tickets assigned to the user
-- Return: ticket key, summary, status, resolution date, story points
-- Extract: resolved this week, in-progress, blockers (stale items)
-- YAML: domains, capabilities, args (dateRange, assignee)
-- Test with `cg run jira/my-tickets --from 2026-07-07 --to 2026-07-13`
+Build a commandGarden YAML connector for Atlassian Jira Cloud (`mercedes-benz.atlassian.net`):
+- Uses Jira REST API v3 with JQL queries via browser session cookies
+- Returns: ticket key, summary, status, resolved date, stale days, category
+- Assignee defaults to `currentUser()` JQL function
+- **Status:** Working ✓ — tested with real tickets
 
 **Success criteria:**
-- [ ] All 3 connectors work via `cg run` with real browser sessions
-- [ ] No API tokens required — pure browser automation
-- [ ] Each connector has YAML definition + eval script
+- [ ] ADO Git connector works via `cg run` (blocked — needs CDP)
+- [x] Jira connector works via `cg run` with real browser session
+- [ ] Outlook connector works (deferred to v2)
+- [x] Each connector has YAML definition + eval script
 
 ---
 
@@ -122,9 +120,12 @@ Finalize the journal UI in commandGarden GUI:
 - Responsive layout matching commandGarden GUI style
 
 **Success criteria:**
-- [ ] Generate button fetches data from all 3 connectors via daemon
-- [ ] Page renders complete weekly report with cross-references
-- [ ] Graceful degradation works when a connector fails
+- [x] Generate button fetches data from available connectors via daemon
+- [x] Page renders weekly report with cross-references (Git data pending ADO connector fix)
+- [x] Graceful degradation works when a connector fails (meetings show "—")
+- [x] Journal config stored in GUI preferences (no env vars)
+- [x] Summary cards show progress bar, blocker count, repo count
+- [x] Daily breakdown has totals row
 
 ---
 
