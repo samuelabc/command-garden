@@ -41,6 +41,12 @@ These behaviors were discovered during implementation and are important for any 
 - `typeText` uses `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set` + dispatching `input`/`change` events. Works on freshly opened inputs but **fails to trigger OWA search on reused inputs**.
 - `reactType` uses `el.select()` + `document.execCommand('insertText', false, text)`. This goes through the browser's editing command path and triggers React's internal `SyntheticEvent` system, which properly triggers OWA's room search.
 
+### First-room autocomplete needs a delay after `typeText`
+
+When typing into the room finder for the **first** room (fresh input opened via "Add a room"), OWA needs ~1.5s after `typeText` before autocomplete suggestions render. Without this delay, the polling loop clicks a stale or absent option and the room's `getSchedule` call never fires — producing a "No free/busy returned" error.
+
+The **reuse path** (subsequent rooms via `reactType` on an already-open input) already had `await sleep(1000)`. The first-room path was missing it.
+
 ### Capture ordering matters
 
 The `getSchedule` GraphQL response must be captured **before** the remove step. If remove runs first, the response may arrive during the remove sleep period and get lost when `readCapture()` clears the buffer for the next room.

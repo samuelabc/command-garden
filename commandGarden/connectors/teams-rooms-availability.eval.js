@@ -326,6 +326,8 @@ async function addRoomByName(name) {
       throw new Error('Could not open the room finder');
     }
     typeText(inputSel, name);
+    // Wait for OWA to process the search and refresh suggestions.
+    await sleep(1500);
   }
 
   let label = null;
