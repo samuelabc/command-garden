@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState, useMemo } from 'react';
 import { useActiveSection } from './hooks/useActiveSection';
 import { api, groupBySite } from './api';
@@ -11,6 +11,7 @@ import Guide from './pages/Guide';
 import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
+import JournalDaily from './pages/JournalDaily';
 import SecurityNews from './pages/SecurityNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
 import Architecture from './pages/Architecture';
@@ -88,6 +89,41 @@ function SectionSubNav({ sections }: { sections: SectionDef[] }) {
         </button>
       ))}
     </div>
+  );
+}
+
+interface ChildDef { label: string; to: string }
+
+const JOURNAL_CHILDREN: ChildDef[] = [
+  { label: 'Daily', to: '/apps/journal/daily' },
+  { label: 'Weekly', to: '/apps/journal/weekly' },
+];
+
+function NavItemWithChildren({ to, label, items }: { to: string; label: string; items: ChildDef[] }) {
+  const location = useLocation();
+  const isActive = location.pathname.startsWith(to);
+
+  return (
+    <>
+      <NavLink to={to} className={navClassIndented}>{label}</NavLink>
+      {isActive && items.length > 0 && (
+        <div className="ml-3 border-l border-base-300 py-0.5">
+          {items.map((c) => (
+            <NavLink
+              key={c.to}
+              to={c.to}
+              className={({ isActive: childActive }) =>
+                `block w-full text-left pl-3 py-1 text-[0.7rem] transition-colors ${
+                  childActive ? 'text-primary opacity-100' : 'opacity-50 hover:opacity-70'
+                }`
+              }
+            >
+              {c.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -194,7 +230,7 @@ function Layout() {
           <NavLink to="/apps/timetracking" className={navClassIndented}>Time Tracking</NavLink>
           <NavLink to="/apps/rooms" className={navClassIndented}>Room Availability</NavLink>
           <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Productivity</div>
-          <NavLink to="/apps/journal" className={navClassIndented}>Dev Journal</NavLink>
+          <NavItemWithChildren to="/apps/journal" label="Dev Journal" items={JOURNAL_CHILDREN} />
           <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
           <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Security</div>
           <NavLink to="/apps/security-news" className={navClassIndented}>Security News</NavLink>
@@ -241,7 +277,9 @@ export default function App() {
           <Route path="guide" element={<Guide />} />
           <Route path="apps/timetracking" element={<Timetracking />} />
           <Route path="apps/rooms" element={<Rooms />} />
-          <Route path="apps/journal" element={<Journal />} />
+          <Route path="apps/journal" element={<Navigate to="/apps/journal/daily" replace />} />
+          <Route path="apps/journal/daily" element={<JournalDaily />} />
+          <Route path="apps/journal/weekly" element={<Journal />} />
           <Route path="apps/security-news" element={<SecurityNews />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
           <Route path="architecture" element={<Architecture />} />
