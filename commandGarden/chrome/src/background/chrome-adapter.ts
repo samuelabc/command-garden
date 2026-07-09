@@ -62,8 +62,11 @@ export class RealChromeAdapter implements ChromeAdapter {
       // Fetch.enable intercepts at the network stack level — captures
       // requests even when a Service Worker mediates them.
       await chrome.debugger.sendCommand({ tabId }, 'Fetch.enable', {
-        patterns: [{ urlPattern: '*graphql*', requestStage: 'Response' }],
-      }).catch(() => {}); // Fetch domain may not be available in older Chrome
+        patterns: [
+          { urlPattern: '*graphql*', requestStage: 'Response' },
+          { urlPattern: '*_apis/*', requestStage: 'Response' },
+        ],
+      }).catch(() => {});
       this.startCapture(tabId);
     } catch (_e) {
       // Debugger may fail (e.g. another debugger attached, or user dismissed).
@@ -92,7 +95,10 @@ export class RealChromeAdapter implements ChromeAdapter {
       await chrome.debugger.sendCommand({ targetId: swTarget.id }, 'Network.enable');
       // Also enable Fetch domain on SW target
       await chrome.debugger.sendCommand({ targetId: swTarget.id }, 'Fetch.enable', {
-        patterns: [{ urlPattern: '*graphql*', requestStage: 'Response' }],
+        patterns: [
+          { urlPattern: '*graphql*', requestStage: 'Response' },
+          { urlPattern: '*_apis/*', requestStage: 'Response' },
+        ],
       }).catch(() => {});
 
       const captureTabId = this.tabId;
@@ -131,6 +137,18 @@ export class RealChromeAdapter implements ChromeAdapter {
 
   private _swTargetId: string | null = null;
 
+  /** Inject an ADO API response body into the page's globalThis.__cdpCapture array.
+   *  Used by ado/git-commits and similar connectors that need CDP-intercepted data. */
+  private injectCdpCapture(tabId: number, body: string): void {
+    chrome.scripting.executeScript({
+      target: { tabId }, world: 'MAIN', args: [body],
+      func: (data: string) => {
+        if (!(globalThis as Record<string, unknown>).__cdpCapture) (globalThis as Record<string, unknown>).__cdpCapture = [];
+        ((globalThis as Record<string, unknown>).__cdpCapture as string[]).push(data);
+      },
+    });
+  }
+
   /** Inject a getSchedule response body into the page's globalThis.__rfb array. */
   private injectRfb(tabId: number, body: string): void {
     chrome.scripting.executeScript({
@@ -156,8 +174,13 @@ export class RealChromeAdapter implements ChromeAdapter {
     chrome.debugger.sendCommand(debuggee, cmd, { requestId }).then((result) => {
       const raw = result as { body: string; base64Encoded: boolean };
       const body = isFetchDomain && raw.base64Encoded ? atob(raw.body) : (raw.body || '');
+      // Inject getSchedule responses into __rfb (room-availability / outlook)
       if (body.includes('getSchedule') && body.includes('availabilityView')) {
         this.injectRfb(tabId, body);
+      }
+      // Inject ADO API responses into __cdpCapture (git-commits / work items)
+      if (body.includes('commitId') || body.includes('pushId') || body.includes('workItems')) {
+        this.injectCdpCapture(tabId, body);
       }
     }).catch(() => {}).finally(() => {
       if (isFetchDomain) {
@@ -205,20 +228,66 @@ export class RealChromeAdapter implements ChromeAdapter {
     return response.data;
   }
 
+  /**
+   * Run eval.js code via CDP Runtime.evaluate — bypasses CSP because it
+   * executes at the debugger level (like typing in DevTools console).
+   * Required for sites like ADO that use strict-dynamic CSP with nonces,
+   * which blocks new AsyncFunction() / eval() from chrome.scripting.
+   */
+  private async evaluateViaCdp(tabId: number, code: string): Promise<unknown> {
+    // Wrap in async IIFE so eval.js `return` statements work correctly.
+    // Race against a 90s timeout since Runtime.evaluate with awaitPromise
+    // will wait indefinitely otherwise.
+    const expression = `
+      Promise.race([
+        (async () => { ${code} })(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('js_evaluate timed out (90s)')), 90000))
+      ])
+    `;
+    const result = await chrome.debugger.sendCommand(
+      { tabId }, 'Runtime.evaluate',
+      { expression, awaitPromise: true, returnByValue: true },
+    );
+    const r = result as {
+      result?: { type: string; value?: unknown; description?: string };
+      exceptionDetails?: { text: string; exception?: { description?: string } };
+    };
+    if (r.exceptionDetails) {
+      const errMsg = r.exceptionDetails.exception?.description || r.exceptionDetails.text;
+      throw new Error(errMsg);
+    }
+    return r.result?.value;
+  }
+
   async evaluateInPage(tabId: number, code: string): Promise<unknown> {
+    // When the debugger is attached, use CDP Runtime.evaluate to bypass
+    // the page's CSP (ADO's strict-dynamic CSP blocks AsyncFunction).
+    if (this.debuggerAttached) {
+      return this.evaluateViaCdp(tabId, code);
+    }
+
     const nonce = '__cg_' + Math.random().toString(36).slice(2);
-    // Step 1: inject the async code; it stores result on globalThis when done
+    // Step 1: inject the async code; it stores result on globalThis when done.
+    // try-catch inside the func ensures CSP rejections (which throw
+    // synchronously from the AsyncFunction constructor) are captured
+    // as {ok:false} instead of leaving the nonce stuck at {pending:true}.
     await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
       args: [code, nonce],
       func: (codeStr: string, key: string) => {
         (globalThis as Record<string, unknown>)[key] = { pending: true };
-        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-        new AsyncFunction(codeStr)().then(
-          (r: unknown) => { (globalThis as Record<string, unknown>)[key] = { ok: true, result: r }; },
-          (e: Error) => { (globalThis as Record<string, unknown>)[key] = { ok: false, error: e.message || String(e) }; },
-        );
+        try {
+          const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+          new AsyncFunction(codeStr)().then(
+            (r: unknown) => { (globalThis as Record<string, unknown>)[key] = { ok: true, result: r }; },
+            (e: Error) => { (globalThis as Record<string, unknown>)[key] = { ok: false, error: e.message || String(e) }; },
+          );
+        } catch (syncErr: unknown) {
+          // CSP or other sync error creating/invoking the AsyncFunction
+          const msg = syncErr instanceof Error ? syncErr.message : String(syncErr);
+          (globalThis as Record<string, unknown>)[key] = { ok: false, error: '[sync] ' + msg };
+        }
       },
     });
     // Step 2: poll for the result (long timeout for SSO/MFA flows)

@@ -1,100 +1,70 @@
-// Runs in page context via js_evaluate step.
-// Captures ADO Git commit data by intercepting the page's own API calls.
+// Runs in page context via js_evaluate step (executed by CDP Runtime.evaluate
+// to bypass ADO's strict-dynamic CSP — see chrome-adapter.ts evaluateViaCdp).
 //
-// Strategy: the pipeline navigates to the ADO commits page, which triggers
-// ADO's SPA to fetch commit data from its own API. We intercept those
-// responses (same proven pattern as teams-room-availability connector).
-// This avoids making our own API calls (which hang due to ADO's auth/CSP).
+// Fetches ADO Git commits directly via the REST API. This works because:
+// 1. Runtime.evaluate bypasses CSP (runs at debugger level, like DevTools console)
+// 2. fetch() is same-origin and uses the page's session cookies for auth
+// 3. No MCAS proxy on dev.azure.com (unlike Outlook)
+//
+// Falls back to window.__cdpCapture if the direct API call fails.
+// Requires cdp: true in the connector YAML.
 //
 // Template variables interpolated before execution:
-//   ${{ args.org }}
-//   ${{ args.project }}
-//   ${{ args.repo }}
-//   ${{ args.fromDate }}
-//   ${{ args.toDate }}
+//   ${{ args.org }}, ${{ args.project }}, ${{ args.repo }}
+//   ${{ args.fromDate }}, ${{ args.toDate }}
 //   ${{ args.author | default("") }}
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+const org = '${{ args.org }}'.trim();
+const project = '${{ args.project }}'.trim();
+const repo = '${{ args.repo }}'.trim();
 const fromDate = '${{ args.fromDate }}'.trim();
 const toDate = '${{ args.toDate }}'.trim();
 const authorFilter = '${{ args.author | default("") }}'.trim().toLowerCase();
 
-// ── Install fetch interceptor to capture ADO's commit API responses ───
-// ADO's SPA calls its own API to load commits when the page renders.
-// We intercept those responses and collect the commit data.
-if (!window.__adoCommits) {
-  window.__adoCommits = [];
-  const origFetch = window.fetch;
-  window.fetch = function () {
-    const args = arguments;
-    const url = String((args[0] && args[0].url) || args[0] || '');
-    return origFetch.apply(this, args).then(r => {
-      try {
-        // Capture responses from the commits/pushes API
-        if (url.includes('/commits') || url.includes('/pushes')) {
-          r.clone().json().then(data => {
-            const items = data.value || data.results || [];
-            if (Array.isArray(items)) {
-              for (const item of items) {
-                // Commit objects have commitId; push objects have pushId
-                if (item.commitId || item.pushId) {
-                  window.__adoCommits.push(item);
-                }
-              }
-            }
-          }).catch(() => {});
+// ── Fetch commits via ADO REST API ────────────────────────────────────
+// Direct same-origin fetch with session cookies — avoids the problem where
+// ADO embeds initial commit data in the HTML (no separate _apis/ XHR),
+// making CDP Fetch.enable interception unable to capture commit data.
+const allItems = [];
+try {
+  const apiUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}`
+    + `/_apis/git/repositories/${encodeURIComponent(repo)}/commits`
+    + `?searchCriteria.fromDate=${fromDate}&searchCriteria.toDate=${toDate}`
+    + `&$top=1000&api-version=7.1`;
+  const resp = await fetch(apiUrl);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  const data = await resp.json();
+  for (const item of (data.value || [])) {
+    if (item.commitId) allItems.push(item);
+  }
+} catch (fetchErr) {
+  // Direct fetch failed — fall back to CDP-captured data (window.__cdpCapture
+  // is populated by chrome-adapter.ts Fetch.enable when _apis/ XHRs occur).
+  for (let i = 0; i < 30; i++) {
+    await sleep(1000);
+    if (window.__cdpCapture && window.__cdpCapture.length > 0) break;
+  }
+  for (const raw of (window.__cdpCapture || [])) {
+    try {
+      const data = JSON.parse(raw);
+      const items = data.value || data.results || [];
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item.commitId) allItems.push(item);
         }
-      } catch (_) {}
-      return r;
-    });
-  };
-
-  // Also patch XMLHttpRequest (ADO uses both)
-  const origXHROpen = XMLHttpRequest.prototype.open;
-  const origXHRSend = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.open = function () {
-    this.__url = arguments[1] || '';
-    return origXHROpen.apply(this, arguments);
-  };
-  XMLHttpRequest.prototype.send = function () {
-    this.addEventListener('load', function () {
-      try {
-        const url = this.__url || '';
-        if (url.includes('/commits') || url.includes('/pushes')) {
-          const data = JSON.parse(this.responseText);
-          const items = data.value || data.results || [];
-          if (Array.isArray(items)) {
-            for (const item of items) {
-              if (item.commitId || item.pushId) {
-                window.__adoCommits.push(item);
-              }
-            }
-          }
-        }
-      } catch (_) {}
-    });
-    return origXHRSend.apply(this, arguments);
-  };
+      }
+    } catch (_) {}
+  }
+  window.__cdpCapture = [];
 }
-
-// ── Wait for ADO to load commit data (up to 30s) ─────────────────────
-for (let i = 0; i < 30; i++) {
-  await sleep(1000);
-  if (window.__adoCommits.length > 0) break;
-}
-
-// Collect and clear captured data
-const captured = [...(window.__adoCommits || [])];
-window.__adoCommits = [];
 
 // ── Deduplicate and filter commits ────────────────────────────────────
 const seen = new Set();
 const rows = [];
 
-for (const item of captured) {
-  // Skip non-commit items (push metadata without commit details)
-  if (!item.commitId) continue;
+for (const item of allItems) {
   if (seen.has(item.commitId)) continue;
   seen.add(item.commitId);
 

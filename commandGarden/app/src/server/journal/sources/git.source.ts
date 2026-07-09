@@ -43,11 +43,11 @@ export class GitSource {
     this.author = config.author;
   }
 
-  async fetch(weekStart: string, weekEnd: string): Promise<GitData> {
+  async fetch(_weekStart: string, _weekEnd: string): Promise<GitData> {
     try {
       // Call the ado/git-commits connector once per configured repo via daemon
       const results = await Promise.all(
-        this.repos.map((r) => this.fetchRepo(r.project, r.repo, weekStart, weekEnd)),
+        this.repos.map((r) => this.fetchRepo(r.project, r.repo, _weekStart, _weekEnd)),
       );
 
       // Aggregate daily commits across all repos
