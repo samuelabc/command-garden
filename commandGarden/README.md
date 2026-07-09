@@ -211,6 +211,20 @@ This connector drives the Outlook Scheduling Assistant in your authenticated bro
 
 > **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
+### Room availability — multiple rooms (Teams/Outlook)
+
+```bash
+# Check multiple rooms at once (comma-separated)
+cg run teams/rooms-availability --rooms "MBTMY THE VISTA,MBTMY THE MEADOW,MBTMY THE LOOKOUT" --format table
+
+# Mix room names and emails
+cg run teams/rooms-availability --rooms "MBTMY THE VISTA,RES-RERE-M6VJ7ZUW@mercedes-benz.com" --date 2026-07-10 --format json
+```
+
+Same approach as `teams/room-availability`, but adds multiple rooms sequentially and returns a combined timeline with `roomName` (original input) and `roomEmail` (resolved schedule ID) columns. Rooms that fail to resolve produce an error row while successful rooms return their full timeline.
+
+> **Note:** Works reliably for 2 rooms; 3+ rooms may intermittently fail due to OWA room finder dismiss behavior. See [design notes](docs/teams-rooms-availability-notes.md) for details and future improvement plans.
+
 ### GCS Knowledge Base pages
 
 ```bash
@@ -571,6 +585,9 @@ curl http://127.0.0.1:9091/api/status
 node cli/dist/main.js daemon status
 node cli/dist/main.js list
 node cli/dist/main.js run teams/room-availability --room "MBTMY The Vista" --format json
+node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY THE VISTA,MBTMY THE MEADOW, MBTMY THE CLIFFSIDE, MBTMY THE BRIDGE" --format json
+node cli/dist/main.js run teams/rooms-availability --rooms "MBTMY THE BASE CAMP, MBTMY THE TRAILHEAD, MBTMY THE FOOTHILLS, MBTMY THE BRIDGE, MBTMY THE MEADOW, MBTMY THE FOREST, MBTMY THE LOOKOUT, MBTMY THE CLIFFSIDE, MBTMY THE LEDGE, MBTMY THE HIGHPOINT, MBTMY THE VISTA, MBTMY THE SHOULDER, MBTMY THE PINNACLE, MBTMY THE DESCENT" --format json
+
 node cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node cli/dist/main.js run tokenmaster/clients-list --format table
 node cli/dist/main.js run tokenmaster/clients-list --region emea --format table

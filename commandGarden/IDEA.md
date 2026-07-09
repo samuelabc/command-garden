@@ -4,4 +4,4 @@
 - [ ] more explaination in gui
 - [x] humanizer review on gui copywriting
 - [x] timetracking (goal tracking, time analysis)
-- [ ] room availability (bulk checking)
+- [x] room availability (bulk checking)

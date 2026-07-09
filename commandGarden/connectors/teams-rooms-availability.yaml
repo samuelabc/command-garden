@@ -1,0 +1,48 @@
+site: teams
+name: rooms-availability
+version: "1.0"
+description: "Meeting-room free/busy timeline for multiple rooms on a given day (Teams/Outlook calendar)"
+access: read
+cdp: true
+
+domains:
+  - "outlook.cloud.microsoft.mcas.ms"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: rooms
+    type: string
+    required: true
+    help: "Comma-separated room names or emails (e.g. 'MBTMY The Vista,MBTMY The Cliffside' or 'RES-A@mb.com,RES-B@mb.com')"
+  - name: date
+    type: string
+    required: false
+    help: "Day to check in YYYY-MM-DD format (default: today)"
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+
+columns:
+  - name: roomName
+    type: string
+  - name: roomEmail
+    type: string
+  - name: date
+    type: string
+  - name: state
+    type: string
+  - name: start
+    type: string
+  - name: end
+    type: string
+  - name: durationMin
+    type: number
+
+pipeline:
+  - step: navigate
+    url: "https://outlook.cloud.microsoft.mcas.ms/calendar/deeplink/compose"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: teams-rooms-availability.eval.js
