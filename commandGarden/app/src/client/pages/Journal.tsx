@@ -67,11 +67,11 @@ export default function Journal() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      <h1 className="text-2xl font-bold">Dev Work Journal</h1>
+    <div className="max-w-4xl mx-auto">
+      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Dev Work Journal</h2>
 
       {/* Week selector + generate button */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 mb-6">
         <button
           className="btn btn-sm btn-ghost"
           onClick={() => setWeekStart(addWeeks(weekStart, -1))}
@@ -105,7 +105,7 @@ export default function Journal() {
 
       {/* Loading state */}
       {loading && (
-        <div className="flex items-center gap-3 text-base-content/60">
+        <div className="flex items-center gap-3 text-base-content/60 mb-4">
           <span className="loading loading-spinner loading-md"></span>
           <span>Gathering data from Git, Outlook, Jira…</span>
         </div>
@@ -113,14 +113,14 @@ export default function Journal() {
 
       {/* Fatal error (request failed entirely) */}
       {error && (
-        <div role="alert" className="alert alert-error">
+        <div role="alert" className="alert alert-error mb-4">
           <span>{error}</span>
         </div>
       )}
 
       {/* Partial-data warning (some sources failed but others returned data) */}
       {data?.status === 'partial' && (
-        <div role="alert" className="alert alert-warning text-sm">
+        <div role="alert" className="alert alert-warning text-sm mb-4">
           <div>
             <p className="font-semibold">Some data sources were unavailable. Results may be incomplete.</p>
             <ul className="list-disc list-inside mt-1">
@@ -135,14 +135,22 @@ export default function Journal() {
       {/* Results */}
       {data && data.status !== 'error' && (
         <div className="space-y-6">
-          <SummaryCards data={data} />
-          <DailyBreakdown data={data} />
-          <InsightsPanel insights={data.insights} errors={data.errors} />
+          <section className="space-y-4">
+            <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Summary</h3>
+            <SummaryCards data={data} />
+          </section>
+          <section className="space-y-4">
+            <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Daily Breakdown</h3>
+            <DailyBreakdown data={data} />
+          </section>
+          <section className="space-y-4">
+            <InsightsPanel insights={data.insights} errors={data.errors} />
+          </section>
         </div>
       )}
 
       {data?.status === 'error' && (
-        <div role="alert" className="alert alert-error">
+        <div role="alert" className="alert alert-error mb-4">
           <span>Failed to generate journal. {data.errors.join('; ')}</span>
         </div>
       )}

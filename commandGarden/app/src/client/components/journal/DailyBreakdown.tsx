@@ -52,10 +52,10 @@ export function DailyBreakdown({ data }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="table table-sm">
+    <div className="overflow-x-auto border border-base-300">
+      <table className="table table-sm w-full">
         <thead>
-          <tr>
+          <tr className="font-mono text-[0.6rem] uppercase tracking-[0.1em] opacity-50">
             <th>Day</th>
             <th>Date</th>
             <th>Hours Logged</th>
