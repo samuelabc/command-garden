@@ -145,8 +145,8 @@ export default function JournalDaily() {
   const hasData = tt.result !== null || saba.result !== null;
 
   return (
-    <div className="space-y-8 max-w-3xl">
-      <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em]">Daily Check-in</h2>
           <p className="text-sm opacity-40 mt-0.5">{formatMonth(month)}</p>
@@ -157,11 +157,11 @@ export default function JournalDaily() {
       </div>
 
       {isLoading && !tt.approvalPending && !saba.approvalPending && (
-        <Spinner label="Fetching time tracking and Saba training…" />
+        <div className="mb-4"><Spinner label="Fetching time tracking and Saba training…" /></div>
       )}
 
       {/* ── Time Tracking ── */}
-      <section className="space-y-4">
+      <section className="space-y-4 mb-6">
         <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Time Tracking</h3>
 
         {tt.approvalPending && (
