@@ -3,6 +3,7 @@ import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 import { RoomCombobox } from '../components/RoomCombobox';
 import { TimelineView } from '../components/TimelineView';
+import { OfficeMap, type RoomStatus } from '../components/Officemap';
 import { useApprovalRun } from '../hooks/useApprovalRun';
 
 function todayStr(): string {
@@ -25,6 +26,15 @@ function formatDateLabel(iso: string): string {
   }
 }
 
+/** Parse a slot boundary that may be an ISO datetime or a bare "HH:mm" time. */
+function parseSlotTime(value: string, dateIso: string): Date | null {
+  if (!value) return null;
+  let d = new Date(value);
+  if (!Number.isNaN(d.getTime())) return d;
+  d = new Date(`${dateIso}T${value}`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export default function Rooms() {
   const [room, setRoom] = useState('');
   const [date, setDate] = useState(todayStr());
@@ -37,12 +47,16 @@ export default function Rooms() {
     await run('teams/room-availability', args);
   }, [room, date, run]);
 
-  const rows = (result?.data ?? []).map((r) => ({
-    start: String(r.start ?? ''),
-    end: String(r.end ?? ''),
-    state: String(r.state ?? ''),
-    durationMin: Number(r.durationMin ?? 0),
-  }));
+  const rows = useMemo(
+      () =>
+          (result?.data ?? []).map((r) => ({
+            start: String(r.start ?? ''),
+            end: String(r.end ?? ''),
+            state: String(r.state ?? ''),
+            durationMin: Number(r.durationMin ?? 0),
+          })),
+      [result],
+  );
 
   const stats = useMemo(() => {
     if (rows.length === 0) return null;
@@ -59,98 +73,130 @@ export default function Rooms() {
   // Short room display name (strip common prefix)
   const roomShort = room.replace(/^MBTMY\s+/i, '');
 
+  // Availability status for the checked room, used to color the floor plan.
+  // Today: green/red based on whether the room is free *right now*
+  // (falls back to "any free slot" if slot times can't be matched to now).
+  // Future dates: green if the day has any free slot.
+  const mapStatuses = useMemo<Record<string, RoomStatus>>(() => {
+    if (!result || rows.length === 0 || !room) return {};
+    let free: boolean;
+    if (date === todayStr()) {
+      const now = new Date();
+      const current = rows.find((r) => {
+        const s = parseSlotTime(r.start, date);
+        const e = parseSlotTime(r.end, date);
+        return s !== null && e !== null && s <= now && now < e;
+      });
+      free = current ? current.state === 'free' : rows.some((r) => r.state === 'free');
+    } else {
+      free = rows.some((r) => r.state === 'free');
+    }
+    return { [roomShort]: free ? 'free' : 'busy' };
+  }, [result, rows, room, date, roomShort]);
+
+  const handleMapSelect = useCallback((name: string) => {
+    // Connector room names carry the "MBTMY " prefix — adjust if yours differ.
+    setRoom(`MBTMY ${name}`);
+  }, []);
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Room Availability</h2>
+      <div className="max-w-4xl mx-auto">
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Room Availability</h2>
 
-      <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-6">
-        <label className="form-control flex-1 min-w-0">
-          <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Room</span>
-          <RoomCombobox value={room} onChange={setRoom} />
-        </label>
-        <label className="form-control w-full sm:w-auto">
-          <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Date</span>
-          <input
-            type="date"
-            className="input input-bordered input-sm w-full sm:w-auto"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
-          />
-        </label>
-        <button className="btn btn-primary btn-sm w-full sm:w-auto" onClick={handleRun} disabled={running || !room}>
-          {running ? 'Loading...' : 'Check availability'}
-        </button>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-6">
+          <label className="form-control flex-1 min-w-0">
+            <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Room</span>
+            <RoomCombobox value={room} onChange={setRoom} />
+          </label>
+          <label className="form-control w-full sm:w-auto">
+            <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Date</span>
+            <input
+                type="date"
+                className="input input-bordered input-sm w-full sm:w-auto"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+            />
+          </label>
+          <button className="btn btn-primary btn-sm w-full sm:w-auto" onClick={handleRun} disabled={running || !room}>
+            {running ? 'Loading...' : 'Check availability'}
+          </button>
+        </div>
+
+        {running && !approvalPending && <Spinner label="Checking room availability..." />}
+
+        {approvalPending && (
+            <div className="alert alert-warning mb-4">
+              <span>This connector requires approval before proceeding.</span>
+              <div className="flex gap-2">
+                <button className="btn btn-sm btn-success" onClick={() => handleApproval(true)} disabled={!approvalId}>
+                  Approve
+                </button>
+                <button className="btn btn-sm btn-error" onClick={() => handleApproval(false)} disabled={!approvalId}>
+                  Reject
+                </button>
+              </div>
+            </div>
+        )}
+
+        {isAuthRequired && (
+            <AuthRequiredCallout message="Sign in to Microsoft Teams in Chrome, then try again." />
+        )}
+
+        {error && !isAuthRequired && (
+            <div className="alert alert-error mb-4"><span>{error}</span></div>
+        )}
+
+        {result && rows.length > 0 && stats && (
+            <>
+              {/* Summary stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 border border-base-300 mb-6">
+                <div className="p-3 border-r border-b border-base-300 md:border-b-0">
+                  <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Available</div>
+                  <div className="font-display text-xl font-bold text-success">{stats.pct}%</div>
+                </div>
+                <div className="p-3 border-b border-base-300 md:border-r md:border-b-0">
+                  <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Free time</div>
+                  <div className="font-display text-xl font-bold">{Math.floor(stats.freeMin / 60)}h {stats.freeMin % 60}m</div>
+                </div>
+                <div className="p-3 border-r border-base-300">
+                  <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Busy time</div>
+                  <div className="font-display text-xl font-bold">{Math.floor(stats.busyMin / 60)}h {stats.busyMin % 60}m</div>
+                </div>
+                <div className="p-3">
+                  <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Free slots</div>
+                  <div className="font-display text-xl font-bold">{stats.freeSlots}</div>
+                </div>
+              </div>
+
+              {/* Section heading */}
+              <h3 className="font-display text-base font-semibold mb-3">
+                {roomShort || 'Room'} &middot; {formatDateLabel(date)}
+              </h3>
+
+              <TimelineView rows={rows} />
+            </>
+        )}
+
+        {result && rows.length === 0 && !error && (
+            <div className="border border-base-300 p-6 text-center">
+              <p className="text-sm opacity-50 mb-1">No availability data found</p>
+              <p className="font-mono text-xs opacity-30">Try a different room or date.</p>
+            </div>
+        )}
+
+        {!result && !running && !error && (
+            <div className="border border-base-300 p-8 text-center">
+              <p className="text-sm opacity-50 mb-1">Select a room and date to check availability</p>
+              <p className="font-mono text-xs opacity-30">Free/busy slots will appear as a visual timeline.</p>
+            </div>
+        )}
+
+        {/* Floor plan */}
+        <div className="mt-8">
+          <h3 className="font-display text-base font-semibold mb-3">Floor plan</h3>
+          <OfficeMap statuses={mapStatuses} selected={roomShort || undefined} onSelect={handleMapSelect} />
+        </div>
       </div>
-
-      {running && !approvalPending && <Spinner label="Checking room availability..." />}
-
-      {approvalPending && (
-        <div className="alert alert-warning mb-4">
-          <span>This connector requires approval before proceeding.</span>
-          <div className="flex gap-2">
-            <button className="btn btn-sm btn-success" onClick={() => handleApproval(true)} disabled={!approvalId}>
-              Approve
-            </button>
-            <button className="btn btn-sm btn-error" onClick={() => handleApproval(false)} disabled={!approvalId}>
-              Reject
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isAuthRequired && (
-        <AuthRequiredCallout message="Sign in to Microsoft Teams in Chrome, then try again." />
-      )}
-
-      {error && !isAuthRequired && (
-        <div className="alert alert-error mb-4"><span>{error}</span></div>
-      )}
-
-      {result && rows.length > 0 && stats && (
-        <>
-          {/* Summary stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 border border-base-300 mb-6">
-            <div className="p-3 border-r border-b border-base-300 md:border-b-0">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Available</div>
-              <div className="font-display text-xl font-bold text-success">{stats.pct}%</div>
-            </div>
-            <div className="p-3 border-b border-base-300 md:border-r md:border-b-0">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Free time</div>
-              <div className="font-display text-xl font-bold">{Math.floor(stats.freeMin / 60)}h {stats.freeMin % 60}m</div>
-            </div>
-            <div className="p-3 border-r border-base-300">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Busy time</div>
-              <div className="font-display text-xl font-bold">{Math.floor(stats.busyMin / 60)}h {stats.busyMin % 60}m</div>
-            </div>
-            <div className="p-3">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Free slots</div>
-              <div className="font-display text-xl font-bold">{stats.freeSlots}</div>
-            </div>
-          </div>
-
-          {/* Section heading */}
-          <h3 className="font-display text-base font-semibold mb-3">
-            {roomShort || 'Room'} &middot; {formatDateLabel(date)}
-          </h3>
-
-          <TimelineView rows={rows} />
-        </>
-      )}
-
-      {result && rows.length === 0 && !error && (
-        <div className="border border-base-300 p-6 text-center">
-          <p className="text-sm opacity-50 mb-1">No availability data found</p>
-          <p className="font-mono text-xs opacity-30">Try a different room or date.</p>
-        </div>
-      )}
-
-      {!result && !running && !error && (
-        <div className="border border-base-300 p-8 text-center">
-          <p className="text-sm opacity-50 mb-1">Select a room and date to check availability</p>
-          <p className="font-mono text-xs opacity-30">Free/busy slots will appear as a visual timeline.</p>
-        </div>
-      )}
-    </div>
   );
 }
