@@ -5,6 +5,7 @@ export const ROOM_EMAIL_MAP: Record<string, string> = {
   'MBTMY THE TRAILHEAD': 'res-rere-m6vc2q4d@mercedes-benz.com',
   'MBTMY THE FOOTHILLS': 'res-rere-m6vcb79c@mercedes-benz.com',
   'MBTMY THE BRIDGE': 'res-rere-m6vgcah6@mercedes-benz.com',
+  'MBTMY THE RIDGE': 'res-rere-m6vjxdkc@mercedes-benz.com',
   'MBTMY THE MEADOW': 'res-rere-m6vhkzmd@mercedes-benz.com',
   'MBTMY THE FOREST': 'res-rere-m6vhsc6h@mercedes-benz.com',
   'MBTMY THE LOOKOUT': 'res-rere-m6vjqgrq@mercedes-benz.com',

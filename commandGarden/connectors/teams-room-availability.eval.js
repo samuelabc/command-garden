@@ -289,6 +289,7 @@ if (isEmail) {
     throw new Error('Could not open the room finder');
   }
   typeText(inputSel, room);
+  await sleep(1000);
 
   let label = null;
   for (let i = 0; i < 25 && !label; i++) {
