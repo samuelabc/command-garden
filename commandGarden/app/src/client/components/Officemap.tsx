@@ -9,6 +9,7 @@ interface RoomDef {
     y: number;
     w: number;
     h: number;
+    capacity: number;
 }
 
 interface ZoneDef {
@@ -21,21 +22,21 @@ interface ZoneDef {
 
 // Bookable rooms, positioned to mirror the real floor plan.
 const ROOMS: RoomDef[] = [
-    { id: 1, name: 'The Base Camp', x: 685, y: 75, w: 160, h: 85 },
-    { id: 2, name: 'The Trailhead', x: 880, y: 130, w: 95, h: 100 },
-    { id: 3, name: 'The Foothills', x: 880, y: 255, w: 95, h: 100 },
-    { id: 4, name: 'The Bridge', x: 880, y: 380, w: 95, h: 100 },
-    { id: 5, name: 'The Ridge', x: 650, y: 620, w: 250, h: 110 },
-    { id: 6, name: 'The Meadow', x: 535, y: 480, w: 92, h: 80 },
-    { id: 7, name: 'The Forest', x: 428, y: 480, w: 92, h: 80 },
-    { id: 8, name: 'The Lookout', x: 540, y: 795, w: 110, h: 75 },
-    { id: 9, name: 'The Cliffside', x: 410, y: 795, w: 110, h: 75 },
-    { id: 10, name: 'The Ledge', x: 280, y: 795, w: 110, h: 75 },
-    { id: 11, name: 'The Highpoint', x: 150, y: 795, w: 110, h: 75 },
-    { id: 12, name: 'The Vista', x: 30, y: 750, w: 100, h: 115 },
-    { id: 13, name: 'The Shoulder', x: 30, y: 620, w: 100, h: 110 },
-    { id: 14, name: 'The Pinnacle', x: 30, y: 300, w: 120, h: 260 },
-    { id: 15, name: 'The Descent', x: 30, y: 60, w: 120, h: 170 },
+    { id: 1, name: 'The Base Camp', x: 685, y: 75, w: 160, h: 85, capacity: 10 },
+    { id: 2, name: 'The Trailhead', x: 880, y: 130, w: 95, h: 100, capacity: 4 },
+    { id: 3, name: 'The Foothills', x: 880, y: 255, w: 95, h: 100, capacity: 5 },
+    { id: 4, name: 'The Bridge', x: 880, y: 380, w: 95, h: 100, capacity: 4 },
+    { id: 5, name: 'The Ridge', x: 650, y: 620, w: 250, h: 110, capacity: 18 },
+    { id: 6, name: 'The Meadow', x: 535, y: 480, w: 92, h: 80, capacity: 6 },
+    { id: 7, name: 'The Forest', x: 428, y: 480, w: 92, h: 80, capacity: 16 },
+    { id: 8, name: 'The Lookout', x: 540, y: 795, w: 110, h: 75, capacity: 4 },
+    { id: 9, name: 'The Cliffside', x: 410, y: 795, w: 110, h: 75, capacity: 4 },
+    { id: 10, name: 'The Ledge', x: 280, y: 795, w: 110, h: 75, capacity: 4 },
+    { id: 11, name: 'The Highpoint', x: 150, y: 795, w: 110, h: 75, capacity: 10 },
+    { id: 12, name: 'The Vista', x: 30, y: 750, w: 100, h: 115, capacity: 12 },
+    { id: 13, name: 'The Shoulder', x: 30, y: 620, w: 100, h: 110, capacity: 4 },
+    { id: 14, name: 'The Pinnacle', x: 30, y: 300, w: 120, h: 260, capacity: 16 },
+    { id: 15, name: 'The Descent', x: 30, y: 60, w: 120, h: 170, capacity: 6 },
 ];
 
 // Open, non-bookable areas (drawn as quiet background regions).
@@ -225,11 +226,22 @@ export function OfficeMap({ statuses = {}, selected, onSelect }: OfficeMapProps)
                                     x={room.x + room.w / 2}
                                     y={room.y + room.h / 2 + (room.h > 90 ? 10 : 8)}
                                     textAnchor="middle"
-                                    fontSize={smallRoom ? 8 : 9.5}
+                                    fontSize={smallRoom ? 12 : 13.5}
                                     letterSpacing="0.8"
                                     className="fill-base-content/80 font-mono uppercase font-medium"
                                 >
                                     {room.name.replace(/^The\s+/i, '')}
+                                </text>
+                                {/* Capacity */}
+                                <text
+                                    x={room.x + room.w / 2}
+                                    y={room.y + room.h / 2 + (room.h > 90 ? 10 : 8) + (smallRoom ? 9 : 10.5)}
+                                    textAnchor="middle"
+                                    fontSize={smallRoom ? 10.5 : 10.5}
+                                    letterSpacing="0.5"
+                                    className="fill-base-content/40 font-mono"
+                                >
+                                    {room.capacity}p
                                 </text>
                             </g>
                         );
