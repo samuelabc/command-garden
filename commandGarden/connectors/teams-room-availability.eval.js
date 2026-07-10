@@ -75,7 +75,8 @@ function typeText(sel, text) {
 // Captures getSchedule GraphQL responses (the page's own authenticated
 // request — the endpoint 401s on replay).
 if (!window.__rfb) {
-  window.__rfb = [];
+  window.__rfb = []; // getSchedule (free/busy) captures
+  window.__rfm = []; // findmeetinglocations (room resolution + capacity) captures
   const origFetch = window.fetch;
   window.fetch = function () {
     const a = arguments;
@@ -89,6 +90,10 @@ if (!window.__rfb) {
               window.__rfb.push({ req: String(rb || ''), body: t });
             }
           }).catch(() => {});
+        } else if (String(u).indexOf('findmeetinglocations') > -1) {
+          r.clone().text().then(t => {
+            window.__rfm.push({ req: String(rb || ''), body: t });
+          }).catch(() => {});
         }
       } catch (_e) { /* ignore */ }
       return r;
@@ -100,6 +105,13 @@ if (!window.__rfb) {
 function readCapture() {
   const d = window.__rfb || [];
   window.__rfb = [];
+  return d;
+}
+
+/** Read and clear captured findmeetinglocations {req, body} pairs. */
+function readMeetingLocationCapture() {
+  const d = window.__rfm || [];
+  window.__rfm = [];
   return d;
 }
 
@@ -181,9 +193,16 @@ function buildTimeline(items, dateIso) {
 
 // ── Main flow ────────────────────────────────────────────────────────
 
-const room = '${{ args.room }}'.trim();
-if (!room) throw new Error('Missing room argument — pass a room name or email');
+const roomsArgRaw = '${{ args.rooms | default("") }}'.trim();
+const multiMode = roomsArgRaw.length > 0;
+
+const room = '${{ args.room | default("") }}'.trim();
+if (!multiMode && !room) throw new Error('Missing room argument — pass "room" or "rooms"');
 const isEmail = EMAIL_RE.test(room);
+
+const roomList = multiMode
+  ? roomsArgRaw.split(',').map(s => s.trim()).filter(Boolean)
+  : [room];
 
 let date = '${{ args.date | default("") }}'.trim();
 if (!date) date = todayLocalISO();
@@ -252,34 +271,14 @@ for (let i = 0; i < 3; i++) {
   if (seen.size > 0) break;
 }
 
-// ── Add the room ─────────────────────────────────────────────────────
-if (isEmail) {
-  // Email -> attendee picker (resolves SMTP).
-  clickByName('Expand Required attendees');
-  await sleep(400);
+// ── Add the room(s) ───────────────────────────────────────────────────
+/** { email, capacity } per room, pushed in the same order as roomList as each is resolved. */
+const roomMeta = [];
 
-  const inputSel = "input[aria-label*='required attendees']";
-  for (let i = 0; i < 20 && !exists(inputSel); i++) {
-    clickByName('Add required attendee');
-    await sleep(400);
-  }
-  if (!exists(inputSel)) {
-    throw new Error('Could not open the required-attendee field');
-  }
-  typeText(inputSel, room);
+/** Add one room by name via the room finder (proven path — resolves the resource mailbox). */
+async function addRoomByName(name) {
+  readMeetingLocationCapture(); // drop stale captures before triggering a fresh search
 
-  const optionSel = `[role=option][aria-label*='${room}']`;
-  let found = false;
-  for (let i = 0; i < 20 && !found; i++) {
-    await sleep(400);
-    found = exists(optionSel);
-  }
-  if (!found) {
-    throw new Error(`Room "${room}" was not found in the directory`);
-  }
-  $(optionSel).click();
-} else {
-  // Name -> room finder.
   const inputSel = "input[aria-label='Add a room']";
   for (let i = 0; i < 20 && !exists(inputSel); i++) {
     clickByName('Add a room');
@@ -288,8 +287,25 @@ if (isEmail) {
   if (!exists(inputSel)) {
     throw new Error('Could not open the room finder');
   }
-  typeText(inputSel, room);
+  typeText(inputSel, name);
   await sleep(1000);
+
+  // Resolve the authoritative email + real capacity from the page's own
+  // findmeetinglocations call (triggered by the search above).
+  let resolvedEmail = null;
+  let resolvedCapacity = undefined;
+  for (let i = 0; i < 15 && !resolvedEmail; i++) {
+    await sleep(300);
+    for (const pair of readMeetingLocationCapture()) {
+      let body;
+      try { body = JSON.parse(pair.body); } catch (_e) { continue; }
+      const loc = body?.MeetingLocations?.[0]?.MeetingLocation;
+      if (loc?.LocationEmailAddress) {
+        resolvedEmail = String(loc.LocationEmailAddress).toLowerCase();
+        if (typeof loc.Capacity === 'number') resolvedCapacity = loc.Capacity;
+      }
+    }
+  }
 
   let label = null;
   for (let i = 0; i < 25 && !label; i++) {
@@ -303,41 +319,119 @@ if (isEmail) {
     }
   }
   if (!label) {
-    throw new Error(`No room matched "${room}"`);
+    throw new Error(`No room matched "${name}"`);
   }
+  if (resolvedCapacity === undefined) {
+    // Fallback: parse capacity from the option label if the network capture missed it.
+    const capMatch = /capacity:?\s*(\d+)/i.exec(label);
+    if (capMatch) resolvedCapacity = Number(capMatch[1]);
+  }
+  roomMeta.push({ email: resolvedEmail, capacity: resolvedCapacity });
+  await sleep(300);
 }
 
-// ── Collect the room's free/busy from intercepted responses ──────────
-let roomId = null;
-let errMsg = null;
-let sawView = false;
-const itemsById = new Map();
-const isRoomId = id => (isEmail ? id === room.toLowerCase() : !seen.has(id));
+if (multiMode) {
+  for (const name of roomList) {
+    await addRoomByName(name);
+  }
+} else if (isEmail) {
+  // Email -> attendee picker (resolves SMTP). Kept for direct single-room email lookups;
+  // capacity is not available via this path.
+  clickByName('Expand Required attendees');
+  await sleep(400);
+  const inputSel = "input[aria-label*='required attendees']";
+  for (let i = 0; i < 20 && !exists(inputSel); i++) {
+    clickByName('Add required attendee');
+    await sleep(400);
+  }
+  if (!exists(inputSel)) {
+    throw new Error('Could not open the required-attendee field');
+  }
+  typeText(inputSel, room);
+  const optionSel = `[role=option][aria-label*='${room}']`;
+  let found = false;
+  for (let i = 0; i < 20 && !found; i++) {
+    await sleep(400);
+    found = exists(optionSel);
+  }
+  if (!found) {
+    throw new Error(`Room "${room}" was not found in the directory`);
+  }
+  $(optionSel).click();
+} else {
+  await addRoomByName(room);
+}
+
+// ── Collect free/busy from intercepted responses ─────────────────────
+// Any schedule id not present in the pre-add "seen" set is one of the rooms we just added
+// (works uniformly for one room or many, since we only ever add rooms after capturing `seen`).
+const isTargetId = id => (isEmail && !multiMode) ? id === room.toLowerCase() : !seen.has(id);
+const expectedCount = multiMode ? roomList.length : 1;
+
+// scheduleId(lower) -> { scheduleId, itemsById: Map, sawView: bool, errMsg: string|null }
+const roomData = new Map();
 
 let stable = 0;
-for (let i = 0; i < 50; i++) {
+for (let i = 0; i < 60; i++) {
   await sleep(500);
   for (const pair of readCapture()) {
     for (const [id, s] of schedulesFromPair(pair)) {
-      if (!isRoomId(id)) continue;
-      if (!roomId) roomId = s.scheduleId;
-      if (s.error) errMsg = s.error.message || s.error.responseCode || 'unknown';
-      if (s.availabilityView && s.availabilityView.length) sawView = true;
+      if (!isTargetId(id)) continue;
+      if (!roomData.has(id)) {
+        roomData.set(id, { scheduleId: s.scheduleId, itemsById: new Map(), sawView: false, errMsg: null });
+      }
+      const rd = roomData.get(id);
+      if (s.error) rd.errMsg = s.error.message || s.error.responseCode || 'unknown';
+      if (s.availabilityView && s.availabilityView.length) rd.sawView = true;
       for (const it of (s.scheduleItems || [])) {
         const key = it && it.id ? it.id : JSON.stringify(it && [it.startTime, it.endTime, it.subject]);
-        if (it) itemsById.set(key, it);
+        if (it) rd.itemsById.set(key, it);
       }
     }
   }
-  if (sawView) { stable += 1; if (stable >= 2) break; }
+  const allSeen = roomData.size >= expectedCount && [...roomData.values()].every(rd => rd.sawView);
+  if (allSeen) { stable += 1; if (stable >= 2) break; } else { stable = 0; }
 }
 
-if (!roomId) {
-  throw new Error(`No free/busy returned for "${room}" on ${date}`);
+if (roomData.size === 0) {
+  throw new Error(`No free/busy returned for ${multiMode ? roomList.join(', ') : `"${room}"`} on ${date}`);
 }
-if (errMsg && !sawView) {
-  throw new Error(`Free/busy error for "${room}": ${errMsg}`);
+if (!multiMode) {
+  const rd = [...roomData.values()][0];
+  if (rd.errMsg && !rd.sawView) {
+    throw new Error(`Free/busy error for "${room}": ${rd.errMsg}`);
+  }
 }
 
-const timeline = buildTimeline([...itemsById.values()], date);
-return timeline.map(r => ({ room: roomId, ...r }));
+function emitForRoomData(rd, meta) {
+  if (rd.errMsg && !rd.sawView) return; // multi-mode: skip rooms that errored, keep the rest
+  const timeline = buildTimeline([...rd.itemsById.values()], date);
+  const roomEmail = meta?.email || rd.scheduleId;
+  const capacity = meta?.capacity ?? null;
+  for (const row of timeline) results.push({ room: roomEmail, capacity, ...row });
+}
+
+const results = [];
+if (multiMode || !isEmail) {
+  // Prefer matching by the resolved email (authoritative); fall back to the next
+  // unclaimed schedule in insertion order if the network capture missed it.
+  const claimed = new Set();
+  for (const meta of roomMeta) {
+    let rd = null;
+    let claimId = null;
+    if (meta?.email && roomData.has(meta.email)) {
+      claimId = meta.email;
+    } else {
+      claimId = [...roomData.keys()].find(id => !claimed.has(id)) || null;
+    }
+    if (claimId) {
+      rd = roomData.get(claimId);
+      claimed.add(claimId);
+    }
+    if (rd) emitForRoomData(rd, meta);
+  }
+} else {
+  const rd = roomData.get(room.toLowerCase()) || [...roomData.values()][0];
+  if (rd) emitForRoomData(rd, null);
+}
+return results;

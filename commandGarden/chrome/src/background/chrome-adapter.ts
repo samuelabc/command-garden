@@ -290,8 +290,8 @@ export class RealChromeAdapter implements ChromeAdapter {
         }
       },
     });
-    // Step 2: poll for the result (long timeout for SSO/MFA flows)
-    const deadline = Date.now() + 90000;
+    // Step 2: poll for the result (long timeout for SSO/MFA flows and multi-room checks)
+    const deadline = Date.now() + 280000;
     while (Date.now() < deadline) {
       const [poll] = await chrome.scripting.executeScript({
         target: { tabId },

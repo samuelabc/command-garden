@@ -93,7 +93,7 @@ export class WsRelay {
     connector: ConnectorDef,
     args: Record<string, string | number | boolean>,
     approvalConfig?: ApprovalConfig,
-    timeoutMs = 120_000,
+    timeoutMs = 300_000,
     requestId?: string,
   ): Promise<ExtensionResponse> {
     if (!this.ws) throw new Error('Extension not connected');
