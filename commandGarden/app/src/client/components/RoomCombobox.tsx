@@ -20,6 +20,14 @@ export const ROOM_EMAIL_MAP: Record<string, string> = {
 
 const ROOM_OPTIONS = Object.keys(ROOM_EMAIL_MAP);
 
+/** Reverse lookup: room email (lowercased) -> display name without the "MBTMY " prefix. */
+export const EMAIL_TO_ROOM_NAME: Record<string, string> = Object.fromEntries(
+  Object.entries(ROOM_EMAIL_MAP).map(([name, email]) => [
+    email.toLowerCase(),
+    name.replace(/^MBTMY\s+/i, ''),
+  ]),
+);
+
 interface RoomComboboxProps {
   value: string;
   onChange: (value: string) => void;

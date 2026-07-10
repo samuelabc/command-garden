@@ -14,8 +14,12 @@ capabilities:
 args:
   - name: room
     type: string
-    required: true
-    help: "Room name or mailbox email (e.g. 'MBTMY The Vista' or 'RES-RERE-M6VJ7ZUW@mercedes-benz.com')"
+    required: false
+    help: "Room name or mailbox email (e.g. 'MBTMY The Vista' or 'RES-RERE-M6VJ7ZUW@mercedes-benz.com'). Required unless 'rooms' is given."
+  - name: rooms
+    type: string
+    required: false
+    help: "Comma-separated list of room names to check simultaneously (e.g. for a floor-plan view). Takes precedence over 'room' if both are given."
   - name: date
     type: string
     required: false
@@ -25,6 +29,8 @@ args:
 columns:
   - name: room
     type: string
+  - name: capacity
+    type: number
   - name: date
     type: string
   - name: state
