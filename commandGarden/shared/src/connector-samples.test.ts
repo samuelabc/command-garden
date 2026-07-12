@@ -39,7 +39,7 @@ describe('sample connectors — schema validation', () => {
     if (!result.ok) throw new Error(result.error.message);
     expect(result.data.site).toBe('gcs');
     expect(result.data.name).toBe('kb-pages');
-    expect(result.data.pipeline).toHaveLength(3);
+    expect(result.data.pipeline).toHaveLength(4);
     expect(result.data.args).toHaveLength(0);
     expect(result.data.columns).toHaveLength(5);
   });
@@ -50,7 +50,7 @@ describe('sample connectors — schema validation', () => {
     if (!result.ok) throw new Error(result.error.message);
     expect(result.data.site).toBe('gcs');
     expect(result.data.name).toBe('kb-content');
-    expect(result.data.pipeline).toHaveLength(3);
+    expect(result.data.pipeline).toHaveLength(6);
     expect(result.data.args).toHaveLength(1);
     expect(result.data.columns).toHaveLength(5);
   });
@@ -107,8 +107,8 @@ describe('sample connectors — field correctness', () => {
     if (!result.ok) throw new Error(result.error.message);
     expect(result.data.capabilities).toContain('cookie_read');
     expect(result.data.domains).toContain('tma.query.api.dvb.corpinter.net');
-    expect(result.data.domains).toContain('tma.query.api.amap.corpinter.net');
-    expect(result.data.domains).toContain('tma.query.api.cn.corpinter.net');
+    expect(result.data.domains).toContain('tma.query.api.am.dvb.corpinter.net');
+    expect(result.data.domains).toContain('tma.query.api.dvb.corpinter.net.cn');
     expect(result.data.columns.map(c => c.name)).toEqual(['id', 'name', 'status', 'admins']);
   });
 
@@ -127,15 +127,15 @@ describe('sample connectors — field correctness', () => {
     expect(result.data.vars).toBeDefined();
     const domains = (result.data.vars as Record<string, Record<string, string>>).domains;
     expect(domains.emea).toBe('tma.query.api.dvb.corpinter.net');
-    expect(domains.amap).toBe('tma.query.api.amap.corpinter.net');
-    expect(domains.cn).toBe('tma.query.api.cn.corpinter.net');
+    expect(domains.amap).toBe('tma.query.api.am.dvb.corpinter.net');
+    expect(domains.cn).toBe('tma.query.api.dvb.corpinter.net.cn');
   });
 
   it('gcs/kb-pages has correct domain and columns for page index', () => {
     const result = loadConnector('gcs-kb-pages.yaml');
     if (!result.ok) throw new Error(result.error.message);
     expect(result.data.domains).toEqual(['pages.i.mercedes-benz.com']);
-    expect(result.data.capabilities).toContain('js_evaluate');
+    expect(result.data.capabilities).toContain('dom_write');
     expect(result.data.columns.map(c => c.name)).toEqual(['title', 'url', 'section', 'path', 'depth']);
   });
 
