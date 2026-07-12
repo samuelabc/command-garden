@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import { Badge, type BadgeVariant } from '../components/Badge';
 
 type TabId = 'daemon-api' | 'app-api' | 'cli';
@@ -246,7 +248,12 @@ export default function ApiReference() {
 
       {/* Pipeline steps reference (always visible) */}
       <h3 id="api-pipeline" className="font-display text-base font-semibold mb-3 scroll-mt-4">Pipeline Steps</h3>
-      <p className="text-sm opacity-50 mb-3">Available steps for connector YAML pipeline definitions.</p>
+      <p className="text-sm opacity-50 mb-3">
+        Available steps for connector YAML pipeline definitions. For why each capability runs where it does, see{' '}
+        <Link to="/concepts#concepts-worlds" className="text-primary hover:underline inline-flex items-center gap-1">
+          Capability &amp; World Model <ArrowRight className="w-3 h-3" />
+        </Link>.
+      </p>
       <div className="overflow-x-auto border border-base-300 mb-8">
         <table className="table table-sm w-full">
           <thead>

@@ -18,6 +18,7 @@ import Architecture from './pages/Architecture';
 import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
 import Overview from './pages/Overview';
+import Concepts from './pages/Concepts';
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
@@ -51,6 +52,11 @@ const PAGE_SECTIONS: Record<string, SectionDef[]> = {
     { label: 'Endpoints', id: 'api-endpoints' },
     { label: 'Pipeline Steps', id: 'api-pipeline' },
     { label: 'Expressions', id: 'api-expressions' },
+  ],
+  '/concepts': [
+    { label: 'Capability & World Model', id: 'concepts-worlds' },
+    { label: 'Pipeline Lifecycle', id: 'concepts-lifecycle' },
+    { label: 'Approval & Risk-Tiering', id: 'concepts-approval' },
   ],
   '/why': [
     { label: 'The Problem', id: 'why-problem' },
@@ -151,6 +157,13 @@ function Layout() {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.pathname, location.hash]);
+
+  useEffect(() => {
     const poll = () => {
       api.getStatus()
         .then((s) => { setDaemonOk(s.ok); setExtensionOk(s.extensionConnected); })
@@ -242,9 +255,12 @@ function Layout() {
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Reference</div>
           <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
-          <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
           <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
           <NavLink to="/skills" className={navClass}>Skills</NavLink>
+
+          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Deep Dive</div>
+          <NavItemWithSections to="/concepts" label="Concepts" sections={PAGE_SECTIONS['/concepts']} />
+          <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
         </nav>
         <div className="px-3 py-2.5 border-t border-base-300">
           <div className="flex items-center gap-2 text-xs font-mono">
@@ -286,6 +302,7 @@ export default function App() {
           <Route path="api-reference" element={<ApiReference />} />
           <Route path="skills" element={<Skills />} />
           <Route path="why" element={<Overview />} />
+          <Route path="concepts" element={<Concepts />} />
         </Route>
       </Routes>
     </BrowserRouter>

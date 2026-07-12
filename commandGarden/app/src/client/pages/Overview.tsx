@@ -371,9 +371,14 @@ export default function Overview() {
           ))}
         </div>
 
-        <Link to="/architecture" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
-          Full architecture details <ArrowRight className="w-3 h-3" />
-        </Link>
+        <div className="flex flex-wrap gap-4">
+          <Link to="/architecture" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
+            Full architecture details <ArrowRight className="w-3 h-3" />
+          </Link>
+          <Link to="/concepts" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
+            Concepts deep dive <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
         </div>
       </section>
 
@@ -561,6 +566,9 @@ cg run socket/security-news --format table`}</CodeBlock>
           </Link>
           <Link to="/architecture" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
             Architecture <ArrowRight className="w-3 h-3" />
+          </Link>
+          <Link to="/concepts" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
+            Concepts <ArrowRight className="w-3 h-3" />
           </Link>
           <Link to="/api-reference" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
             API &amp; CLI Reference <ArrowRight className="w-3 h-3" />
