@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { useActiveSection } from './hooks/useActiveSection';
 import { api, groupBySite } from './api';
 import Dashboard from './pages/Dashboard';
@@ -150,6 +150,8 @@ function Layout() {
   const [extensionOk, setExtensionOk] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [connectorSites, setConnectorSites] = useState<string[]>([]);
+  const [showMoreBelow, setShowMoreBelow] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -187,6 +189,24 @@ function Layout() {
     () => connectorSites.map(site => ({ label: site, id: `conn-${site}` })),
     [connectorSites],
   );
+
+  const checkNavOverflow = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    setShowMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+  }, []);
+
+  useEffect(() => {
+    checkNavOverflow();
+    const el = navRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', checkNavOverflow, { passive: true });
+    window.addEventListener('resize', checkNavOverflow);
+    return () => {
+      el.removeEventListener('scroll', checkNavOverflow);
+      window.removeEventListener('resize', checkNavOverflow);
+    };
+  }, [checkNavOverflow, connectorSections, location.pathname, daemonOk]);
 
   return (
     <div className="flex min-h-screen">
@@ -233,35 +253,43 @@ function Layout() {
             </svg>
           </button>
         </div>
-        <nav className="flex-1 px-2 py-2 space-y-px overflow-y-auto">
-          <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Overview</div>
-          <NavLink to="/" end className={navClass}>Dashboard</NavLink>
-          <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
+        <div className="relative flex-1 min-h-0">
+          <nav ref={navRef} className="h-full px-2 py-2 space-y-0.5 overflow-y-auto">
+            <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Overview</div>
+            <NavLink to="/" end className={navClass}>Dashboard</NavLink>
+            <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Apps</div>
-          <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Administrative</div>
-          <NavLink to="/apps/timetracking" className={navClassIndented}>Time Tracking</NavLink>
-          <NavLink to="/apps/rooms" className={navClassIndented}>Room Availability</NavLink>
-          <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Productivity</div>
-          <NavItemWithChildren to="/apps/journal" label="Dev Journal" items={JOURNAL_CHILDREN} />
-          <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
-          <div className="pl-5 pr-3 pt-2 pb-1 font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Security</div>
-          <NavLink to="/apps/security-news" className={navClassIndented}>Security News</NavLink>
+            <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Apps</div>
+            <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Administrative</div>
+            <NavLink to="/apps/timetracking" className={navClassIndented}>Time Tracking</NavLink>
+            <NavLink to="/apps/rooms" className={navClassIndented}>Room Availability</NavLink>
+            <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Productivity</div>
+            <NavItemWithChildren to="/apps/journal" label="Dev Journal" items={JOURNAL_CHILDREN} />
+            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
+            <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Security</div>
+            <NavLink to="/apps/security-news" className={navClassIndented}>Security News</NavLink>
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Platform</div>
-          <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
-          <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
-          <NavItemWithSections to="/config" label="Configuration" sections={daemonOk ? PAGE_SECTIONS['/config'] : []} />
+            <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Platform</div>
+            <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
+            <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
+            <NavItemWithSections to="/config" label="Configuration" sections={daemonOk ? PAGE_SECTIONS['/config'] : []} />
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Reference</div>
-          <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
-          <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
-          <NavLink to="/skills" className={navClass}>Skills</NavLink>
+            <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Reference</div>
+            <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
+            <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
+            <NavLink to="/skills" className={navClass}>Skills</NavLink>
 
-          <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Deep Dive</div>
-          <NavItemWithSections to="/concepts" label="Concepts" sections={PAGE_SECTIONS['/concepts']} />
-          <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
-        </nav>
+            <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Deep Dive</div>
+            <NavItemWithSections to="/concepts" label="Concepts" sections={PAGE_SECTIONS['/concepts']} />
+            <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
+          </nav>
+          {showMoreBelow && (
+            <div
+              className="pointer-events-none absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-base-100 to-transparent"
+              aria-hidden="true"
+            />
+          )}
+        </div>
         <div className="px-3 py-2.5 border-t border-base-300">
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className={`w-1.5 h-1.5 ${daemonOk ? 'bg-success' : 'bg-error'}`} aria-hidden="true" />
