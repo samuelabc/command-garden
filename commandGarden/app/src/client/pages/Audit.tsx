@@ -144,17 +144,19 @@ export default function Audit() {
             </div>
           )}
 
-          <div className="flex justify-between items-center mt-4">
-            <button className="btn btn-sm btn-ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
-              Previous
-            </button>
-            <span className="text-sm opacity-50">
-              Showing {offset + 1}{'\u2013'}{Math.min(offset + PAGE_SIZE, events.length)}{!hasMore ? ` of ${events.length}` : ''}
-            </span>
-            <button className="btn btn-sm btn-ghost" disabled={!hasMore} onClick={() => setOffset(offset + PAGE_SIZE)}>
-              Next
-            </button>
-          </div>
+          {paged.length > 0 && (
+            <div className="flex justify-between items-center mt-4">
+              <button className="btn btn-sm btn-ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
+                Previous
+              </button>
+              <span className="text-sm opacity-50">
+                Showing {offset + 1}{'\u2013'}{Math.min(offset + PAGE_SIZE, events.length)}{!hasMore ? ` of ${events.length}` : ''}
+              </span>
+              <button className="btn btn-sm btn-ghost" disabled={!hasMore} onClick={() => setOffset(offset + PAGE_SIZE)}>
+                Next
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

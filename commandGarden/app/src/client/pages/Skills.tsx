@@ -75,13 +75,10 @@ function SkillCard({ skill }: { skill: Skill }) {
   return (
     <div className="border border-base-300">
       <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-mono text-base font-semibold">{skill.name}</span>
-              <Badge size="xs">{skill.files.length} {skill.files.length === 1 ? 'file' : 'files'}</Badge>
-            </div>
-            <p className="text-sm opacity-60 mt-1.5 max-w-prose">{skill.description}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <span className="font-mono text-base font-semibold">{skill.name}</span>
+            <Badge size="xs">{skill.files.length} {skill.files.length === 1 ? 'file' : 'files'}</Badge>
           </div>
           <button
             className="btn btn-sm btn-ghost font-mono text-xs shrink-0"

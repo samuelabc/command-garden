@@ -251,7 +251,7 @@ function Layout() {
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Platform</div>
           <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
           <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
-          <NavItemWithSections to="/config" label="Configuration" sections={PAGE_SECTIONS['/config']} />
+          <NavItemWithSections to="/config" label="Configuration" sections={daemonOk ? PAGE_SECTIONS['/config'] : []} />
 
           <div className="px-3 pt-4 pb-1.5 font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.12em]">Reference</div>
           <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
