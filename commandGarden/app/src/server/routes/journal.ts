@@ -3,12 +3,17 @@
  * Reads journal config from user preferences (SQLite), instantiates
  * sources with that config, and generates the weekly report.
  *
- * Results are cached in app.db (journal_cache table), keyed by weekStart +
- * the enabled-sources signature. A cache hit skips every browser-driven
+ * Results are cached in app.db (journal_cache table), keyed by weekStart
+ * only — the latest generated result for a week is cached regardless of
+ * which sources were selected. A cache hit skips every browser-driven
  * connector call entirely; the response carries `cache: { hit, fetchedAt }`
  * so the UI can always show the user whether they're looking at a cached
  * result and from when. Pass `forceRefresh: true` to bypass the cache and
  * drive a fresh fetch (e.g. via a "Refresh" action in the UI).
+ *
+ * The user's last-selected source toggles (Timetracking/Meetings/Jira/Git/
+ * Saba) are stored separately in journal_source_prefs, so the UI can
+ * restore the user's picks on next load.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -22,18 +27,77 @@ import { MeetingsSource } from '../journal/sources/meetings.source.js';
 import { JournalService } from '../journal/journal.service.js';
 import type { JournalResponse } from '../journal/journal.types.js';
 
-/** Build a stable cache key from weekStart + which sources were requested. */
-function buildCacheKey(
-  weekStart: string,
-  sources: { timetracking: boolean; meetings: boolean; jira: boolean; git: boolean },
-): string {
-  const sig = ['timetracking', 'meetings', 'jira', 'git']
-    .map((k) => `${k}=${sources[k as keyof typeof sources] ? 1 : 0}`)
-    .join(',');
-  return `${weekStart}|${sig}`;
-}
-
 export function journalRoutes(app: FastifyInstance, daemon: DaemonClient, store: AppStore): void {
+  // Read-only cache lookup — no connector calls, no config validation. Used by the
+  // UI to silently restore a previously generated result (e.g. after navigating
+  // away and back, which remounts the page and loses its local React state).
+  app.get('/api/journal/cache', async (req, reply) => {
+    const query = req.query as { weekStart?: string };
+
+    if (!query.weekStart || !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(query.weekStart)) {
+      return reply.code(400).send({
+        ok: false,
+        error: 'weekStart is required and must be YYYY-MM-DD format',
+      });
+    }
+
+    const cached = store.getCachedJournal(query.weekStart);
+    if (!cached) return { ok: true, data: null, saba: null };
+    return {
+      ok: true,
+      data: { ...(cached.data as unknown as JournalResponse), cache: { hit: true, fetchedAt: cached.fetchedAt } },
+      saba: cached.sabaData,
+    };
+  });
+
+  // Persists the Saba "pending training" result for a week — saved separately
+  // from the main journal generate() flow since it's fetched client-side and
+  // can complete at a different time.
+  app.post('/api/journal/cache/saba', async (req, reply) => {
+    const body = req.body as { weekStart?: string; saba?: Record<string, unknown> | null } | null;
+
+    if (!body?.weekStart || !/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(body.weekStart)) {
+      return reply.code(400).send({
+        ok: false,
+        error: 'weekStart is required and must be YYYY-MM-DD format',
+      });
+    }
+
+    store.cacheJournalSaba(body.weekStart, body.saba ?? null);
+    return { ok: true };
+  });
+
+  // Last-selected source toggles — persisted so the UI can restore the
+  // user's picks on next load instead of always resetting to "all enabled".
+  app.get('/api/journal/source-prefs', async () => {
+    const prefs = store.getJournalSourcePrefs();
+    return { ok: true, prefs };
+  });
+
+  app.post('/api/journal/source-prefs', async (req, reply) => {
+    const body = req.body as {
+      timetracking?: boolean;
+      meetings?: boolean;
+      jira?: boolean;
+      git?: boolean;
+      saba?: boolean;
+    } | null;
+
+    if (!body) {
+      return reply.code(400).send({ ok: false, error: 'Request body is required' });
+    }
+
+    store.saveJournalSourcePrefs({
+      timetracking: body.timetracking ?? true,
+      meetings: body.meetings ?? true,
+      jira: body.jira ?? true,
+      git: body.git ?? true,
+      saba: body.saba ?? true,
+    });
+
+    return { ok: true };
+  });
+
   app.post('/api/journal/generate', async (req, reply) => {
     const body = req.body as {
       weekStart?: string;
@@ -56,10 +120,8 @@ export function journalRoutes(app: FastifyInstance, daemon: DaemonClient, store:
       git: body.sources?.git ?? true,
     };
 
-    const cacheKey = buildCacheKey(body.weekStart, sources);
-
     if (!body.forceRefresh) {
-      const cached = store.getCachedJournal(cacheKey);
+      const cached = store.getCachedJournal(body.weekStart);
       if (cached) {
         return {
           ...(cached.data as unknown as JournalResponse),
@@ -90,7 +152,7 @@ export function journalRoutes(app: FastifyInstance, daemon: DaemonClient, store:
       const service = new JournalService(git, timetracking, meetings, jira);
       const result = await service.generate({ weekStart: body.weekStart, sources });
 
-      const fetchedAt = store.cacheJournal(cacheKey, body.weekStart, result as unknown as Record<string, unknown>);
+      const fetchedAt = store.cacheJournal(body.weekStart, result as unknown as Record<string, unknown>);
 
       // Audit log (non-blocking — failure should not break the response)
       const durationMs = Date.now() - start;

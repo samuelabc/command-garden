@@ -5,7 +5,7 @@
  * and DaisyUI loading spinner instead of Next.js Spinner component.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles, Clock, CalendarDays, Ticket, GitBranch, GraduationCap, CalendarRange } from 'lucide-react';
 import { api, type Goal } from '../api';
 import type { JournalResponse } from '../types/journal';
@@ -90,7 +90,11 @@ export default function Journal() {
   const saba = useApprovalRun();
 
   function toggleSource(key: keyof typeof sources) {
-    setSources((prev) => ({ ...prev, [key]: !prev[key] }));
+    setSources((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      api.saveJournalSourcePrefs(next).catch(() => { });
+      return next;
+    });
   }
 
   /** Change the selected week and clear any previously generated result —
@@ -101,7 +105,49 @@ export default function Journal() {
     setData(null);
     setError(null);
     setElapsedMs(null);
+    restoreFromCache(newWeekStart);
   }
+
+  /** Silently check app.db for a previously generated result for the given
+   *  week, and restore it if found — without a loading spinner or re-running
+   *  Saba/goals. This is what makes a generated result survive navigating
+   *  away and back (the page remounts and loses its local state, but the
+   *  cache in app.db doesn't). */
+  async function restoreFromCache(ws: string) {
+    try {
+      const res = await api.getCachedJournal(ws);
+      if (res.data) setData(res.data);
+      saba.hydrate(res.saba ?? null);
+    } catch {
+      // No cached entry, or the request failed — fall back to the empty
+      // state and let the user click Generate.
+    }
+  }
+
+  // On first mount: restore the user's last-selected source toggles (if any
+  // were saved), then restore any cached result for the initial week.
+  useEffect(() => {
+    api.getJournalSourcePrefs()
+      .then((res) => {
+        if (res.prefs) setSources(res.prefs);
+      })
+      .catch(() => { })
+      .finally(() => {
+        restoreFromCache(weekStart);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the Saba result to app.db whenever it changes (e.g. after a
+  // successful run), so it survives navigating away and reloading — the
+  // main journal generate() endpoint doesn't know about Saba since it's
+  // fetched client-side.
+  useEffect(() => {
+    if (saba.result) {
+      api.cacheJournalSaba(weekStart, saba.result).catch(() => { });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saba.result]);
 
   const isCurrentWeek = weekStart === currentMonday();
   const anySourceSelected = Object.values(sources).some(Boolean);
@@ -119,7 +165,7 @@ export default function Journal() {
     // Fire goals + Saba training off immediately so they run in parallel
     // with the weekly journal fetch below, instead of waiting for it.
     if (sources.timetracking) {
-      api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => {});
+      api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => { });
     }
     if (sources.saba) {
       saba.run('saba/pending-training', {});
@@ -193,7 +239,7 @@ export default function Journal() {
             )}
             <button
               className="btn btn-primary gap-2"
-              onClick={() => generate()}
+              onClick={() => generate(true)}
               disabled={loading || !anySourceSelected}
               title={!anySourceSelected ? 'Select at least one source first' : undefined}
             >
@@ -224,11 +270,10 @@ export default function Journal() {
                   onClick={() => toggleSource(key)}
                   disabled={loading}
                   aria-pressed={active}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    active
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 border text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${active
                       ? 'border-primary text-primary bg-primary/10'
                       : 'border-base-300 text-base-content/40 hover:text-base-content/70 hover:border-base-content/30'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-3.5 h-3.5" aria-hidden="true" />
                   {label}
@@ -265,19 +310,6 @@ export default function Journal() {
         </div>
       )}
 
-      {/* Month-to-date Status — a compact, collapsed-by-default strip above
-          the weekly breakdown so it's never missed, without competing with
-          the weekly view for attention. */}
-      <MonthlyStatus
-        month={month}
-        monthly={data?.monthlyTimetracking ?? null}
-        goals={goals}
-        saba={saba}
-        enabled={{ timetracking: sources.timetracking, saba: sources.saba }}
-      />
-
-      <div className="h-6" />
-
       {/* Cache provenance banner — always visible when a result is showing, so
           it's never ambiguous whether you're looking at a cached snapshot or a
           fresh fetch (visibility of system status), with an explicit escape
@@ -303,6 +335,20 @@ export default function Journal() {
           </button>
         </div>
       )}
+
+      {/* Month-to-date Status — a compact, collapsed-by-default strip above
+          the weekly breakdown so it's never missed, without competing with
+          the weekly view for attention. */}
+      <MonthlyStatus
+        month={month}
+        monthly={data?.monthlyTimetracking ?? null}
+        goals={goals}
+        saba={saba}
+        enabled={{ timetracking: sources.timetracking, saba: sources.saba }}
+      />
+
+      <div className="h-6" />
+
 
       {/* Partial-data warning (some sources failed but others returned data) */}
       {data?.status === 'partial' && (

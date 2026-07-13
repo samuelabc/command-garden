@@ -134,10 +134,26 @@ export class AppStore {
     // Keyed by weekStart + the enabled-sources signature, since different
     // source combinations produce different results for the same week.
     this.db.run(`CREATE TABLE IF NOT EXISTS journal_cache (
-      cache_key  TEXT PRIMARY KEY,
-      week_start TEXT NOT NULL,
+      week_start TEXT PRIMARY KEY,
       data       TEXT NOT NULL,
       fetched_at TEXT NOT NULL
+    )`);
+    // saba_data holds the last Saba "pending training" connector result for
+    // the week, saved separately from `data` since it's fetched client-side
+    // (not part of JournalService.generate()) and can complete at a
+    // different time than the main journal fetch.
+    try { this.db.run(`ALTER TABLE journal_cache ADD COLUMN saba_data TEXT`); } catch { /* column already exists */ }
+    // Remembers the last-selected source toggles (Timetracking/Meetings/Jira/
+    // Git/Saba) so the UI can restore the user's picks on next load, instead
+    // of always resetting to "all enabled".
+    this.db.run(`CREATE TABLE IF NOT EXISTS journal_source_prefs (
+      id           INTEGER PRIMARY KEY CHECK (id = 1),
+      timetracking INTEGER NOT NULL DEFAULT 1,
+      meetings     INTEGER NOT NULL DEFAULT 1,
+      jira         INTEGER NOT NULL DEFAULT 1,
+      git          INTEGER NOT NULL DEFAULT 1,
+      saba         INTEGER NOT NULL DEFAULT 1,
+      updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
     )`);
   }
 
@@ -296,6 +312,25 @@ export class AppStore {
 
   getCachedSecurityNews(): { data: Record<string, unknown>[]; fetchedAt: string } | null {
     const rows = this.query('SELECT data, fetched_at FROM security_news_cache WHERE id = 1');
+    if (rows.length === 0) return null;
+    return {
+      data: JSON.parse(rows[0].data as string),
+      fetchedAt: rows[0].fetched_at as string,
+    };
+  }
+
+  cacheJournal(cacheKey: string, weekStart: string, data: Record<string, unknown>): string {
+    const now = new Date().toISOString();
+    this.db.run(
+      'INSERT OR REPLACE INTO journal_cache (cache_key, week_start, data, fetched_at) VALUES (?, ?, ?, ?)',
+      [cacheKey, weekStart, JSON.stringify(data), now],
+    );
+    this.persist();
+    return now;
+  }
+
+  getCachedJournal(cacheKey: string): { data: Record<string, unknown>; fetchedAt: string } | null {
+    const rows = this.query('SELECT data, fetched_at FROM journal_cache WHERE cache_key = ?', [cacheKey]);
     if (rows.length === 0) return null;
     return {
       data: JSON.parse(rows[0].data as string),

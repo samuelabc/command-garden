@@ -13,6 +13,9 @@ export interface ApprovalRunActions {
   run: (connector: string, args: Record<string, string>) => Promise<void>;
   handleApproval: (approved: boolean) => Promise<void>;
   reset: () => void;
+  /** Restore a previously fetched result (e.g. from app.db) without
+   *  actually running the connector. */
+  hydrate: (result: RunResponse | null) => void;
 }
 
 export function useApprovalRun(): ApprovalRunState & ApprovalRunActions {
@@ -89,5 +92,13 @@ export function useApprovalRun(): ApprovalRunState & ApprovalRunActions {
     }
   }, [approvalId]);
 
-  return { running, result, error, approvalPending, approvalId, run, handleApproval, reset };
+  const hydrate = useCallback((cached: RunResponse | null) => {
+    setRunning(false);
+    setResult(cached);
+    setError(null);
+    setApprovalPending(false);
+    setApprovalId(null);
+  }, []);
+
+  return { running, result, error, approvalPending, approvalId, run, handleApproval, reset, hydrate };
 }

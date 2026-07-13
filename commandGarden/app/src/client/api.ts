@@ -36,6 +36,14 @@ export const api = {
   cacheProjects: (data: ProjectActivity[]) => request<{ ok: boolean }>('POST', '/api/timetracking/projects', { data }),
   generateJournal: (body: { weekStart: string; sources?: { timetracking?: boolean; meetings?: boolean; jira?: boolean; git?: boolean }; forceRefresh?: boolean }) =>
     request<JournalResponse>('POST', '/api/journal/generate', body),
+  getCachedJournal: (weekStart: string) =>
+    request<{ ok: boolean; data: JournalResponse | null; saba: RunResponse | null }>('GET', `/api/journal/cache?weekStart=${weekStart}`),
+  cacheJournalSaba: (weekStart: string, saba: RunResponse | null) =>
+    request<{ ok: boolean }>('POST', '/api/journal/cache/saba', { weekStart, saba }),
+  getJournalSourcePrefs: () =>
+    request<{ ok: boolean; prefs: { timetracking: boolean; meetings: boolean; jira: boolean; git: boolean; saba: boolean } | null }>('GET', '/api/journal/source-prefs'),
+  saveJournalSourcePrefs: (sources: { timetracking: boolean; meetings: boolean; jira: boolean; git: boolean; saba: boolean }) =>
+    request<{ ok: boolean }>('POST', '/api/journal/source-prefs', sources),
   getCachedSecurityNews: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/security-news/cache'),
   cacheSecurityNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/security-news/cache', { data }),
   getCachedTrustedPeers: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/trusted-peers/cache'),
