@@ -118,7 +118,7 @@ export class JournalService {
     weekStart: string,
     weekEnd: string,
   ): CrossRefData | null {
-    if (!tt && !mtg && !git) return null;
+    if (!tt && !mtg && !git && !jira) return null;
 
     // Days with activity but 0 hours logged in TimeTracking
     const forgottenDays: string[] = [];
@@ -214,7 +214,7 @@ export class JournalService {
         severity: 'warning',
         category: 'meetings',
         title: 'Heavy meeting days',
-        detail: `${days} — ${total} of 5 days had 4h+ of meetings.`,
+        detail: `${days} — ${total} of 5 days had 4h+ of meetings. Consider blocking focus time.`,
       });
     }
 
@@ -237,7 +237,7 @@ export class JournalService {
         severity: 'warning',
         category: 'tickets',
         title: 'Stale tickets',
-        detail: `${items}. Oldest: ${oldest.key} at ${oldest.staleDays} days.`,
+        detail: `${items}. Oldest: ${oldest.key} at ${oldest.staleDays} days. Consider unblocking or reassigning.`,
       });
     }
 
