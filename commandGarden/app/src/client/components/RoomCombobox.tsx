@@ -24,7 +24,7 @@ const ROOM_OPTIONS = Object.keys(ROOM_EMAIL_MAP);
 export const EMAIL_TO_ROOM_NAME: Record<string, string> = Object.fromEntries(
   Object.entries(ROOM_EMAIL_MAP).map(([name, email]) => [
     email.toLowerCase(),
-    name.replace(/^MBTMY\s+/i, ''),
+    name.replace(/^MBTMY\s+/i, '').replace(/\b\w+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()),
   ]),
 );
 
