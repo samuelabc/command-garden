@@ -20,6 +20,39 @@ function CodeBlock({ children }: { children: string }) {
   );
 }
 
+type CellStatus = 'success' | 'warning' | 'error';
+
+const statusIcon: Record<CellStatus, typeof CheckCircle2> = {
+  success: CheckCircle2,
+  warning: AlertCircle,
+  error: XCircle,
+};
+
+const statusColor: Record<CellStatus, string> = {
+  success: 'text-emerald-600 dark:text-emerald-400',
+  warning: 'text-amber-600 dark:text-amber-400',
+  error: 'text-red-600 dark:text-red-400',
+};
+
+function CompareCell({ label, status }: { label: string; status: CellStatus }) {
+  const Icon = statusIcon[status];
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${statusColor[status]}`}>
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      {label}
+    </span>
+  );
+}
+
+const COMPARE_ROWS = [
+  { label: 'Return format', cg: { label: 'Fixed schema', status: 'success' }, skills: { label: 'Loose, varies', status: 'warning' }, mcp: { label: 'Typed schema', status: 'success' } },
+  { label: 'Parsing cost', cg: { label: 'Zero tokens', status: 'success' }, skills: { label: 'Tokens/call', status: 'error' }, mcp: { label: 'Tool-call overhead', status: 'warning' } },
+  { label: 'Auth handling', cg: { label: 'Browser required', status: 'warning' }, skills: { label: 'Agent navigates', status: 'error' }, mcp: { label: 'Server-configured', status: 'success' } },
+  { label: 'Processing', cg: { label: 'Local only', status: 'success' }, skills: { label: 'Cloud/agent', status: 'warning' }, mcp: { label: 'Server-side', status: 'warning' } },
+  { label: 'Privacy', cg: { label: 'Stays on machine', status: 'success' }, skills: { label: 'Through AI', status: 'error' }, mcp: { label: 'Through server', status: 'warning' } },
+  { label: 'Coverage', cg: { label: 'Any website', status: 'success' }, skills: { label: 'Any (expensive)', status: 'warning' }, mcp: { label: 'Server-limited', status: 'warning' } },
+] as const satisfies { label: string; cg: { label: string; status: CellStatus }; skills: { label: string; status: CellStatus }; mcp: { label: string; status: CellStatus } }[];
+
 /* ─── page ─────────────────────────────────────────────────── */
 
 export default function Overview() {
@@ -28,7 +61,7 @@ export default function Overview() {
 
       {/* ── Section 1: Hero ─────────────────────────────────── */}
       <section className="pt-8 pb-16 border-b border-base-300">
-        <SectionKicker>Browser automation for the rest of us</SectionKicker>
+        <SectionKicker>For engineers tired of copy-pasting from internal portals</SectionKicker>
         <h1
           className="font-display text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-3"
           style={{ textWrap: 'balance' } as React.CSSProperties}
@@ -36,7 +69,7 @@ export default function Overview() {
           Turn any website into a CLI command.
         </h1>
         <p className="text-base sm:text-lg opacity-70 max-w-[65ch] mb-8 leading-relaxed" style={{ textWrap: 'pretty' } as React.CSSProperties}>
-          commandGarden reuses your existing browser sessions to extract structured data from authenticated websites. No API keys, no service accounts, no token overhead.
+          commandGarden reuses your existing browser sessions to extract structured data from authenticated websites. You're already logged in — it just reads what's on screen.
         </p>
 
         {/* Mini-flow diagram */}
@@ -70,7 +103,7 @@ export default function Overview() {
               <h3 className="font-display font-semibold text-sm">Real-world data lives in browsers</h3>
             </div>
             <p className="text-sm opacity-70 leading-relaxed">
-              AI agents can't reach data inside internal portals, enterprise tools, and SaaS dashboards. These systems are where the work happens, but they're locked behind browser sessions.
+              AI agents can't reach data inside enterprise tools and SaaS dashboards. These systems are where the work happens, but they're locked behind browser sessions.
             </p>
           </div>
 
@@ -80,7 +113,7 @@ export default function Overview() {
               <h3 className="font-display font-semibold text-sm">APIs are the exception</h3>
             </div>
             <p className="text-sm opacity-70 leading-relaxed">
-              Most sites don't provide APIs. When one exists, you need service accounts, managed secrets, and OAuth flows. The data visible in the UI often has no programmatic equivalent.
+              Most sites don't provide APIs. When one exists, you need service accounts and OAuth flows before you see a single row of data. What's visible in the UI often has no programmatic equivalent.
             </p>
           </div>
 
@@ -90,13 +123,13 @@ export default function Overview() {
               <h3 className="font-display font-semibold text-sm">Browser automation is expensive</h3>
             </div>
             <p className="text-sm opacity-70 leading-relaxed">
-              AI browser tools (Playwright, Puppeteer) are slow, fragile, and token-intensive. Each interaction burns tokens just to understand what's on screen, even when the page layout hasn't changed.
+              AI browser tools like Playwright burn tokens on every interaction just to understand what's on screen — even when the page layout hasn't changed.
             </p>
           </div>
         </div>
 
         <p className="text-sm opacity-50 max-w-[65ch]">
-          AI skills, MCP servers, and browser tools all share this flaw: the agent re-parses page structure on every call, repeating work that could be done once.
+          Skills, MCP servers, and browser agents all re-parse page structure on every call. That parsing only needs to happen once.
         </p>
       </section>
 
@@ -105,70 +138,83 @@ export default function Overview() {
         <SectionKicker>How commandGarden works</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">The Solution</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-10">
-          Instead of making the agent figure out each website on every call, commandGarden uses pre-defined extraction recipes, called <strong className="text-base-content">connectors</strong>, that know how to navigate a site and return structured JSON. The agent (or a human) runs a single CLI command and gets back a fixed-schema response.
+          commandGarden replaces ad-hoc browser automation with <strong className="text-base-content">connectors</strong>: pre-built recipes that know how to navigate a site and return structured JSON. The agent (or a human) runs one CLI command and gets back a fixed-schema response, instead of re-parsing the page from scratch.
         </p>
 
-        {/* Before / After flow diagram */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+        {/* Before / After — strikethrough reduction */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+          {/* Left: Without commandGarden */}
           <div className="border border-error/20 bg-error/[0.03] p-5">
             <div className="font-mono text-[0.6rem] font-medium text-error/60 uppercase tracking-[0.12em] mb-4">Without commandGarden</div>
-            <div className="space-y-2.5">
+            <div className="space-y-0">
               {[
-                { label: 'AI Agent', note: 'receives task' },
-                { label: 'Browser Tool', note: 'launch headless' },
-                { label: 'Navigate + Wait', note: 'handle auth redirects' },
-                { label: 'Parse HTML', note: 'tokens for structure' },
-                { label: 'Extract Data', note: 'tokens for content' },
-                { label: 'Loose Output', note: 'varies per run' },
+                { label: 'Task received', note: 'agent or human', struck: false },
+                { label: 'Launch browser', note: 'headless instance', struck: true },
+                { label: 'Navigate + Wait', note: 'auth redirects', struck: true },
+                { label: 'Parse HTML', note: 'tokens for structure', struck: true },
+                { label: 'Extract Data', note: 'tokens for content', struck: true },
+                { label: 'Loose output', note: 'varies per run', struck: false },
               ].map((s, i) => (
                 <div key={i}>
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 border border-error/30 bg-error/10 flex items-center justify-center font-mono text-[0.6rem] text-error/60 shrink-0">{i + 1}</span>
+                  <div className={`flex items-center gap-2.5 ${s.struck ? 'opacity-40 line-through decoration-error/50' : ''}`}>
+                    <span className={`w-5 h-5 border flex items-center justify-center font-mono text-[0.6rem] shrink-0 ${
+                      s.struck
+                        ? 'border-error/20 text-error/40'
+                        : 'border-error/30 bg-error/10 text-error/60'
+                    }`}>{i + 1}</span>
                     <span className="text-sm font-medium">{s.label}</span>
                     <span className="text-xs opacity-40 font-mono">{s.note}</span>
                   </div>
-                  {i < 5 && <div className="ml-2.5 w-px h-2 bg-error/20" />}
+                  {i < 5 && <div className={`ml-2.5 w-px h-2 ${s.struck ? 'bg-error/15' : 'bg-error/20'}`} />}
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-3 border-t border-error/15 flex items-center gap-2">
-              <Badge variant="error" size="xs">thousands of tokens</Badge>
-              <span className="text-xs opacity-50">per interaction</span>
-            </div>
           </div>
 
-          <div className="border border-primary/20 bg-primary/[0.03] p-5">
+          {/* Right: With commandGarden */}
+          <div className="border border-primary/20 bg-primary/[0.03] p-5 flex flex-col">
             <div className="font-mono text-[0.6rem] font-medium text-primary/60 uppercase tracking-[0.12em] mb-4">With commandGarden</div>
-            <div className="space-y-2.5">
+            <div className="space-y-0">
               {[
-                { label: 'AI Agent', note: 'receives task' },
-                { label: 'cg run site/command', note: 'one CLI call' },
+                { label: 'Task received', note: 'agent or human' },
+                { label: 'cg run site/command', note: 'one CLI call', accent: true },
                 { label: 'Structured JSON', note: 'fixed schema' },
               ].map((s, i) => (
                 <div key={i}>
                   <div className="flex items-center gap-2.5">
                     <span className="w-5 h-5 border border-primary/30 bg-primary/10 flex items-center justify-center font-mono text-[0.6rem] text-primary/60 shrink-0">{i + 1}</span>
-                    <span className="text-sm font-medium">{s.label}</span>
+                    <span className={`text-sm font-medium ${'accent' in s && s.accent ? 'text-primary font-semibold' : ''}`}>{s.label}</span>
                     <span className="text-xs opacity-40 font-mono">{s.note}</span>
                   </div>
                   {i < 2 && <div className="ml-2.5 w-px h-2 bg-primary/20" />}
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-3 border-t border-primary/15 flex items-center gap-2">
-              <Badge variant="success" size="xs">0 tokens</Badge>
-              <span className="text-xs opacity-50">parsing done locally</span>
-            </div>
+
           </div>
         </div>
 
+        {/* Shared footer strip */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-14">
+          <div className="flex items-center gap-2">
+            <Badge variant="error" size="xs">thousands of tokens</Badge>
+            <span className="text-xs opacity-50">per interaction</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="success" size="xs">0 tokens</Badge>
+            <span className="text-xs opacity-50">parsing done locally</span>
+          </div>
+        </div>
+
+        {/* Value props */}
         <div className="space-y-8 mb-12">
           <div className="flex gap-4">
             <Globe className="w-5 h-5 shrink-0 mt-0.5 text-primary" />
             <div>
               <h3 className="font-display font-semibold mb-1">Reuse your browser session</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">
-                A Chrome extension runs inside your already-authenticated browser. If you can see the data, commandGarden can extract it.
+                A Chrome extension runs inside your already-authenticated browser. No separate login, no stored credentials.
               </p>
             </div>
           </div>
@@ -178,7 +224,7 @@ export default function Overview() {
             <div>
               <h3 className="font-display font-semibold mb-1">Fixed-format parsing, done locally</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">
-                Each connector defines a pipeline that produces the same structured output on every run. Parsing runs locally in the extension and daemon, so nothing leaves your machine.
+                Each connector defines a pipeline that produces the same output shape on every run. Parsing happens in the extension and daemon — nothing leaves your machine.
               </p>
             </div>
           </div>
@@ -190,7 +236,7 @@ export default function Overview() {
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed mb-3">
                 The same command works whether a human types it or an AI agent calls it via a skill. Same arguments, same JSON schema.
               </p>
-              <CodeBlock>{`cg run timetracking/report --month 2026-06 --format json`}</CodeBlock>
+              <CodeBlock>{`cg run timetracking/report --month 2026-06`}</CodeBlock>
             </div>
           </div>
         </div>
@@ -201,26 +247,19 @@ export default function Overview() {
           <table className="table table-sm w-full">
             <thead>
               <tr className="bg-base-200">
-                <th></th>
-                <th className="text-primary">commandGarden</th>
+                <th className="sticky left-0 z-10 bg-base-200"></th>
+                <th className="bg-primary/10 border-x border-primary/20 text-primary">commandGarden</th>
                 <th>AI Skills</th>
                 <th>MCP Servers</th>
               </tr>
             </thead>
             <tbody>
-              {([
-                { label: 'Return format', cg: ['Fixed schema', 'success'], skills: ['Loose, varies', 'warning'], mcp: ['Typed schema', 'success'] },
-                { label: 'Parsing cost', cg: ['Zero tokens', 'success'], skills: ['Tokens/call', 'error'], mcp: ['Tokens/call', 'error'] },
-                { label: 'Auth handling', cg: ['Browser session', 'success'], skills: ['Agent navigates', 'warning'], mcp: ['Agent manages', 'warning'] },
-                { label: 'Processing', cg: ['Local only', 'success'], skills: ['Cloud/agent', 'warning'], mcp: ['Server-side', 'warning'] },
-                { label: 'Privacy', cg: ['Stays on machine', 'success'], skills: ['Through AI', 'error'], mcp: ['Through server', 'warning'] },
-                { label: 'Coverage', cg: ['Any website', 'success'], skills: ['Any (expensive)', 'warning'], mcp: ['Server-limited', 'error'] },
-              ] as const).map(({ label, cg, skills, mcp }) => (
-                <tr key={label}>
-                  <td className="font-mono text-xs font-medium">{label}</td>
-                  <td className="bg-primary/[0.03]"><Badge variant={cg[1] as 'success' | 'error' | 'warning'} size="xs">{cg[0]}</Badge></td>
-                  <td><Badge variant={skills[1] as 'success' | 'error' | 'warning'} size="xs">{skills[0]}</Badge></td>
-                  <td><Badge variant={mcp[1] as 'success' | 'error' | 'warning'} size="xs">{mcp[0]}</Badge></td>
+              {COMPARE_ROWS.map((row) => (
+                <tr key={row.label}>
+                  <td className="sticky left-0 z-10 bg-base-100 font-mono text-xs font-medium border-r border-base-300">{row.label}</td>
+                  <td className="bg-primary/5 border-x border-primary/20"><CompareCell {...row.cg} /></td>
+                  <td><CompareCell {...row.skills} /></td>
+                  <td><CompareCell {...row.mcp} /></td>
                 </tr>
               ))}
             </tbody>
@@ -234,10 +273,10 @@ export default function Overview() {
       {/* ── Section 4: Architecture ─────────────────────────── */}
       <section id="why-architecture" className="py-16 border-b border-base-300 bg-base-200/30 -mx-4 px-4 md:-mx-5 md:px-5 scroll-mt-4">
         <div className="max-w-4xl mx-auto">
-        <SectionKicker>Built for security and efficiency</SectionKicker>
+        <SectionKicker>Five processes, all on localhost</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Architecture</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          Every component exists for a specific reason. All communication stays on localhost.
+          All communication stays on localhost. Here's what each piece does.
         </p>
 
         {/* SVG Architecture Diagram */}
@@ -245,113 +284,113 @@ export default function Overview() {
           <svg viewBox="0 0 700 260" className="w-full text-base-content" style={{ minWidth: 560 }}>
             <defs>
               <marker id="why-ah" viewBox="0 0 10 8" refX="10" refY="4" markerWidth="7" markerHeight="5" orient="auto">
-                <path d="M0 0L10 4L0 8z" fill="currentColor" fillOpacity={0.3} />
+                <path d="M0 0L10 4L0 8z" fill="currentColor" fillOpacity={0.5} />
               </marker>
               <marker id="why-ah-rev" viewBox="0 0 10 8" refX="0" refY="4" markerWidth="7" markerHeight="5" orient="auto">
-                <path d="M10 0L0 4L10 8z" fill="currentColor" fillOpacity={0.3} />
+                <path d="M10 0L0 4L10 8z" fill="currentColor" fillOpacity={0.5} />
               </marker>
             </defs>
 
             {/* CLI Client */}
             <rect x={10} y={10} width={110} height={46} rx={0}
-              fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.4)" strokeWidth={1} />
+              fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.6)" strokeWidth={1} />
             <text x={65} y={30} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>CLI</text>
-            <text x={65} y={44} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            <text x={65} y={44} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.6}
               fontFamily="ui-monospace,monospace">cg run ...</text>
 
             {/* GUI */}
             <rect x={10} y={80} width={110} height={46} rx={0}
-              fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.4)" strokeWidth={1} />
+              fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.6)" strokeWidth={1} />
             <text x={65} y={100} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>GUI</text>
-            <text x={65} y={114} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            <text x={65} y={114} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.6}
               fontFamily="ui-monospace,monospace">React SPA</text>
 
             {/* App Server */}
             <rect x={160} y={80} width={120} height={46} rx={0}
-              fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.4)" strokeWidth={1} />
+              fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.6)" strokeWidth={1} />
             <text x={220} y={100} textAnchor="middle" fill="currentColor" fontSize={10} fontWeight={600}>App Server</text>
-            <text x={220} y={114} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            <text x={220} y={114} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.6}
               fontFamily="ui-monospace,monospace">:9092</text>
 
             {/* Daemon */}
             <rect x={320} y={15} width={150} height={76} rx={0}
-              fill="rgba(251,191,36,0.08)" stroke="rgba(251,191,36,0.5)" strokeWidth={1.5} />
+              fill="rgba(251,191,36,0.15)" stroke="rgba(251,191,36,0.7)" strokeWidth={1.5} />
             <text x={395} y={40} textAnchor="middle" fill="currentColor" fontSize={13} fontWeight={700}>Daemon</text>
-            <text x={395} y={56} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            <text x={395} y={56} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.6}
               fontFamily="ui-monospace,monospace">Fastify :9091</text>
-            <text x={395} y={78} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.25}
+            <text x={395} y={78} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.45}
               fontFamily="ui-monospace,monospace">auth · registry · audit</text>
 
             {/* Extension */}
             <rect x={520} y={20} width={130} height={55} rx={0}
-              fill="rgba(52,211,153,0.08)" stroke="rgba(52,211,153,0.4)" strokeWidth={1} />
+              fill="rgba(52,211,153,0.15)" stroke="rgba(52,211,153,0.6)" strokeWidth={1} />
             <text x={585} y={42} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>Extension</text>
-            <text x={585} y={58} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            <text x={585} y={58} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.6}
               fontFamily="ui-monospace,monospace">Chrome MV3</text>
 
             {/* Browser Tab */}
             <rect x={530} y={160} width={120} height={46} rx={0}
-              fill="rgba(167,139,250,0.08)" stroke="rgba(167,139,250,0.4)" strokeWidth={1} />
+              fill="rgba(167,139,250,0.15)" stroke="rgba(167,139,250,0.6)" strokeWidth={1} />
             <text x={590} y={180} textAnchor="middle" fill="currentColor" fontSize={11} fontWeight={600}>Browser Tab</text>
-            <text x={590} y={194} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.4}
+            <text x={590} y={194} textAnchor="middle" fill="currentColor" fontSize={8} opacity={0.6}
               fontFamily="ui-monospace,monospace">target page</text>
 
             {/* Data stores */}
             <rect x={310} y={170} width={90} height={30} rx={0}
-              fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
-            <text x={355} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.45}>Audit Log</text>
+              fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
+            <text x={355} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.65}>Audit Log</text>
 
             <rect x={410} y={170} width={80} height={30} rx={0}
-              fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
-            <text x={450} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.45}>Config</text>
+              fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
+            <text x={450} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.65}>Config</text>
 
             <rect x={160} y={170} width={90} height={30} rx={0}
-              fill="currentColor" fillOpacity={0.04} stroke="currentColor" strokeOpacity={0.12} strokeWidth={1} />
-            <text x={205} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.45}>App DB</text>
+              fill="currentColor" fillOpacity={0.08} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
+            <text x={205} y={188} textAnchor="middle" fill="currentColor" fontSize={8} fontWeight={500} opacity={0.65}>App DB</text>
 
             {/* Arrows */}
             {/* CLI → Daemon */}
             <line x1={122} y1={33} x2={318} y2={45}
-              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
-            <text x={210} y={28} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.4}
+              stroke="currentColor" strokeOpacity={0.35} markerEnd="url(#why-ah)" />
+            <text x={210} y={28} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.6}
               fontFamily="ui-monospace,monospace">HTTP</text>
 
             {/* GUI → App Server */}
             <line x1={122} y1={103} x2={158} y2={103}
-              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
+              stroke="currentColor" strokeOpacity={0.35} markerEnd="url(#why-ah)" />
 
             {/* App Server → Daemon */}
             <line x1={282} y1={96} x2={318} y2={72}
-              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
-            <text x={295} y={76} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.4}
+              stroke="currentColor" strokeOpacity={0.35} markerEnd="url(#why-ah)" />
+            <text x={295} y={76} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.6}
               fontFamily="ui-monospace,monospace">proxy</text>
 
             {/* Daemon ↔ Extension */}
             <line x1={472} y1={48} x2={518} y2={48}
-              stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.5}
+              stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5}
               markerEnd="url(#why-ah)" markerStart="url(#why-ah-rev)" />
-            <text x={495} y={38} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.4}
+            <text x={495} y={38} textAnchor="middle" fill="currentColor" fontSize={7} opacity={0.6}
               fontFamily="ui-monospace,monospace">WebSocket</text>
 
             {/* Extension → Browser Tab */}
             <line x1={590} y1={77} x2={590} y2={158}
-              stroke="currentColor" strokeOpacity={0.15} markerEnd="url(#why-ah)" />
+              stroke="currentColor" strokeOpacity={0.35} markerEnd="url(#why-ah)" />
 
             {/* Daemon ↓ stores */}
             <line x1={370} y1={93} x2={365} y2={168}
-              stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+              stroke="currentColor" strokeOpacity={0.2} strokeDasharray="3 2" />
             <line x1={430} y1={93} x2={445} y2={168}
-              stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+              stroke="currentColor" strokeOpacity={0.2} strokeDasharray="3 2" />
 
             {/* App Server ↓ App DB */}
             <line x1={210} y1={128} x2={210} y2={168}
-              stroke="currentColor" strokeOpacity={0.1} strokeDasharray="3 2" />
+              stroke="currentColor" strokeOpacity={0.2} strokeDasharray="3 2" />
           </svg>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           {[
-            { icon: Terminal, title: 'CLI', mono: 'cg', desc: 'Contact point for humans and AI agents. One command, structured JSON output.' },
+            { icon: Terminal, title: 'CLI', mono: 'cg', desc: 'Entry point for humans and AI agents. One command in, JSON out.' },
             { icon: Server, title: 'Daemon', mono: ':9091', desc: 'Validates auth and capabilities, loads connectors, writes audit log.' },
             { icon: Globe, title: 'Extension', mono: 'MV3', desc: 'Runs inside your authenticated Chrome. Accesses cookies and page data.' },
             { icon: FileText, title: 'Connectors', mono: 'YAML', desc: 'Declarative pipelines: navigate → wait → extract → map. No code execution.' },
@@ -384,10 +423,10 @@ export default function Overview() {
 
       {/* ── Section 5: Built-in Apps ────────────────────────── */}
       <section id="why-apps" className="py-16 border-b border-base-300 scroll-mt-4">
-        <SectionKicker>Ready-to-use tools</SectionKicker>
+        <SectionKicker>Ships with six connectors</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Built-in Apps</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          commandGarden ships with connectors and dedicated app pages for common enterprise tasks. Each one runs entirely on your local machine using your browser session.
+          commandGarden ships with connectors and app pages for common enterprise tasks. Each runs on your local machine using your browser session.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -422,14 +461,13 @@ export default function Overview() {
           ))}
         </div>
         <p className="text-xs opacity-40 mt-4 max-w-[65ch]">
-          Each app page combines multiple connector calls into a single view. The GUI handles orchestration, caching, and presentation; the connectors provide the raw data.
+          Each app page combines multiple connector calls into a single view. The GUI handles layout and caching; the connectors provide the raw data.
         </p>
       </section>
 
       {/* ── Section 6: Typical workflow ─────────────────────── */}
       <section id="why-happy-path" className="py-16 border-b border-base-300 scroll-mt-4">
-        <SectionKicker>From install to first result</SectionKicker>
-        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">Typical workflow</h2>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">From install to first result</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -488,7 +526,7 @@ export default function Overview() {
               ))}
             </div>
             <p className="text-xs opacity-50 ml-[1.875rem]">
-              Structured JSON back in seconds.
+              Same JSON, same schema as the human path.
             </p>
           </div>
         </div>
@@ -496,7 +534,7 @@ export default function Overview() {
         <div className="mt-8 border border-primary/20 bg-primary/[0.03] p-4 flex items-center gap-3">
           <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
           <p className="text-sm opacity-70">
-            Both paths produce identical output. Same connector, same schema, regardless of who calls it.
+            Human or agent, the output is the same. Same connector, same schema.
           </p>
         </div>
       </section>
@@ -504,10 +542,10 @@ export default function Overview() {
       {/* ── Section 7: Security ─────────────────────────────── */}
       <section id="why-security" className="py-16 border-b border-base-300 bg-base-200/30 -mx-4 px-4 md:-mx-5 md:px-5 scroll-mt-4">
         <div className="max-w-4xl mx-auto">
-        <SectionKicker>Security by design</SectionKicker>
+        <SectionKicker>Touching enterprise data means no shortcuts</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Security</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          commandGarden touches authenticated enterprise data, so the security model is strict by default.
+          This tool has access to your cookies and session tokens. That's a lot of trust, so the defaults are locked down — you have to explicitly open things up.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -517,7 +555,7 @@ export default function Overview() {
             { icon: Eye, title: 'Capability gating', desc: 'Each step requires a declared capability. High-risk ops (js_evaluate, cookie_write) need approval.' },
             { icon: Fingerprint, title: 'Step-by-step approval', desc: 'Sensitive operations pause for confirmation. Approve in CLI or via Chrome notification.' },
             { icon: Server, title: 'Local-only processing', desc: 'Daemon on :9091, app server on :9092. Bound to localhost. No network exposure.' },
-            { icon: FileText, title: 'Declarative connectors', desc: 'Pure YAML pipelines. No JavaScript evaluation, no arbitrary code execution by default.' },
+            { icon: FileText, title: 'Declarative connectors', desc: 'Pure YAML pipelines. No JavaScript evaluation unless explicitly declared and approved.' },
             { icon: ScrollText, title: 'Audit-or-fail', desc: 'Every execution logged to SQLite. Domains, timing, approvals, row counts. If audit fails, commands are blocked.' },
             { icon: Database, title: 'Per-session auth', desc: 'Session token generated on startup with owner-only permissions. Extension verifies its own ID per message.' },
           ].map(({ icon: Icon, title, desc }) => (
@@ -534,11 +572,10 @@ export default function Overview() {
         <div className="border border-base-300 bg-base-100 p-5">
           <h3 className="font-mono text-xs font-medium opacity-50 uppercase tracking-wide mb-3">Limitations</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm opacity-70">
-            <p>Only works while Chrome is open and you're logged in.</p>
-            <p>Connectors may break when a site redesigns its HTML.</p>
-            <p>Chrome-only for now (no Firefox or Edge support).</p>
+            <p>Only works while browser is open and you're logged in.</p>
+            <p>Connectors may break when a site redesigns its HTML/APIs.</p>
+            <p>Chrome-based browsers only for now.</p>
             <p>No credential storage, so sessions expire when you log out.</p>
-            <p>Extraction runs one connector at a time per tab.</p>
           </div>
         </div>
         </div>
@@ -584,7 +621,7 @@ cg run socket/security-news --format table`}</CodeBlock>
         <SectionKicker>Extend to any website</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Write your own connector</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          commandGarden ships with built-in connectors, but you can write your own for any site. If you can see it in Chrome, you can turn it into a CLI command.
+          The built-in connectors cover common tasks, but you can write your own for any site. If you can see it in Chrome, you can turn it into a CLI command.
         </p>
 
         <div className="space-y-3 mb-8">
@@ -640,7 +677,7 @@ pipeline:
       url: "a@href"`}</CodeBlock>
 
         <p className="text-xs opacity-40 mt-4 max-w-[65ch]">
-          No JavaScript required for most connectors. The declarative YAML format covers DOM extraction, cookie-authenticated API calls, network interception, and data transformation.
+          Most connectors are pure YAML. The declarative format covers DOM extraction, cookie-authenticated API calls, network interception, and field mapping.
         </p>
       </section>
 
