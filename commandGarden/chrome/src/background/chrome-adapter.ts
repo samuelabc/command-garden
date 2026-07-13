@@ -321,7 +321,14 @@ export class RealChromeAdapter implements ChromeAdapter {
     return result;
   }
 
-  cleanup(): void {
+  /**
+   * Detach debugger/listeners and optionally close the managed tab.
+   * `closeTab` defaults to false so successful runs leave the app tab open
+   * for the user to see (e.g. Journal "Generate" opening Jira/Meetings/
+   * TimeTracking/Saba). Callers should pass `closeTab: true` on failure
+   * to avoid leaving broken/half-loaded tabs behind.
+   */
+  cleanup(closeTab = false): void {
     if (this.cdpEventHandler) {
       chrome.debugger.onEvent.removeListener(this.cdpEventHandler);
       this.cdpEventHandler = null;
@@ -335,7 +342,7 @@ export class RealChromeAdapter implements ChromeAdapter {
       this.debuggerAttached = false;
     }
     if (this.tabId) {
-      chrome.tabs.remove(this.tabId).catch(() => {});
+      if (closeTab) chrome.tabs.remove(this.tabId).catch(() => {});
       this.tabId = null;
     }
   }

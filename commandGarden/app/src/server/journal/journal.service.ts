@@ -19,6 +19,7 @@ import type {
   GitData,
   JiraData,
   CrossRefData,
+  MonthlyTimetrackingData,
 } from './journal.types.js';
 
 export class JournalService {
@@ -41,14 +42,18 @@ export class JournalService {
     };
 
     const errors: string[] = [];
+    const currentMonth = this.currentMonth();
 
     // Fetch only the enabled sources in parallel; each source handles its own errors gracefully.
     // Disabled sources resolve to null immediately without calling the connector.
-    const [ttResult, meetingsResult, jiraResult, gitResult] = await Promise.allSettled([
+    // The monthly timetracking status reuses TimetrackingSource's per-request cache, so if
+    // the selected week falls in the current month, it never drives the browser connector twice.
+    const [ttResult, meetingsResult, jiraResult, gitResult, monthlyTtResult] = await Promise.allSettled([
       sources.timetracking ? this.timetracking.fetch(weekStart, weekEnd) : Promise.resolve(null),
       sources.meetings ? this.meetings.fetch(weekStart, weekEnd) : Promise.resolve(null),
       sources.jira ? this.jira.fetch(weekStart, weekEnd) : Promise.resolve(null),
       sources.git ? this.git.fetch(weekStart, weekEnd) : Promise.resolve(null),
+      sources.timetracking ? this.timetracking.fetchMonthlyStatus(currentMonth) : Promise.resolve(null),
     ]);
 
     const tt = ttResult.status === 'fulfilled' ? ttResult.value : null;
@@ -62,6 +67,10 @@ export class JournalService {
 
     const git = gitResult.status === 'fulfilled' ? gitResult.value : null;
     if (gitResult.status === 'rejected') errors.push(`Git: ${gitResult.reason}`);
+
+    const monthlyTimetracking: MonthlyTimetrackingData | null =
+      monthlyTtResult.status === 'fulfilled' ? monthlyTtResult.value : null;
+    if (monthlyTtResult.status === 'rejected') errors.push(`Monthly TimeTracking: ${monthlyTtResult.reason}`);
 
     // Cross-reference available data
     const crossRef = this.crossReference(tt, mtg, jira, git, weekStart, weekEnd);
@@ -83,7 +92,13 @@ export class JournalService {
       crossRef,
       insights,
       errors,
+      monthlyTimetracking,
     };
+  }
+
+  private currentMonth(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
   /**

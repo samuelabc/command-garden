@@ -6,8 +6,9 @@
  */
 
 import { useState } from 'react';
-import { api } from '../api';
+import { api, type Goal } from '../api';
 import type { JournalResponse } from '../types/journal';
+import { useApprovalRun } from '../hooks/useApprovalRun';
 import { SummaryCards } from '../components/journal/SummaryCards';
 import { DailyBreakdown } from '../components/journal/DailyBreakdown';
 import { InsightsPanel } from '../components/journal/InsightsPanel';
@@ -43,13 +44,22 @@ function formatWeekLabel(sunday: string): string {
   return `${fmt(start)} – ${fmt(end)}, ${start.getFullYear()}`;
 }
 
+function currentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function Journal() {
   const [weekStart, setWeekStart] = useState(currentSunday());
+  const [month] = useState(currentMonth());
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<JournalResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
-  const [sources, setSources] = useState({ timetracking: true, meetings: true, jira: true, git: true });
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [sources, setSources] = useState({ timetracking: true, meetings: true, jira: true, git: true, saba: true });
+
+  const saba = useApprovalRun();
 
   function toggleSource(key: keyof typeof sources) {
     setSources((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -60,6 +70,8 @@ export default function Journal() {
     setError(null);
     setData(null);
     setElapsedMs(null);
+    saba.reset();
+    setGoals([]);
     const t0 = Date.now();
     try {
       const result = await api.generateJournal({ weekStart, sources });
@@ -69,6 +81,13 @@ export default function Journal() {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
+    }
+
+    if (sources.timetracking) {
+      api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => {});
+    }
+    if (sources.saba) {
+      saba.run('saba/pending-training', {});
     }
   }
 
@@ -152,6 +171,16 @@ export default function Journal() {
           />
           ADO (Git)
         </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={sources.saba}
+            onChange={() => toggleSource('saba')}
+            disabled={loading}
+          />
+          Saba Training
+        </label>
       </div>
 
       {/* Loading state */}
@@ -208,7 +237,13 @@ export default function Journal() {
 
       <div className="divider" />
 
-      <MonthlyStatus />
+      <MonthlyStatus
+        month={month}
+        monthly={data?.monthlyTimetracking ?? null}
+        goals={goals}
+        saba={saba}
+        enabled={{ timetracking: sources.timetracking, saba: sources.saba }}
+      />
     </div>
   );
 }

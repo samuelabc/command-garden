@@ -29,6 +29,15 @@ export interface TimetrackingData {
   gaps: string[];
 }
 
+export interface MonthlyTimetrackingData {
+  month: string; // YYYY-MM
+  workingDaysTotal: number;
+  workingDaysElapsed: number;
+  releasedDates: string[];
+  unreleasedDates: string[];
+  hoursByProject: { projectId: string; hours: number }[];
+}
+
 export interface MeetingEntry {
   date: string;
   subject: string;
@@ -106,4 +115,5 @@ export interface JournalResponse {
   crossRef: CrossRefData | null;
   insights: string[];
   errors: string[];
+  monthlyTimetracking: MonthlyTimetrackingData | null;
 }

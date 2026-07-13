@@ -1,18 +1,8 @@
-import { useState, useMemo } from 'react';
-import { useApprovalRun } from '../../hooks/useApprovalRun';
-import { api, type Goal } from '../../api';
-import { Spinner } from '../Spinner';
+import { useMemo } from 'react';
+import type { ApprovalRunState, ApprovalRunActions } from '../../hooks/useApprovalRun';
+import type { Goal } from '../../api';
+import type { MonthlyTimetrackingData } from '../../types/journal';
 import { AuthRequiredCallout } from '../AuthRequiredCallout';
-
-function currentMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function localToday(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function formatMonth(month: string): string {
   const [y, m] = month.split('-').map(Number);
@@ -22,59 +12,6 @@ function formatMonth(month: string): string {
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-function workingDaysInMonth(month: string): number {
-  const [y, m] = month.split('-').map(Number);
-  const daysInMonth = new Date(y, m, 0).getDate();
-  let count = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const day = new Date(y, m - 1, d).getDay();
-    if (day !== 0 && day !== 6) count++;
-  }
-  return count;
-}
-
-interface TtRawRow { date?: string; status?: string; [key: string]: unknown }
-
-interface ReleaseSummary {
-  workingDaysTotal: number;
-  workingDaysElapsed: number;
-  releasedDates: string[];
-  unreleasedDates: string[];
-}
-
-function computeReleaseSummary(raw: TtRawRow[], month: string): ReleaseSummary {
-  const today = localToday();
-  const [y, m] = month.split('-').map(Number);
-  const todayDate = new Date(today + 'T00:00:00');
-  const daysInMonth = new Date(y, m, 0).getDate();
-
-  const workingDatesElapsed: string[] = [];
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(y, m - 1, d);
-    if (date > todayDate) break;
-    const day = date.getDay();
-    if (day !== 0 && day !== 6) {
-      workingDatesElapsed.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
-    }
-  }
-
-  const releasedDateSet = new Set(
-    raw
-      .filter((r) => r.date && r.status && /released/i.test(String(r.status)))
-      .map((r) => r.date as string),
-  );
-
-  const releasedDates = workingDatesElapsed.filter((d) => releasedDateSet.has(d));
-  const unreleasedDates = workingDatesElapsed.filter((d) => !releasedDateSet.has(d));
-
-  return {
-    workingDaysTotal: workingDaysInMonth(month),
-    workingDaysElapsed: workingDatesElapsed.length,
-    releasedDates,
-    unreleasedDates,
-  };
 }
 
 function urgencyBadge(row: { isOverdue?: boolean; daysUntilDue?: number }): string {
@@ -92,52 +29,24 @@ function urgencyLabel(row: { isOverdue?: boolean; daysUntilDue?: number }): stri
   return `${row.daysUntilDue}d left`;
 }
 
-export function MonthlyStatus() {
-  const [month] = useState(currentMonth());
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [enabled, setEnabled] = useState({ timetracking: true, saba: true });
+type ApprovalRun = ApprovalRunState & ApprovalRunActions;
 
-  function toggleEnabled(key: keyof typeof enabled) {
-    setEnabled((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
+interface Props {
+  month: string;
+  monthly: MonthlyTimetrackingData | null;
+  goals: Goal[];
+  saba: ApprovalRun;
+  enabled: { timetracking: boolean; saba: boolean };
+}
 
-  const tt = useApprovalRun();
-  const saba = useApprovalRun();
-
-  function load() {
-    tt.reset();
-    saba.reset();
-    setGoals([]);
-    if (enabled.timetracking) {
-      tt.run('timetracking/report', { month });
-      api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => {});
-    }
-    if (enabled.saba) {
-      saba.run('saba/pending-training', {});
-    }
-  }
-
-  const ttRaw = useMemo(
-    () => (tt.result?.data ?? null) as TtRawRow[] | null,
-    [tt.result],
-  );
-
-  const release = useMemo(
-    () => (ttRaw ? computeReleaseSummary(ttRaw, month) : null),
-    [ttRaw, month],
-  );
-
+export function MonthlyStatus({ month, monthly, goals, saba, enabled }: Props) {
   const hoursByProject = useMemo(() => {
     const map = new Map<string, number>();
-    if (ttRaw) {
-      for (const row of ttRaw) {
-        const pid = typeof row.projectId === 'string' ? row.projectId : null;
-        const hrs = typeof row.hours === 'number' ? row.hours : 0;
-        if (pid) map.set(pid, (map.get(pid) ?? 0) + hrs);
-      }
+    for (const row of monthly?.hoursByProject ?? []) {
+      map.set(row.projectId, row.hours);
     }
     return map;
-  }, [ttRaw]);
+  }, [monthly]);
 
   const sabaRows = useMemo(
     () => (saba.result?.data ?? []) as { title?: string; type?: string; status?: string; dueDate?: string; daysUntilDue?: number; isOverdue?: boolean }[],
@@ -147,113 +56,57 @@ export function MonthlyStatus() {
   const sabaAuthRequired = typeof saba.error === 'string' &&
     (saba.error.toLowerCase().includes('auth_required') || saba.error.toLowerCase().includes('sign in'));
 
-  const ttAuthRequired = typeof tt.error === 'string' &&
-    (tt.error.toLowerCase().includes('auth_required') || tt.error.toLowerCase().includes('sign in'));
-
-  const isLoading = tt.running || saba.running;
-  const hasData = tt.result !== null || saba.result !== null;
-
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Month-to-date Status</h3>
-          <p className="text-sm opacity-40 mt-0.5">{formatMonth(month)}</p>
-        </div>
-        <button className="btn btn-primary btn-sm" onClick={load} disabled={isLoading}>
-          {isLoading ? 'Loading…' : hasData ? 'Refresh' : 'Load'}
-        </button>
+      <div className="mb-5">
+        <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Month-to-date Status</h3>
+        <p className="text-sm opacity-40 mt-0.5">{formatMonth(month)}</p>
       </div>
-
-      {/* Source selection checkboxes */}
-      <div className="flex flex-wrap items-center gap-4 mb-6 text-sm">
-        <span className="font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.1em]">Sources</span>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            className="checkbox checkbox-sm"
-            checked={enabled.timetracking}
-            onChange={() => toggleEnabled('timetracking')}
-            disabled={isLoading}
-          />
-          Timetracking
-        </label>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            className="checkbox checkbox-sm"
-            checked={enabled.saba}
-            onChange={() => toggleEnabled('saba')}
-            disabled={isLoading}
-          />
-          Saba Training
-        </label>
-      </div>
-
-      {isLoading && !tt.approvalPending && !saba.approvalPending && (
-        <div className="mb-4"><Spinner label="Fetching time tracking and Saba training…" /></div>
-      )}
 
       {/* ── Time Tracking ── */}
       {enabled.timetracking && (
       <section className="space-y-4 mb-6">
         <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Time Tracking</h3>
 
-        {tt.approvalPending && (
-          <div className="alert alert-warning">
-            <span>Time tracking requires approval.</span>
-            <div className="flex gap-2">
-              <button className="btn btn-sm btn-success" onClick={() => tt.handleApproval(true)} disabled={!tt.approvalId}>Approve</button>
-              <button className="btn btn-sm btn-error" onClick={() => tt.handleApproval(false)} disabled={!tt.approvalId}>Reject</button>
-            </div>
-          </div>
-        )}
-
-        {ttAuthRequired && <AuthRequiredCallout message="Sign in to the timetracking portal in Chrome, then try again." />}
-
-        {tt.error && !ttAuthRequired && (
-          <div className="alert alert-error text-sm"><span>{tt.error}</span></div>
-        )}
-
-        {release && (
+        {monthly && (
           <>
             <div className="grid grid-cols-4 border border-base-300">
               <div className="p-3 border-r border-base-300">
                 <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Working days</div>
-                <div className="font-display text-xl font-bold">{release.workingDaysTotal}</div>
+                <div className="font-display text-xl font-bold">{monthly.workingDaysTotal}</div>
                 <div className="text-xs opacity-40">in month</div>
               </div>
               <div className="p-3 border-r border-base-300">
                 <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Elapsed</div>
-                <div className="font-display text-xl font-bold">{release.workingDaysElapsed}</div>
+                <div className="font-display text-xl font-bold">{monthly.workingDaysElapsed}</div>
                 <div className="text-xs opacity-40">so far</div>
               </div>
               <div className="p-3 border-r border-base-300">
                 <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Released</div>
-                <div className="font-display text-xl font-bold text-success">{release.releasedDates.length}</div>
+                <div className="font-display text-xl font-bold text-success">{monthly.releasedDates.length}</div>
                 <div className="text-xs opacity-40">days</div>
               </div>
               <div className="p-3">
                 <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Unreleased</div>
-                <div className={`font-display text-xl font-bold ${release.unreleasedDates.length > 0 ? 'text-error' : 'text-success'}`}>
-                  {release.unreleasedDates.length}
+                <div className={`font-display text-xl font-bold ${monthly.unreleasedDates.length > 0 ? 'text-error' : 'text-success'}`}>
+                  {monthly.unreleasedDates.length}
                 </div>
                 <div className="text-xs opacity-40">to action</div>
               </div>
             </div>
 
-            {release.unreleasedDates.length > 0 && (
+            {monthly.unreleasedDates.length > 0 && (
               <div className="border border-base-300 p-4 space-y-2">
                 <p className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Unreleased dates</p>
                 <div className="flex flex-wrap gap-2">
-                  {release.unreleasedDates.map((d) => (
+                  {monthly.unreleasedDates.map((d: string) => (
                     <span key={d} className="badge badge-error badge-outline badge-sm">{formatDate(d)}</span>
                   ))}
                 </div>
               </div>
             )}
 
-            {release.unreleasedDates.length === 0 && (
+            {monthly.unreleasedDates.length === 0 && (
               <div className="border border-base-300 p-4 text-center">
                 <p className="text-sm text-success font-medium">All days released ✓</p>
               </div>
@@ -261,7 +114,7 @@ export function MonthlyStatus() {
           </>
         )}
 
-        {release && goals.length > 0 && (
+        {monthly && goals.length > 0 && (
           <div className="border border-base-300 p-4 space-y-3">
             <p className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Goals Progress</p>
             <div className="space-y-3">
@@ -295,9 +148,9 @@ export function MonthlyStatus() {
           </div>
         )}
 
-        {ttRaw === null && !tt.error && !tt.running && (
+        {!monthly && (
           <div className="border border-base-300 p-6 text-center">
-            <p className="text-sm opacity-40">Click Load to check your time tracking status.</p>
+            <p className="text-sm opacity-40">Click Generate above to check your time tracking status.</p>
             <p className="font-mono text-xs opacity-25 mt-1">Drives your browser — sign in to the portal first.</p>
           </div>
         )}
@@ -380,7 +233,7 @@ export function MonthlyStatus() {
 
         {!saba.result && !saba.error && !saba.running && (
           <div className="border border-base-300 p-6 text-center">
-            <p className="text-sm opacity-40">Click Load to fetch your pending Saba training.</p>
+            <p className="text-sm opacity-40">Click Generate above to fetch your pending Saba training.</p>
             <p className="font-mono text-xs opacity-25 mt-1">Requires an active Saba Cloud session in Chrome.</p>
           </div>
         )}

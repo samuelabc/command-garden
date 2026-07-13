@@ -35,6 +35,15 @@ export interface JournalCrossRef {
   codingHours: number;
 }
 
+export interface MonthlyTimetrackingData {
+  month: string;
+  workingDaysTotal: number;
+  workingDaysElapsed: number;
+  releasedDates: string[];
+  unreleasedDates: string[];
+  hoursByProject: { projectId: string; hours: number }[];
+}
+
 export interface JournalResponse {
   status: JournalStatus;
   week: string;
@@ -45,4 +54,5 @@ export interface JournalResponse {
   crossRef: JournalCrossRef | null;
   insights: string[];
   errors: string[];
+  monthlyTimetracking: MonthlyTimetrackingData | null;
 }
