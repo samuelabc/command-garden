@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import type { ApprovalRunState, ApprovalRunActions } from '../../hooks/useApprovalRun';
 import type { Goal } from '../../api';
 import type { MonthlyTimetrackingData } from '../../types/journal';
@@ -40,6 +41,8 @@ interface Props {
 }
 
 export function MonthlyStatus({ month, monthly, goals, saba, enabled }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
   const hoursByProject = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of monthly?.hoursByProject ?? []) {
@@ -56,188 +59,163 @@ export function MonthlyStatus({ month, monthly, goals, saba, enabled }: Props) {
   const sabaAuthRequired = typeof saba.error === 'string' &&
     (saba.error.toLowerCase().includes('auth_required') || saba.error.toLowerCase().includes('sign in'));
 
+  const overdueCount = sabaRows.filter((r) => r.isOverdue).length;
+  const dueSoonCount = sabaRows.filter((r) => !r.isOverdue && typeof r.daysUntilDue === 'number' && r.daysUntilDue <= 30).length;
+
+  // Compact status chip shown in the collapsed header — one per enabled source.
+  const ttChip = !enabled.timetracking ? null : !monthly
+    ? { label: 'Not checked', className: 'opacity-40' }
+    : monthly.unreleasedDates.length > 0
+      ? { label: `${monthly.unreleasedDates.length} unreleased`, className: 'text-warning' }
+      : { label: 'Released ✓', className: 'text-success' };
+
+  const sabaChip = !enabled.saba ? null : !saba.result
+    ? { label: 'Not checked', className: 'opacity-40' }
+    : sabaRows.length === 0
+      ? { label: 'No training due ✓', className: 'text-success' }
+      : { label: `${sabaRows.length} training${sabaRows.length !== 1 ? 's' : ''}${overdueCount > 0 ? ` · ${overdueCount} overdue` : ''}`, className: overdueCount > 0 ? 'text-error' : 'text-warning' };
+
+  // Actionable items (approval prompt / auth required / error) stay visible even when collapsed.
+  const needsAttention = saba.approvalPending || sabaAuthRequired || (saba.error && !sabaAuthRequired);
+
   return (
-    <div>
-      <div className="mb-5">
-        <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Month-to-date Status</h3>
-        <p className="text-sm opacity-40 mt-0.5">{formatMonth(month)}</p>
-      </div>
+    <div className="border border-base-300 text-sm">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 p-3 text-left"
+        aria-expanded={expanded}
+      >
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.1em]">Month-to-date</span>
+          <span className="text-xs opacity-40">{formatMonth(month)}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {ttChip && <span className={`text-xs font-medium whitespace-nowrap ${ttChip.className}`}>{ttChip.label}</span>}
+          {sabaChip && <span className={`text-xs font-medium whitespace-nowrap ${sabaChip.className}`}>{sabaChip.label}</span>}
+          <ChevronDown className={`w-3.5 h-3.5 opacity-40 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
 
-      {/* ── Time Tracking ── */}
-      {enabled.timetracking && (
-      <section className="space-y-4 mb-6">
-        <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Time Tracking</h3>
-
-        {monthly && (
-          <>
-            <div className="grid grid-cols-4 border border-base-300">
-              <div className="p-3 border-r border-base-300">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Working days</div>
-                <div className="font-display text-xl font-bold">{monthly.workingDaysTotal}</div>
-                <div className="text-xs opacity-40">in month</div>
-              </div>
-              <div className="p-3 border-r border-base-300">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Elapsed</div>
-                <div className="font-display text-xl font-bold">{monthly.workingDaysElapsed}</div>
-                <div className="text-xs opacity-40">so far</div>
-              </div>
-              <div className="p-3 border-r border-base-300">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Released</div>
-                <div className="font-display text-xl font-bold text-success">{monthly.releasedDates.length}</div>
-                <div className="text-xs opacity-40">days</div>
-              </div>
-              <div className="p-3">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Unreleased</div>
-                <div className={`font-display text-xl font-bold ${monthly.unreleasedDates.length > 0 ? 'text-error' : 'text-success'}`}>
-                  {monthly.unreleasedDates.length}
-                </div>
-                <div className="text-xs opacity-40">to action</div>
+      {needsAttention && (
+        <div className="border-t border-base-300 p-3 space-y-2">
+          {saba.approvalPending && (
+            <div className="alert alert-warning">
+              <span>This connector requires approval before proceeding.</span>
+              <div className="flex gap-2">
+                <button className="btn btn-sm btn-success" onClick={() => saba.handleApproval(true)} disabled={!saba.approvalId}>Approve</button>
+                <button className="btn btn-sm btn-error" onClick={() => saba.handleApproval(false)} disabled={!saba.approvalId}>Reject</button>
               </div>
             </div>
-
-            {monthly.unreleasedDates.length > 0 && (
-              <div className="border border-base-300 p-4 space-y-2">
-                <p className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Unreleased dates</p>
-                <div className="flex flex-wrap gap-2">
-                  {monthly.unreleasedDates.map((d: string) => (
-                    <span key={d} className="badge badge-error badge-outline badge-sm">{formatDate(d)}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {monthly.unreleasedDates.length === 0 && (
-              <div className="border border-base-300 p-4 text-center">
-                <p className="text-sm text-success font-medium">All days released ✓</p>
-              </div>
-            )}
-          </>
-        )}
-
-        {monthly && goals.length > 0 && (
-          <div className="border border-base-300 p-4 space-y-3">
-            <p className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Goals Progress</p>
-            <div className="space-y-3">
-              {goals.map((goal) => {
-                const logged = Math.round((hoursByProject.get(goal.projectId) ?? 0) * 100) / 100;
-                const remaining = Math.round((goal.targetHours - logged) * 100) / 100;
-                const pct = Math.min(100, Math.round((logged / goal.targetHours) * 100));
-                const achieved = remaining <= 0;
-                return (
-                  <div key={goal.id} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium">{goal.projectId}</span>
-                      <span className={`font-mono text-xs ${achieved ? 'text-success' : 'text-warning'}`}>
-                        {achieved ? '✓ Goal met' : `${remaining}h to go`}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <progress
-                        className={`progress flex-1 ${achieved ? 'progress-success' : 'progress-warning'}`}
-                        value={pct}
-                        max={100}
-                      />
-                      <span className="font-mono text-xs opacity-50 w-24 text-right">
-                        {logged}h / {goal.targetHours}h
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {!monthly && (
-          <div className="border border-base-300 p-6 text-center">
-            <p className="text-sm opacity-40">Click Generate above to check your time tracking status.</p>
-            <p className="font-mono text-xs opacity-25 mt-1">Drives your browser — sign in to the portal first.</p>
-          </div>
-        )}
-      </section>
+          )}
+          {sabaAuthRequired && (
+            <AuthRequiredCallout message="Sign in to Saba Cloud (daimler.sabacloud.com) in Chrome, then try again." />
+          )}
+          {saba.error && !sabaAuthRequired && (
+            <div className="alert alert-error text-sm font-mono whitespace-pre-wrap"><span>{saba.error}</span></div>
+          )}
+        </div>
       )}
 
-      {/* ── Saba Training ── */}
-      {enabled.saba && (
-      <section className="space-y-4">
-        <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Pending Training (Saba)</h3>
+      {expanded && (
+        <div className="border-t border-base-300 p-3 space-y-4">
+          {/* ── Time Tracking ── */}
+          {enabled.timetracking && (
+            <div className="space-y-3">
+              <p className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Time Tracking</p>
 
-        {saba.approvalPending && (
-          <div className="alert alert-warning">
-            <span>This connector requires approval before proceeding.</span>
-            <div className="flex gap-2">
-              <button className="btn btn-sm btn-success" onClick={() => saba.handleApproval(true)} disabled={!saba.approvalId}>Approve</button>
-              <button className="btn btn-sm btn-error" onClick={() => saba.handleApproval(false)} disabled={!saba.approvalId}>Reject</button>
+              {monthly ? (
+                <>
+                  <p className="text-xs opacity-50">
+                    {monthly.workingDaysElapsed} of {monthly.workingDaysTotal} working days elapsed this month
+                  </p>
+                  {monthly.unreleasedDates.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {monthly.unreleasedDates.map((d: string) => (
+                        <span key={d} className="badge badge-warning badge-outline badge-sm">{formatDate(d)}</span>
+                      ))}
+                    </div>
+                  )}
+                  {goals.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      {goals.map((goal) => {
+                        const logged = Math.round((hoursByProject.get(goal.projectId) ?? 0) * 100) / 100;
+                        const remaining = Math.round((goal.targetHours - logged) * 100) / 100;
+                        const pct = Math.min(100, Math.round((logged / goal.targetHours) * 100));
+                        const achieved = remaining <= 0;
+                        return (
+                          <div key={goal.id} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium">{goal.projectId}</span>
+                              <span className={`font-mono ${achieved ? 'text-success' : 'text-warning'}`}>
+                                {achieved ? '✓ Goal met' : `${remaining}h to go`}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <progress
+                                className={`progress flex-1 ${achieved ? 'progress-success' : 'progress-warning'}`}
+                                value={pct}
+                                max={100}
+                              />
+                              <span className="font-mono text-[0.65rem] opacity-50 w-20 text-right">
+                                {logged}h / {goal.targetHours}h
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs opacity-40">Click Generate above to check your time tracking status.</p>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {sabaAuthRequired && (
-          <AuthRequiredCallout message="Sign in to Saba Cloud (daimler.sabacloud.com) in Chrome, then try again." />
-        )}
+          {/* ── Saba Training ── */}
+          {enabled.saba && (
+            <div className="space-y-3">
+              <p className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Pending Training (Saba)</p>
 
-        {saba.error && !sabaAuthRequired && (
-          <div className="alert alert-error text-sm font-mono whitespace-pre-wrap"><span>{saba.error}</span></div>
-        )}
+              {saba.result && sabaRows.length > 0 && (
+                <>
+                  {dueSoonCount > 0 && (
+                    <p className="text-xs opacity-50">{dueSoonCount} due within 30 days</p>
+                  )}
+                  <div className="overflow-x-auto border border-base-300">
+                    <table className="table table-sm w-full">
+                      <thead>
+                        <tr className="font-mono text-[0.6rem] uppercase tracking-[0.1em] opacity-50">
+                          <th>Course</th><th>Type</th><th>Status</th><th>Due</th><th>Urgency</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sabaRows.map((row, i) => (
+                          <tr key={i} className="hover">
+                            <td className={`font-medium text-sm ${row.isOverdue ? 'text-error' : ''}`}>{row.title ?? '—'}</td>
+                            <td className="font-mono text-xs opacity-60">{row.type ?? '—'}</td>
+                            <td className="text-xs opacity-70">{row.status ?? '—'}</td>
+                            <td className="font-mono text-xs">{row.dueDate || '—'}</td>
+                            <td><span className={urgencyBadge(row)}>{urgencyLabel(row)}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
 
-        {saba.result && sabaRows.length > 0 && (
-          <>
-            <div className="grid grid-cols-3 border border-base-300">
-              <div className="p-3 border-r border-base-300">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Pending</div>
-                <div className="font-display text-xl font-bold">{sabaRows.length}</div>
-              </div>
-              <div className="p-3 border-r border-base-300">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Overdue</div>
-                <div className={`font-display text-xl font-bold ${sabaRows.filter(r => r.isOverdue).length > 0 ? 'text-error' : ''}`}>
-                  {sabaRows.filter(r => r.isOverdue).length}
-                </div>
-              </div>
-              <div className="p-3">
-                <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Due ≤ 30d</div>
-                <div className={`font-display text-xl font-bold ${sabaRows.filter(r => !r.isOverdue && typeof r.daysUntilDue === 'number' && r.daysUntilDue <= 30).length > 0 ? 'text-warning' : ''}`}>
-                  {sabaRows.filter(r => !r.isOverdue && typeof r.daysUntilDue === 'number' && r.daysUntilDue <= 30).length}
-                </div>
-              </div>
+              {saba.result && sabaRows.length === 0 && !saba.error && (
+                <p className="text-xs opacity-40">You're all caught up.</p>
+              )}
+
+              {!saba.result && !saba.error && !saba.running && (
+                <p className="text-xs opacity-40">Click Generate above to fetch your pending Saba training.</p>
+              )}
             </div>
-
-            <div className="overflow-x-auto border border-base-300">
-              <table className="table table-sm w-full">
-                <thead>
-                  <tr className="font-mono text-[0.6rem] uppercase tracking-[0.1em] opacity-50">
-                    <th>Course</th><th>Type</th><th>Status</th><th>Due</th><th>Urgency</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sabaRows.map((row, i) => (
-                    <tr key={i} className="hover">
-                      <td className={`font-medium text-sm ${row.isOverdue ? 'text-error' : ''}`}>{row.title ?? '—'}</td>
-                      <td className="font-mono text-xs opacity-60">{row.type ?? '—'}</td>
-                      <td className="text-xs opacity-70">{row.status ?? '—'}</td>
-                      <td className="font-mono text-xs">{row.dueDate || '—'}</td>
-                      <td><span className={urgencyBadge(row)}>{urgencyLabel(row)}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {saba.result && sabaRows.length === 0 && !saba.error && (
-          <div className="border border-base-300 p-6 text-center">
-            <p className="text-sm text-success font-medium">No pending training ✓</p>
-            <p className="font-mono text-xs opacity-30 mt-0.5">You're all caught up.</p>
-          </div>
-        )}
-
-        {!saba.result && !saba.error && !saba.running && (
-          <div className="border border-base-300 p-6 text-center">
-            <p className="text-sm opacity-40">Click Generate above to fetch your pending Saba training.</p>
-            <p className="font-mono text-xs opacity-25 mt-1">Requires an active Saba Cloud session in Chrome.</p>
-          </div>
-        )}
-      </section>
+          )}
+        </div>
       )}
     </div>
   );
