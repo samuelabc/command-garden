@@ -12,4 +12,6 @@ export const BUILT_IN_FILTERS: Record<string, FilterFn> = {
   },
   slice: (value: unknown, start: unknown, end?: unknown) =>
     String(value).slice(Number(start), end != null ? Number(end) : undefined),
+  replace: (value: unknown, search: unknown, replacement: unknown) =>
+    String(value).replace(String(search), String(replacement ?? '')),
 };

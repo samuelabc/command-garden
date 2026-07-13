@@ -14,8 +14,8 @@ args:
   - name: path
     type: string
     required: true
-    help: "Page path from the kb-pages index, e.g. gcs/KB/docs/general-security/edr/"
-    pattern: "^gcs/KB/[a-zA-Z0-9_./-]+$"
+    help: "Page path — full (gcs/KB/docs/general-security/edr/) or short (general-security/edr/)"
+    pattern: "^(gcs/KB/docs/)?[a-zA-Z0-9_.][a-zA-Z0-9_./-]*$"
 
 columns:
   - name: title
@@ -30,8 +30,11 @@ columns:
     type: string
 
 pipeline:
+  - step: set
+    name: normalizedPath
+    value: "${{ args.path | replace('gcs/KB/docs/', '') }}"
   - step: navigate
-    url: "https://pages.i.mercedes-benz.com/${{ args.path }}"
+    url: "https://pages.i.mercedes-benz.com/gcs/KB/docs/${{ vars.normalizedPath }}"
   - step: wait
     selector: "article"
     timeout: 30000

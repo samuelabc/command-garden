@@ -214,6 +214,18 @@ describe('evaluate', () => {
     expect(evaluate('args.month | slice(0, 4)', CTX)).toBe('2026');
   });
 
+  it('applies replace filter to strip a substring', () => {
+    expect(evaluate('"gcs/KB/docs/Tools/" | replace("gcs/KB/docs/", "")', CTX)).toBe('Tools/');
+  });
+
+  it('replace filter is a no-op when search not found', () => {
+    expect(evaluate('"Tools/wiz/" | replace("gcs/KB/docs/", "")', CTX)).toBe('Tools/wiz/');
+  });
+
+  it('applies replace filter with a replacement string', () => {
+    expect(evaluate('"hello world" | replace("world", "there")', CTX)).toBe('hello there');
+  });
+
   it('throws on unknown filter', () => {
     expect(() => evaluate('args.month | nonexistent', CTX)).toThrow('Unknown filter');
   });

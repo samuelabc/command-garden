@@ -149,8 +149,8 @@ timetracking/report            read    timetracking.mercedes…       navigate, 
 teams/room-availability        read    outlook.cloud.microsoft.…    navigate, js_evaluate
 tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, cookie_read
 tokenmaster/client-trustedby   read    tma.query.api.dvb.corp…      navigate, cookie_read
-gcs/kb-pages                   read    pages.i.mercedes-benz.com    navigate, js_evaluate
-gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, js_evaluate
+gcs/kb-pages                   read    pages.i.mercedes-benz.com    navigate, dom_read, dom_write
+gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, dom_read
 socket/security-news           read    socket.dev                   navigate, cookie_read
 wiz/blog-security              read    www.wiz.io                   navigate, js_evaluate
 tldrsec/newsletter             read    tldrsec.com                  navigate, js_evaluate
@@ -242,10 +242,14 @@ This connector navigates to the GCS Knowledge Base (a Next.js docs site behind M
 ### GCS Knowledge Base content
 
 ```bash
-cg run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
+# short path (recommended)
+cg run gcs/kb-content --path general-security/edr/ --format json
+
+# full path from kb-pages index also works
+cg run gcs/kb-content --path gcs/KB/docs/general-security/edr/ --format json
 ```
 
-This connector retrieves a single GCS Knowledge Base page and converts it to Markdown. Use the `path` from the `gcs/kb-pages` index. Returns one row with `title`, `path`, `author`, `lastUpdated`, and the full page `content` as Markdown (headings, code blocks, tables, and lists preserved). Uses declarative `extract` + `extract_html` + server-side `transform` steps — no `js_evaluate`.
+This connector retrieves a single GCS Knowledge Base page and converts it to Markdown. Accepts both a short path (e.g. `general-security/edr/`) or the full `url` value from the `gcs/kb-pages` index (e.g. `gcs/KB/docs/general-security/edr/`). Returns one row with `title`, `path`, `author`, `lastUpdated`, and the full page `content` as Markdown (headings, code blocks, tables, and lists preserved). Uses declarative `extract` + `extract_html` + server-side `transform` steps — no `js_evaluate`.
 
 ### Security news connectors
 
@@ -600,7 +604,7 @@ node cli/dist/main.js run tokenmaster/clients-list --format table
 node cli/dist/main.js run tokenmaster/clients-list --region emea --format table
 node cli/dist/main.js run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --format table
 node cli/dist/main.js run gcs/kb-pages --format table
-node cli/dist/main.js run gcs/kb-content --path /gcs/KB/docs/general-security/edr/ --format json
+node cli/dist/main.js run gcs/kb-content --path general-security/edr/ --format json
 node cli/dist/main.js run socket/security-news --format table
 node cli/dist/main.js run wiz/blog-security --format table
 node cli/dist/main.js run tldrsec/newsletter --format table
