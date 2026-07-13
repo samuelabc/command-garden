@@ -19,13 +19,19 @@ import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
 import Overview from './pages/Overview';
 import Concepts from './pages/Concepts';
+import Slides from './pages/Slides';
+import {
+  LayoutDashboard, BookOpen, Clock, DoorOpen, NotebookPen,
+  ShieldCheck, Newspaper, Plug, ScrollText, Settings,
+  Lightbulb, Terminal, Sparkles, Layers, Network, Presentation,
+} from 'lucide-react';
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return `block px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
+  return `flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
 }
 
 function navClassIndented({ isActive }: { isActive: boolean }) {
-  return `block pl-5 pr-3 py-1.5 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
+  return `flex items-center gap-2 pl-4 pr-3 py-1.5 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
 }
 
 interface SectionDef { label: string; id: string }
@@ -105,13 +111,13 @@ const JOURNAL_CHILDREN: ChildDef[] = [
   { label: 'Weekly', to: '/apps/journal/weekly' },
 ];
 
-function NavItemWithChildren({ to, label, items }: { to: string; label: string; items: ChildDef[] }) {
+function NavItemWithChildren({ to, label, icon, items }: { to: string; label: string; icon?: React.ReactNode; items: ChildDef[] }) {
   const location = useLocation();
   const isActive = location.pathname.startsWith(to);
 
   return (
     <>
-      <NavLink to={to} className={navClassIndented}>{label}</NavLink>
+      <NavLink to={to} className={navClassIndented}>{icon}{label}</NavLink>
       {isActive && items.length > 0 && (
         <div className="ml-3 border-l border-base-300 py-0.5">
           {items.map((c) => (
@@ -133,13 +139,13 @@ function NavItemWithChildren({ to, label, items }: { to: string; label: string; 
   );
 }
 
-function NavItemWithSections({ to, label, sections }: { to: string; label: string; sections: SectionDef[] }) {
+function NavItemWithSections({ to, label, icon, sections }: { to: string; label: string; icon?: React.ReactNode; sections: SectionDef[] }) {
   const location = useLocation();
   const isActive = location.pathname === to;
 
   return (
     <>
-      <NavLink to={to} end={to === '/'} className={navClass}>{label}</NavLink>
+      <NavLink to={to} end={to === '/'} className={navClass}>{icon}{label}</NavLink>
       {isActive && sections.length > 0 && <SectionSubNav sections={sections} />}
     </>
   );
@@ -256,32 +262,39 @@ function Layout() {
         <div className="relative flex-1 min-h-0">
           <nav ref={navRef} className="h-full px-2 py-2 space-y-0.5 overflow-y-auto">
             <div className="px-3 pt-3 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Overview</div>
-            <NavLink to="/" end className={navClass}>Dashboard</NavLink>
-            <NavLink to="/guide" className={navClass}>Setup Guide</NavLink>
+            <NavLink to="/" end className={navClass}><LayoutDashboard className="w-4 h-4 shrink-0" />Dashboard</NavLink>
+            <NavLink to="/guide" className={navClass}><BookOpen className="w-4 h-4 shrink-0" />Setup Guide</NavLink>
 
             <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Apps</div>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Administrative</div>
-            <NavLink to="/apps/timetracking" className={navClassIndented}>Time Tracking</NavLink>
-            <NavLink to="/apps/rooms" className={navClassIndented}>Room Availability</NavLink>
+            <NavLink to="/apps/timetracking" className={navClassIndented}><Clock className="w-4 h-4 shrink-0" />Time Tracking</NavLink>
+            <NavLink to="/apps/rooms" className={navClassIndented}><DoorOpen className="w-4 h-4 shrink-0" />Room Availability</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Productivity</div>
-            <NavItemWithChildren to="/apps/journal" label="Dev Journal" items={JOURNAL_CHILDREN} />
-            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
+            <NavItemWithChildren to="/apps/journal" label="Dev Journal" icon={<NotebookPen className="w-4 h-4 shrink-0" />} items={JOURNAL_CHILDREN} />
+            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}><ShieldCheck className="w-4 h-4 shrink-0" />Trusted Peer Expiry</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Security</div>
-            <NavLink to="/apps/security-news" className={navClassIndented}>Security News</NavLink>
+            <NavLink to="/apps/security-news" className={navClassIndented}><Newspaper className="w-4 h-4 shrink-0" />Security News</NavLink>
 
             <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Platform</div>
-            <NavItemWithSections to="/connectors" label="Connectors" sections={connectorSections} />
-            <NavLink to="/audit" className={navClass}>Audit Log</NavLink>
-            <NavItemWithSections to="/config" label="Configuration" sections={daemonOk ? PAGE_SECTIONS['/config'] : []} />
+            <NavItemWithSections to="/connectors" label="Connectors" icon={<Plug className="w-4 h-4 shrink-0" />} sections={connectorSections} />
+            <NavLink to="/audit" className={navClass}><ScrollText className="w-4 h-4 shrink-0" />Audit Log</NavLink>
+            <NavItemWithSections to="/config" label="Configuration" icon={<Settings className="w-4 h-4 shrink-0" />} sections={daemonOk ? PAGE_SECTIONS['/config'] : []} />
 
             <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Reference</div>
-            <NavItemWithSections to="/why" label="Why commandGarden" sections={PAGE_SECTIONS['/why']} />
-            <NavItemWithSections to="/api-reference" label="API & CLI" sections={PAGE_SECTIONS['/api-reference']} />
-            <NavLink to="/skills" className={navClass}>Skills</NavLink>
+            <NavItemWithSections to="/why" label="Why commandGarden" icon={<Lightbulb className="w-4 h-4 shrink-0" />} sections={PAGE_SECTIONS['/why']} />
+            <NavItemWithSections to="/api-reference" label="API & CLI" icon={<Terminal className="w-4 h-4 shrink-0" />} sections={PAGE_SECTIONS['/api-reference']} />
+            <NavLink to="/skills" className={navClass}><Sparkles className="w-4 h-4 shrink-0" />Skills</NavLink>
 
             <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Deep Dive</div>
-            <NavItemWithSections to="/concepts" label="Concepts" sections={PAGE_SECTIONS['/concepts']} />
-            <NavItemWithSections to="/architecture" label="Architecture" sections={PAGE_SECTIONS['/architecture']} />
+            <NavItemWithSections to="/concepts" label="Concepts" icon={<Layers className="w-4 h-4 shrink-0" />} sections={PAGE_SECTIONS['/concepts']} />
+            <NavItemWithSections to="/architecture" label="Architecture" icon={<Network className="w-4 h-4 shrink-0" />} sections={PAGE_SECTIONS['/architecture']} />
+
+            {import.meta.env.DEV && (
+              <>
+                <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Dev - Only Visible in Dev env</div>
+                <NavLink to="/slides" className={navClass}><Presentation className="w-4 h-4 shrink-0" />Slides</NavLink>
+              </>
+            )}
           </nav>
           {showMoreBelow && (
             <div
@@ -331,6 +344,7 @@ export default function App() {
           <Route path="skills" element={<Skills />} />
           <Route path="why" element={<Overview />} />
           <Route path="concepts" element={<Concepts />} />
+          {import.meta.env.DEV && <Route path="slides" element={<Slides />} />}
         </Route>
       </Routes>
     </BrowserRouter>
