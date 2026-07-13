@@ -277,7 +277,7 @@ export default function Journal() {
           </section>
           <section className="space-y-4">
             <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Daily Breakdown</h3>
-            <DailyBreakdown data={data} />
+            <DailyBreakdown data={data} weekStart={weekStart} />
           </section>
           <section className="space-y-4">
             <InsightsPanel insights={data.insights} errors={data.errors} />

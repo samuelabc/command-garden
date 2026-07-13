@@ -110,7 +110,7 @@ client.onRequest(async (request: ExtensionRequest) => {
       error: err instanceof Error ? err.message : 'Unknown error',
     });
   } finally {
-    adapter.cleanup(!ok);
+    adapter.cleanup(true);
     recentActivity.unshift({
       connector: connectorKey,
       ok,

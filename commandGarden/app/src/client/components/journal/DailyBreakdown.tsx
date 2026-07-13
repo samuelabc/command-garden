@@ -9,6 +9,9 @@ import type { JournalResponse } from '../../types/journal';
 
 interface Props {
   data: JournalResponse;
+  /** Monday of the selected week (YYYY-MM-DD) — used to always render the
+   *  full Mon-Fri range, even for days with zero activity across every source. */
+  weekStart: string;
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -18,12 +21,23 @@ function weekdayLabel(dateStr: string): string {
   return WEEKDAYS[day - 1] ?? dateStr;
 }
 
-export function DailyBreakdown({ data }: Props) {
+export function DailyBreakdown({ data, weekStart }: Props) {
   const { timetracking, meetings, git, jira } = data;
 
-  // Build a list of dates from whichever source has data.
-  // Only show weekend days (Sat=6, Sun=0) if they have activity.
+  // Always include every weekday (Mon-Fri) of the selected week so days with
+  // zero activity across all sources still show up as empty rows, instead of
+  // silently disappearing (they'd otherwise never be added to the set below).
   const dates = new Set<string>();
+  const cursor = new Date(weekStart + 'T00:00:00');
+  for (let i = 0; i < 5; i++) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, '0');
+    const d = String(cursor.getDate()).padStart(2, '0');
+    dates.add(`${y}-${m}-${d}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // Also fold in any dates with actual data (weekends included).
   timetracking?.daily.forEach((d) => dates.add(d.date));
   meetings?.daily.forEach((d) => dates.add(d.date));
   git?.daily.forEach((d) => dates.add(d.date));

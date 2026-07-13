@@ -323,10 +323,11 @@ export class RealChromeAdapter implements ChromeAdapter {
 
   /**
    * Detach debugger/listeners and optionally close the managed tab.
-   * `closeTab` defaults to false so successful runs leave the app tab open
-   * for the user to see (e.g. Journal "Generate" opening Jira/Meetings/
-   * TimeTracking/Saba). Callers should pass `closeTab: true` on failure
-   * to avoid leaving broken/half-loaded tabs behind.
+   * `closeTab` defaults to false for callers that want to leave the tab
+   * open (e.g. for debugging a specific run). service-worker.ts passes
+   * `closeTab: true` unconditionally so tabs opened by connector runs
+   * (Jira/Meetings/TimeTracking/Saba/etc.) always close after the run,
+   * whether it succeeded or failed.
    */
   cleanup(closeTab = false): void {
     if (this.cdpEventHandler) {
