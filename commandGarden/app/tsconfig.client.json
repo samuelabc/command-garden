@@ -10,7 +10,8 @@
     "outDir": "dist/client",
     "rootDir": "src/client",
     "composite": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"]
   },
   "include": ["src/client"]
 }

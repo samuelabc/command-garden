@@ -273,13 +273,13 @@ export default function Slides() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const goTo = useCallback((next: number) => {
-    if (next < 0 || next >= SLIDES.length || next === current) return;
+    if (next < 0 || next >= SLIDES.length || next === current || transitioning) return;
     setTransitioning(true);
     timeoutRef.current = setTimeout(() => {
       setCurrent(next);
       setTransitioning(false);
     }, 150);
-  }, [current]);
+  }, [current, transitioning]);
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 

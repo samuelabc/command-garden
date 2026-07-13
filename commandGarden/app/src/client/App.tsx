@@ -19,12 +19,13 @@ import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
 import Overview from './pages/Overview';
 import Concepts from './pages/Concepts';
-const Slides = lazy(() => import('./pages/Slides'));
 import {
   LayoutDashboard, BookOpen, Clock, DoorOpen, NotebookPen,
   ShieldCheck, Newspaper, Plug, ScrollText, Settings,
   Lightbulb, Terminal, Sparkles, Layers, Network, Presentation,
 } from 'lucide-react';
+
+const Slides = lazy(() => import('./pages/Slides'));
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isActive ? 'bg-primary text-primary-content font-semibold' : 'hover:text-primary'}`;
