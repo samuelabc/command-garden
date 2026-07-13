@@ -39,6 +39,8 @@ export const api = {
   cacheSecurityNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/security-news/cache', { data }),
   getCachedTrustedPeers: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/trusted-peers/cache'),
   cacheTrustedPeers: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/trusted-peers/cache', { data }),
+  getCachedRoomAvailability: (date: string) => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', `/api/room-availability/cache?date=${date}`),
+  cacheRoomAvailability: (date: string, data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/room-availability/cache', { date, data }),
   getSkills: () => request<{ ok: boolean; skills: Skill[] }>('GET', '/api/skills'),
 };
 

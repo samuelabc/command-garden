@@ -117,4 +117,34 @@ describe('AppStore', () => {
       expect(store.deleteGoal(999)).toBe(false);
     });
   });
+
+  describe('room availability cache', () => {
+    it('returns null when no cached data', () => {
+      expect(store.getCachedRoomAvailability('2026-07-13')).toBeNull();
+    });
+
+    it('caches and retrieves room availability by date', () => {
+      const data = [{ room: 'room1', state: 'free' }, { room: 'room2', state: 'busy' }];
+      store.cacheRoomAvailability('2026-07-13', data);
+      const cached = store.getCachedRoomAvailability('2026-07-13');
+      expect(cached).not.toBeNull();
+      expect(cached!.data).toEqual(data);
+      expect(cached!.fetchedAt).toBeDefined();
+    });
+
+    it('overwrites cache for the same date', () => {
+      store.cacheRoomAvailability('2026-07-13', [{ room: 'room1', state: 'free' }]);
+      const updated = [{ room: 'room1', state: 'busy' }];
+      store.cacheRoomAvailability('2026-07-13', updated);
+      const cached = store.getCachedRoomAvailability('2026-07-13');
+      expect(cached!.data).toEqual(updated);
+    });
+
+    it('keeps separate caches per date', () => {
+      store.cacheRoomAvailability('2026-07-13', [{ day: '13' }]);
+      store.cacheRoomAvailability('2026-07-14', [{ day: '14' }]);
+      expect(store.getCachedRoomAvailability('2026-07-13')!.data).toEqual([{ day: '13' }]);
+      expect(store.getCachedRoomAvailability('2026-07-14')!.data).toEqual([{ day: '14' }]);
+    });
+  });
 });

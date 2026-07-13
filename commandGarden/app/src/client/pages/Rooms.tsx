@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 import { ROOM_EMAIL_MAP, EMAIL_TO_ROOM_NAME } from '../components/RoomCombobox';
 import { TimelineView } from '../components/TimelineView';
 import { OfficeMap, type RoomStatus } from '../components/Officemap';
 import { useApprovalRun } from '../hooks/useApprovalRun';
+import { api } from '../api';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -245,6 +246,10 @@ export default function Rooms() {
   }, [timeMode, duration]);
 
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [cachedData, setCachedData] = useState<Record<string, unknown>[] | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
+  const fetchDateRef = useRef(date);
 
   const {
     running: floorRunning, result: floorResult, error: floorError,
@@ -252,25 +257,58 @@ export default function Rooms() {
     run: runFloor, handleApproval: handleFloorApproval,
   } = useApprovalRun();
 
+  // Load cached data when date changes
+  useEffect(() => {
+    let stale = false;
+    api.getCachedRoomAvailability(date).then((res) => {
+      if (stale) return;
+      if (res.data && res.data.length > 0) {
+        setCachedData(res.data);
+        setFetchedAt(res.fetchedAt);
+        setIsCached(true);
+      } else {
+        setCachedData(null);
+        setFetchedAt(null);
+        setIsCached(false);
+      }
+    }).catch(() => {});
+    return () => { stale = true; };
+  }, [date]);
+
+  // Save to cache when a fresh fetch completes
+  useEffect(() => {
+    if (floorResult?.data && floorResult.data.length > 0) {
+      const now = new Date().toISOString();
+      setFetchedAt(now);
+      setIsCached(false);
+      setCachedData(floorResult.data);
+      api.cacheRoomAvailability(fetchDateRef.current, floorResult.data as unknown as Record<string, unknown>[]).catch(() => {});
+    }
+  }, [floorResult]);
+
   const handleCheckFloor = useCallback(async () => {
-    const rooms = Object.keys(ROOM_EMAIL_MAP).join(',');
-    await runFloor('teams/room-availability', { rooms, date });
+    setIsCached(false);
+    fetchDateRef.current = date;
+    const rooms = Object.entries(ROOM_EMAIL_MAP).map(([n, e]) => `${n}:${e}`).join(',');
+    await runFloor('teams/rooms-availability', { rooms, date });
   }, [runFloor, date]);
 
   const isAuthRequired = floorError?.includes('auth_required') || floorError?.includes('sign in');
 
+  const rawData = floorResult?.data ?? cachedData ?? [];
+
   // Floor-plan check results, grouped by room.
   const floorRows = useMemo(
     () =>
-        (floorResult?.data ?? []).map((r) => ({
-          room: String(r.room ?? ''),
+        rawData.map((r) => ({
+          room: String(r.roomEmail ?? r.room ?? ''),
           capacity: r.capacity === null || r.capacity === undefined || r.capacity === '' ? null : Number(r.capacity),
           start: String(r.start ?? ''),
           end: String(r.end ?? ''),
           state: String(r.state ?? ''),
           durationMin: Number(r.durationMin ?? 0),
         })),
-    [floorResult],
+    [rawData],
   );
 
   const roomsByName = useMemo(() => {
@@ -442,7 +480,16 @@ export default function Rooms() {
             <div className="alert alert-error mb-4"><span>{floorError}</span></div>
         )}
 
-        {!floorResult && !floorRunning && !floorError && (
+        {fetchedAt && (
+            <div className="flex items-center gap-2 mb-4 font-mono text-xs opacity-50">
+              {isCached && (
+                  <span className="badge badge-sm badge-outline">cached</span>
+              )}
+              <span>Last fetched {new Date(fetchedAt).toLocaleString()}</span>
+            </div>
+        )}
+
+        {!floorResult && !cachedData && !floorRunning && !floorError && (
             <div className="border border-base-300 p-8 text-center mb-8">
               <p className="text-sm opacity-50 mb-1">Pick a date, time, duration and party size, then check the floor plan</p>
               <p className="font-mono text-xs opacity-30">Rooms that are free and big enough will show green; everything else red.</p>
