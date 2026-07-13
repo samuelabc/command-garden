@@ -6,9 +6,6 @@
 **/.next/
 **/out/
 
-# sqlite data
-dashboard/api/data/*.sqlite
-
 # env files (secrets)
 **/.env
 **/.env.local
