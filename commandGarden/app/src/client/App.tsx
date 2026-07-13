@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo, lazy, Suspense } from 'react';
 import { useActiveSection } from './hooks/useActiveSection';
 import { api, groupBySite } from './api';
 import Dashboard from './pages/Dashboard';
@@ -19,7 +19,7 @@ import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
 import Overview from './pages/Overview';
 import Concepts from './pages/Concepts';
-import Slides from './pages/Slides';
+const Slides = lazy(() => import('./pages/Slides'));
 import {
   LayoutDashboard, BookOpen, Clock, DoorOpen, NotebookPen,
   ShieldCheck, Newspaper, Plug, ScrollText, Settings,
@@ -344,7 +344,7 @@ export default function App() {
           <Route path="skills" element={<Skills />} />
           <Route path="why" element={<Overview />} />
           <Route path="concepts" element={<Concepts />} />
-          {import.meta.env.DEV && <Route path="slides" element={<Slides />} />}
+          {import.meta.env.DEV && <Route path="slides" element={<Suspense><Slides /></Suspense>} />}
         </Route>
       </Routes>
     </BrowserRouter>
