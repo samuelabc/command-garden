@@ -3,6 +3,7 @@ name: git-commits
 version: "1.0"
 description: "Azure DevOps Git commits and PRs across all branches for a date range"
 access: read
+cdp: true
 
 domains:
   - "dev.azure.com"
