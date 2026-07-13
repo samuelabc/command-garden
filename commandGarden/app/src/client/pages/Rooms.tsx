@@ -11,7 +11,11 @@ function todayStr(): string {
 }
 
 // Common meeting durations.
-const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120];
+const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540];
+
+type TimeMode = 'duration' | 'endtime';
+
+const MIN_DURATION = 15;
 
 // 15-minute increments across the full day: "00:00", "00:15", ..., "23:45".
 const TIME_OPTIONS: string[] = Array.from({ length: 24 * 4 }, (_, i) => {
@@ -169,13 +173,23 @@ function MeetingTimeBar({
           ))}
         </div>
         <div
-          className="absolute top-0 h-full bg-primary/70 border border-primary rounded flex items-center justify-center text-[0.65rem] font-mono text-primary-content whitespace-nowrap px-1 cursor-grab active:cursor-grabbing"
+          className="absolute top-0 h-full bg-primary/20 border border-primary/50 rounded cursor-grab active:cursor-grabbing"
           style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+        />
+        <div
+          className="absolute top-0 h-full flex items-center text-xs font-mono font-semibold text-base-content whitespace-nowrap pointer-events-none"
+          style={{
+            left: widthPct < 10 ? `${leftPct + widthPct + 0.5}%` : `${leftPct}%`,
+            width: widthPct < 10 ? 'auto' : `${widthPct}%`,
+            justifyContent: widthPct < 10 ? 'flex-start' : 'center',
+          }}
         >
-          {formatTimeLabel(minutesToTime(startMinutes))}–{formatTimeLabel(minutesToTime(endMinutes))}
+          <span className={widthPct < 10 ? 'text-base-content/80' : ''}>
+            {formatTimeLabel(minutesToTime(startMinutes))}–{formatTimeLabel(minutesToTime(endMinutes))}
+          </span>
         </div>
       </div>
-      <div className="flex justify-between font-mono text-[0.55rem] opacity-30 mt-1">
+      <div className="flex justify-between font-mono text-[0.55rem] opacity-50 mt-1">
         <span>12 AM</span>
         <span>3 AM</span>
         <span>6 AM</span>
@@ -194,8 +208,42 @@ export default function Rooms() {
   const [date, setDate] = useState(todayStr());
   const [timeMinutes, setTimeMinutes] = useState(() => timeToMinutes(nearestQuarterHour()));
   const time = minutesToTime(timeMinutes);
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(120);
+  const [timeMode, setTimeMode] = useState<TimeMode>('duration');
+  const [endTimeMinutes, setEndTimeMinutes] = useState(() => timeToMinutes(nearestQuarterHour()) + 120);
   const [people, setPeople] = useState(1);
+
+  const effectiveDuration = timeMode === 'endtime'
+    ? Math.max(MIN_DURATION, endTimeMinutes - timeMinutes)
+    : duration;
+
+  const handleTimeModeChange = useCallback((mode: TimeMode) => {
+    if (mode === timeMode) return;
+    if (mode === 'endtime') {
+      setEndTimeMinutes(Math.min(DAY_TOTAL_MIN, timeMinutes + duration));
+    } else {
+      const computed = Math.max(MIN_DURATION, endTimeMinutes - timeMinutes);
+      const nearest = DURATION_OPTIONS.reduce((prev, cur) =>
+        Math.abs(cur - computed) < Math.abs(prev - computed) ? cur : prev
+      );
+      setDuration(nearest);
+    }
+    setTimeMode(mode);
+  }, [timeMode, timeMinutes, duration, endTimeMinutes]);
+
+  const handleEndTimeChange = useCallback((newEnd: number) => {
+    const clamped = Math.max(timeMinutes + MIN_DURATION, Math.min(DAY_TOTAL_MIN, newEnd));
+    setEndTimeMinutes(clamped);
+  }, [timeMinutes]);
+
+  const handleStartTimeChange = useCallback((newStart: number) => {
+    const clampedStart = clampStartMinutes(newStart, timeMode === 'endtime' ? MIN_DURATION : duration);
+    setTimeMinutes(clampedStart);
+    if (timeMode === 'endtime') {
+      setEndTimeMinutes((prev) => Math.max(clampedStart + MIN_DURATION, Math.min(DAY_TOTAL_MIN, prev)));
+    }
+  }, [timeMode, duration]);
+
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
 
   const {
@@ -245,11 +293,11 @@ export default function Rooms() {
     for (const [name, roomRows] of roomsByName) {
       const capacity = roomRows.find((r) => r.capacity !== null)?.capacity ?? null;
       const bigEnough = capacity === null || capacity >= people;
-      const free = isFreeForDuration(roomRows, date, time, duration);
+      const free = isFreeForDuration(roomRows, date, time, effectiveDuration);
       out[name] = free && bigEnough ? 'free' : 'busy';
     }
     return out;
-  }, [roomsByName, date, time, duration, people]);
+  }, [roomsByName, date, time, effectiveDuration, people]);
 
   const selectedRows = selectedRoom ? roomsByName.get(selectedRoom) ?? [] : [];
   const selectedCapacity = selectedRows.find((r) => r.capacity !== null)?.capacity ?? null;
@@ -278,31 +326,64 @@ export default function Rooms() {
             <select
                 className="select select-bordered select-sm w-full sm:w-auto"
                 value={time}
-                onChange={(e) => {
-                  setTimeMinutes(clampStartMinutes(timeToMinutes(e.target.value), duration));
-                }}
+                onChange={(e) => handleStartTimeChange(timeToMinutes(e.target.value))}
             >
               {TIME_OPTIONS.map((t) => (
                   <option key={t} value={t}>{formatTimeLabel(t)}</option>
               ))}
             </select>
           </label>
-          <label className="form-control w-full sm:w-auto">
-            <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Duration</span>
-            <select
-                className="select select-bordered select-sm w-full sm:w-auto"
-                value={duration}
-                onChange={(e) => {
-                  const nextDuration = Number(e.target.value);
-                  setDuration(nextDuration);
-                  setTimeMinutes((prev) => clampStartMinutes(prev, nextDuration));
-                }}
-            >
-              {DURATION_OPTIONS.map((d) => (
-                  <option key={d} value={d}>{formatDurationLabel(d)}</option>
-              ))}
-            </select>
-          </label>
+          <div className="form-control w-full sm:w-auto">
+            <div className="join mb-1">
+              <button
+                  type="button"
+                  className={`join-item btn btn-xs px-3 font-mono text-[0.6rem] uppercase tracking-[0.1em] ${
+                    timeMode === 'duration' ? 'btn-primary' : 'btn-ghost opacity-40'
+                  }`}
+                  onClick={() => handleTimeModeChange('duration')}
+              >
+                Duration
+              </button>
+              <button
+                  type="button"
+                  className={`join-item btn btn-xs px-3 font-mono text-[0.6rem] uppercase tracking-[0.1em] ${
+                    timeMode === 'endtime' ? 'btn-primary' : 'btn-ghost opacity-40'
+                  }`}
+                  onClick={() => handleTimeModeChange('endtime')}
+              >
+                End time
+              </button>
+            </div>
+            {timeMode === 'duration' ? (
+              <select
+                  className="select select-bordered select-sm w-full sm:w-auto"
+                  value={duration}
+                  onChange={(e) => {
+                    const nextDuration = Number(e.target.value);
+                    setDuration(nextDuration);
+                    setTimeMinutes((prev) => clampStartMinutes(prev, nextDuration));
+                  }}
+              >
+                {DURATION_OPTIONS.map((d) => (
+                    <option key={d} value={d}>{formatDurationLabel(d)}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                  className="select select-bordered select-sm w-full sm:w-auto"
+                  value={endTimeMinutes === DAY_TOTAL_MIN ? '24:00' : minutesToTime(endTimeMinutes)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    handleEndTimeChange(v === '24:00' ? DAY_TOTAL_MIN : timeToMinutes(v));
+                  }}
+              >
+                {TIME_OPTIONS.filter((t) => timeToMinutes(t) > timeMinutes).map((t) => (
+                    <option key={t} value={t}>{formatTimeLabel(t)}</option>
+                ))}
+                <option key="eod" value="24:00">End of day</option>
+              </select>
+            )}
+          </div>
           <label className="form-control w-full sm:w-24">
             <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">People</span>
             <input
@@ -310,6 +391,7 @@ export default function Rooms() {
                 min={1}
                 className="input input-bordered input-sm w-full sm:w-24"
                 value={people}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setPeople(Math.max(1, Number(e.target.value) || 1))}
             />
           </label>
@@ -324,8 +406,13 @@ export default function Rooms() {
           </span>
           <MeetingTimeBar
               startMinutes={timeMinutes}
-              durationMinutes={duration}
-              onChange={setTimeMinutes}
+              durationMinutes={effectiveDuration}
+              onChange={(newStart) => {
+                setTimeMinutes(newStart);
+                if (timeMode === 'endtime') {
+                  setEndTimeMinutes(Math.min(DAY_TOTAL_MIN, newStart + effectiveDuration));
+                }
+              }}
           />
         </div>
 
@@ -367,7 +454,7 @@ export default function Rooms() {
           <h3 className="font-display text-base font-semibold mb-3">
             Floor plan &middot; {formatTimeLabel(time)}–{formatTimeLabel((() => {
               const [h, m] = time.split(':').map(Number);
-              const total = (h * 60 + m + duration) % (24 * 60);
+              const total = (h * 60 + m + effectiveDuration) % (24 * 60);
               return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
             })())} &middot; {formatDateLabel(date)} &middot; {people} {people === 1 ? 'person' : 'people'}
           </h3>

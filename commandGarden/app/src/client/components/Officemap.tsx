@@ -47,10 +47,10 @@ const ZONES: ZoneDef[] = [
 ];
 
 const ENTRIES = [
-    { x: 90, y: 48 },
-    { x: 355, y: 48 },
-    { x: 765, y: 48 },
-    { x: 90, y: 596 },
+    { x: 90, y: 28, dir: 'down' as const },
+    { x: 355, y: 28, dir: 'down' as const },
+    { x: 765, y: 28, dir: 'down' as const },
+    { x: 24, y: 596, dir: 'left' as const },
 ];
 
 const STATUS_CLASS: Record<RoomStatus, string> = {
@@ -160,10 +160,21 @@ export function OfficeMap({ statuses = {}, selected, onSelect }: OfficeMapProps)
                     {/* Entry markers */}
                     {ENTRIES.map((e, i) => (
                         <g key={i}>
-                            <path d={`M ${e.x - 6} ${e.y} L ${e.x + 6} ${e.y} L ${e.x} ${e.y + 7} Z`} className="fill-base-content/40" />
-                            <text x={e.x} y={e.y - 5} textAnchor="middle" fontSize="8" letterSpacing="1" className="fill-base-content/40 font-mono uppercase">
-                                Entry
-                            </text>
+                            {e.dir === 'left' ? (
+                                <>
+                                    <path d={`M ${e.x} ${e.y - 6} L ${e.x} ${e.y + 6} L ${e.x - 7} ${e.y} Z`} className="fill-base-content/40" />
+                                    <text x={e.x + 10} y={e.y} textAnchor="start" dominantBaseline="central" fontSize="8" letterSpacing="1" className="fill-base-content/40 font-mono uppercase">
+                                        Entry
+                                    </text>
+                                </>
+                            ) : (
+                                <>
+                                    <path d={`M ${e.x - 6} ${e.y} L ${e.x + 6} ${e.y} L ${e.x} ${e.y + 7} Z`} className="fill-base-content/40" />
+                                    <text x={e.x} y={e.y - 5} textAnchor="middle" fontSize="8" letterSpacing="1" className="fill-base-content/40 font-mono uppercase">
+                                        Entry
+                                    </text>
+                                </>
+                            )}
                         </g>
                     ))}
 
