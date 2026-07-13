@@ -1,0 +1,13 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <circle cx="64" cy="64" r="64" fill="#0a0a0a"/>
+
+  <!-- "c" lowercase — muted gray, thinner stroke -->
+  <path d="M 47 57 A 14 14 0 1 0 47 79"
+        fill="none" stroke="#a3a3a3" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- "G" uppercase — arc + vertical stem + horizontal bar as single path -->
+  <path d="M 98 48 A 22 22 0 1 0 98 80 L 98 64 L 82 64"
+        fill="none" stroke="#4ade80" stroke-width="9"
+        stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

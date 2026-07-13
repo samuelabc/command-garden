@@ -46,4 +46,7 @@ cpSync('src/popup/popup.html', 'dist/popup.html');
 // Copy manifest
 cpSync('manifest.json', 'dist/manifest.json');
 
+// Copy icons
+cpSync('icons', 'dist/icons', { recursive: true });
+
 console.log('Build complete → dist/');
