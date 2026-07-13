@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo, lazy, Suspense } from 'react';
 import { useActiveSection } from './hooks/useActiveSection';
 import { api, groupBySite } from './api';
 import Dashboard from './pages/Dashboard';
