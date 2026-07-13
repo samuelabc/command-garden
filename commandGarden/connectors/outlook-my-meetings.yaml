@@ -1,7 +1,7 @@
 site: outlook
 name: my-meetings
 version: "1.0"
-description: "User's own meeting schedule from Outlook Calendar for a given day"
+description: "User's own meeting schedule from Outlook Calendar for the work week containing the given date"
 access: read
 cdp: true
 
@@ -15,7 +15,7 @@ args:
   - name: date
     type: string
     required: true
-    help: "Day to fetch in YYYY-MM-DD format"
+    help: "Anchor date (YYYY-MM-DD) within the target week — the Scheduling Assistant renders the whole work week around it, so the response includes every day in that week, not just this date"
     pattern: "^\\d{4}-\\d{2}-\\d{2}$"
 
 columns:

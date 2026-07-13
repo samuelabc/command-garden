@@ -35,10 +35,12 @@ function localISO(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Get the Sunday of the current week as YYYY-MM-DD. */
-function currentSunday(): string {
+/** Get the Monday of the current week as YYYY-MM-DD. */
+function currentMonday(): string {
   const d = new Date();
-  d.setDate(d.getDate() - d.getDay()); // getDay() returns 0 for Sunday
+  const day = d.getDay(); // 0 = Sunday .. 6 = Saturday
+  const diff = day === 0 ? -6 : 1 - day; // shift back to Monday
+  d.setDate(d.getDate() + diff);
   return localISO(d);
 }
 
@@ -48,10 +50,10 @@ function addWeeks(dateStr: string, weeks: number): string {
   return localISO(d);
 }
 
-function formatWeekLabel(sunday: string): string {
-  const start = new Date(sunday + 'T00:00:00'); // parse as local time
+function formatWeekLabel(monday: string): string {
+  const start = new Date(monday + 'T00:00:00'); // parse as local time
   const end = new Date(start);
-  end.setDate(end.getDate() + 6);
+  end.setDate(end.getDate() + 4); // Mon–Fri, weekends excluded from the displayed range
   const fmt = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   return `${fmt(start)} – ${fmt(end)}, ${start.getFullYear()}`;
 }
@@ -62,7 +64,7 @@ function currentMonth(): string {
 }
 
 export default function Journal() {
-  const [weekStart, setWeekStart] = useState(currentSunday());
+  const [weekStart, setWeekStart] = useState(currentMonday());
   const [month] = useState(currentMonth());
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<JournalResponse | null>(null);
@@ -77,7 +79,7 @@ export default function Journal() {
     setSources((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  const isCurrentWeek = weekStart === currentSunday();
+  const isCurrentWeek = weekStart === currentMonday();
   const anySourceSelected = Object.values(sources).some(Boolean);
   const selectedSourceLabels = SOURCE_META.filter((s) => sources[s.key]).map((s) => s.label);
 
@@ -151,7 +153,7 @@ export default function Journal() {
             {!isCurrentWeek && (
               <button
                 className="btn btn-xs btn-ghost ml-1"
-                onClick={() => setWeekStart(currentSunday())}
+                onClick={() => setWeekStart(currentMonday())}
                 disabled={loading}
               >
                 Today

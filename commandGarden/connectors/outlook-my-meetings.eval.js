@@ -5,6 +5,14 @@
 // to trigger a getSchedule GraphQL call. The organizer's own schedule is
 // always the first entry — no room/attendee needs to be added.
 //
+// The Scheduling Assistant grid always renders the *whole work week* around
+// whichever date is selected (it's designed for finding a free slot across
+// the week), so a single call returns every day's events for that week —
+// `args.date` is just an anchor date used to navigate to the right week; the
+// output includes ALL days present in the captured schedule, not just the
+// anchor day. Callers should call this once per week (not once per weekday)
+// and filter/group the returned rows by date as needed.
+//
 // CDP Fetch.enable intercepts getSchedule at the network stack level
 // (below MCAS proxy), and chrome-adapter.ts injects matching responses
 // into window.__rfb. This eval.js reads from __rfb.
@@ -165,7 +173,7 @@ if (!gotData) {
   throw new Error('No schedule data returned — check Outlook login');
 }
 
-// ── Filter to target date and build output rows ─────────────────────
+// ── Build output rows for every day captured (whole visible week) ───
 const STATUS_MAP = { Busy: 'busy', Tentative: 'tentative', Oof: 'oof',
   WorkingElsewhere: 'elsewhere', Free: 'free' };
 const rows = [];
@@ -174,8 +182,6 @@ for (const it of allItems.values()) {
   const startDt = new Date(it.startTime.dateTime);
   const endDt = new Date(it.endTime.dateTime);
   const evDate = `${startDt.getFullYear()}-${pad2(startDt.getMonth() + 1)}-${pad2(startDt.getDate())}`;
-
-  if (evDate !== date) continue;
 
   const state = STATUS_MAP[it.status] || 'busy';
   if (state === 'free') continue;
@@ -193,6 +199,6 @@ for (const it of allItems.values()) {
   });
 }
 
-// Sort by start time
-rows.sort((a, b) => a.start.localeCompare(b.start));
+// Sort by date first, then start time (rows now span multiple days)
+rows.sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
 return rows;
