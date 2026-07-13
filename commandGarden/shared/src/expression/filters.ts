@@ -10,4 +10,6 @@ export const BUILT_IN_FILTERS: Record<string, FilterFn> = {
     if (map == null || typeof map !== 'object') return undefined;
     return (map as Record<string, unknown>)[String(value)];
   },
+  slice: (value: unknown, start: unknown, end?: unknown) =>
+    String(value).slice(Number(start), end != null ? Number(end) : undefined),
 };

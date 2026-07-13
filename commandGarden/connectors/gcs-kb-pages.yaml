@@ -45,3 +45,10 @@ pipeline:
       fields:
         title: textContent
         url: href
+  - step: map
+    fields:
+      title: "${{ row.title }}"
+      url: "${{ row.url | slice(1) }}"
+      section: "${{ row.section }}"
+      path: "${{ row.path }}"
+      depth: "${{ row.depth | number }}"

@@ -78,8 +78,11 @@ describe('timetracking/report — pipeline execution', () => {
 });
 
 describe('gcs/kb-pages — declarative pipeline (no js_evaluate)', () => {
-  const MOCK_TREE = [
+  const MOCK_TREE_RAW = [
     { title: 'EDR', url: '/gcs/KB/docs/general-security/edr/', section: 'Security', path: 'Security / EDR', depth: 1 },
+  ];
+  const MOCK_TREE_MAPPED = [
+    { title: 'EDR', url: 'gcs/KB/docs/general-security/edr/', section: 'Security', path: 'Security / EDR', depth: '1' },
   ];
 
   it('loads gcs-kb-pages connector without js_evaluate', () => {
@@ -94,14 +97,14 @@ describe('gcs/kb-pages — declarative pipeline (no js_evaluate)', () => {
     const executeInContent = vi.fn()
       .mockResolvedValueOnce(undefined) // wait
       .mockResolvedValueOnce(undefined) // click_all
-      .mockResolvedValueOnce(MOCK_TREE); // extract_tree
+      .mockResolvedValueOnce(MOCK_TREE_RAW); // extract_tree
 
     const adapter = mockAdapter({ executeInContent });
     const runner = new PipelineRunner(adapter);
     const result = await runner.run(connector, {});
 
     expect(result.ok).toBe(true);
-    expect(result.data).toEqual(MOCK_TREE);
+    expect(result.data).toEqual(MOCK_TREE_MAPPED);
     expect(adapter.navigateTab).toHaveBeenCalledWith(
       'https://pages.i.mercedes-benz.com/gcs/KB/docs/main/'
     );
@@ -137,7 +140,7 @@ describe('gcs/kb-content — declarative pipeline (no js_evaluate)', () => {
 
     // Run only extension steps
     const extConnector = { ...connector, pipeline: extensionSteps };
-    const result = await runner.run(extConnector, { path: '/gcs/KB/docs/general-security/edr/' });
+    const result = await runner.run(extConnector, { path: 'gcs/KB/docs/general-security/edr/' });
 
     expect(result.ok).toBe(true);
     expect(adapter.navigateTab).toHaveBeenCalled();

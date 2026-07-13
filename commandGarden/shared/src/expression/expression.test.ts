@@ -202,6 +202,18 @@ describe('evaluate', () => {
     expect(evaluate('args.region | lookup(vars.token)', CTX)).toBeUndefined();
   });
 
+  it('applies slice filter with start index', () => {
+    expect(evaluate('"/gcs/KB/docs/page/" | slice(1)', CTX)).toBe('gcs/KB/docs/page/');
+  });
+
+  it('applies slice filter with start and end', () => {
+    expect(evaluate('"hello world" | slice(0, 5)', CTX)).toBe('hello');
+  });
+
+  it('applies slice filter to variable', () => {
+    expect(evaluate('args.month | slice(0, 4)', CTX)).toBe('2026');
+  });
+
   it('throws on unknown filter', () => {
     expect(() => evaluate('args.month | nonexistent', CTX)).toThrow('Unknown filter');
   });

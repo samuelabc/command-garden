@@ -23,5 +23,6 @@
 - [x] Overview.tsx writing review (humanizer pass) — deduplicated redundant claims (credentials/tokens/local ×4 each), removed overlapping Section 2 table, replaced clichés (hit a wall, heavy lifting, tokens burned), renamed Happy Path → Typical Workflow, softened unsubstantiated token numbers, reworked "What we don't do" → real Limitations section, fixed em dashes, synonym cycling, negative parallelism, cleaned unused import
 - [x] Sidebar hierarchy fix — fixed backwards indentation (sub-category labels were indented more than children), bumped ghost-text sub-categories from 0.55rem/30% to 0.65rem/50% opacity, indented sub-grouped nav items with `navClassIndented`, removed `font-mono` from scroll-spy items, bumped section header opacity to 50%
 - [x] Rooms page: extended duration options to 9h (was max 2h), added segmented "Duration / End time" toggle — users can now pick an end time directly instead of a duration preset
+- [x] GCS connector relative paths + `cg` skill improvements — added `slice` filter to expression engine, `gcs/kb-pages` now outputs relative URLs via `map` step, `gcs/kb-content` accepts relative paths, skill updated with connector index table + error entries + filtering tip (541 tests, all passing)
 
 See `TODO_ARCHIVE.md` for completed work.

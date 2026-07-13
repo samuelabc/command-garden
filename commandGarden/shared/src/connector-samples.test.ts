@@ -39,7 +39,7 @@ describe('sample connectors — schema validation', () => {
     if (!result.ok) throw new Error(result.error.message);
     expect(result.data.site).toBe('gcs');
     expect(result.data.name).toBe('kb-pages');
-    expect(result.data.pipeline).toHaveLength(4);
+    expect(result.data.pipeline).toHaveLength(5);
     expect(result.data.args).toHaveLength(0);
     expect(result.data.columns).toHaveLength(5);
   });
@@ -146,9 +146,9 @@ describe('sample connectors — field correctness', () => {
     expect(pathArg).toBeDefined();
     expect(pathArg!.required).toBe(true);
     expect(pathArg!.pattern).toBeDefined();
-    // Pattern must reject paths without /gcs/KB/ prefix
+    // Pattern must reject paths without gcs/KB/ prefix (relative, no leading /)
     const re = new RegExp(pathArg!.pattern!);
-    expect(re.test('/gcs/KB/docs/general-security/edr/')).toBe(true);
+    expect(re.test('gcs/KB/docs/general-security/edr/')).toBe(true);
     expect(re.test('/evil/path')).toBe(false);
     expect(re.test("'; DROP TABLE --")).toBe(false);
   });

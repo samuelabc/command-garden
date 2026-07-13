@@ -14,8 +14,8 @@ args:
   - name: path
     type: string
     required: true
-    help: "Page path from the kb-pages index, e.g. /gcs/KB/docs/general-security/edr/"
-    pattern: "^/gcs/KB/[a-zA-Z0-9_./-]+$"
+    help: "Page path from the kb-pages index, e.g. gcs/KB/docs/general-security/edr/"
+    pattern: "^gcs/KB/[a-zA-Z0-9_./-]+$"
 
 columns:
   - name: title
@@ -31,7 +31,7 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://pages.i.mercedes-benz.com${{ args.path }}"
+    url: "https://pages.i.mercedes-benz.com/${{ args.path }}"
   - step: wait
     selector: "article"
     timeout: 30000
