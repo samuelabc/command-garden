@@ -113,7 +113,7 @@ export class JournalService {
   private crossReference(
     tt: TimetrackingData | null,
     mtg: MeetingsData | null,
-    _jira: JiraData | null,
+    jira: JiraData | null,
     git: GitData | null,
     weekStart: string,
     weekEnd: string,
@@ -142,12 +142,33 @@ export class JournalService {
       : [];
 
     // Meeting ratio
-    const totalWorkHours = tt?.totalHours ?? 40;
-    const meetingHours = mtg?.totalHours ?? 0;
-    const meetingRatio = totalWorkHours > 0 ? Math.round((meetingHours / totalWorkHours) * 100) / 100 : 0;
-    const codingHours = Math.max(0, totalWorkHours - meetingHours);
+    const totalLoggedHours = tt?.totalHours ?? 0;
+    const targetHours = tt?.targetHours ?? 40;
+    const totalMeetingHours = mtg?.totalHours ?? 0;
+    const meetingRatio = targetHours > 0 ? Math.round((totalMeetingHours / targetHours) * 100) / 100 : 0;
+    const codingHours = Math.max(0, totalLoggedHours - totalMeetingHours);
 
-    return { forgottenDays, heavyMeetingDays, zeroCodingDays, meetingRatio, codingHours };
+    return {
+      forgottenDays,
+      heavyMeetingDays,
+      zeroCodingDays,
+      meetingRatio,
+      codingHours,
+      totalLoggedHours,
+      totalMeetingHours,
+      targetHours,
+      blockerCount: jira?.blockers.length ?? 0,
+      resolvedCount: jira?.resolved.length ?? 0,
+      inProgressCount: jira?.inProgress.length ?? 0,
+      totalCommits: git?.totalCommits ?? 0,
+      totalPRsMerged: git?.totalPRsMerged ?? 0,
+    };
+  }
+
+  /** Format a date string as a weekday abbreviation (Mon, Tue, …). */
+  private formatWeekday(dateStr: string): string {
+    const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return WEEKDAYS[new Date(dateStr + 'T00:00:00').getDay()];
   }
 
   /**
@@ -164,12 +185,13 @@ export class JournalService {
     const insights: Insight[] = [];
 
     if (crossRef?.forgottenDays.length) {
+      const days = crossRef.forgottenDays.map((d) => this.formatWeekday(d)).join(', ');
       insights.push({
         id: 'forgotten-days',
         severity: 'action',
         category: 'time',
-        title: 'Unreleased hours',
-        detail: `Activity on ${crossRef.forgottenDays.join(', ')} but 0 hours logged — you may have forgotten to fill TimeTracking.`,
+        title: 'Missing time entries',
+        detail: `${days} ${crossRef.forgottenDays.length === 1 ? 'has' : 'have'} meetings or commits but no hours logged.`,
       });
     }
 
@@ -185,45 +207,54 @@ export class JournalService {
     }
 
     if (crossRef?.heavyMeetingDays.length) {
-      const days = crossRef.heavyMeetingDays.map((d) => `${d.date} (${d.hours}h)`).join(', ');
+      const days = crossRef.heavyMeetingDays.map((d) => `${this.formatWeekday(d.date)} (${d.hours}h)`).join(', ');
+      const total = crossRef.heavyMeetingDays.length;
       insights.push({
         id: 'heavy-meetings',
         severity: 'warning',
         category: 'meetings',
         title: 'Heavy meeting days',
-        detail: `${days}. Consider blocking focus time.`,
+        detail: `${days} — ${total} of 5 days had 4h+ of meetings.`,
       });
     }
 
-    if (crossRef && crossRef.meetingRatio > 0.5 && mtg) {
+    // Only show meeting ratio when enough hours are logged for the ratio to be meaningful
+    if (crossRef && crossRef.meetingRatio > 0.5 && mtg && crossRef.totalLoggedHours >= crossRef.targetHours * 0.6) {
       insights.push({
         id: 'high-meeting-ratio',
         severity: 'info',
         category: 'meetings',
         title: 'High meeting ratio',
-        detail: `Meetings consumed ${Math.round(crossRef.meetingRatio * 100)}% of your logged hours this week.`,
+        detail: `${crossRef.totalMeetingHours}h in meetings — ${Math.round(crossRef.meetingRatio * 100)}% of your ${crossRef.targetHours}h target.`,
       });
     }
 
     if (jira?.blockers.length) {
       const items = jira.blockers.map((b) => `${b.key} (${b.staleDays}d)`).join(', ');
+      const oldest = jira.blockers.reduce((a, b) => (a.staleDays > b.staleDays ? a : b));
       insights.push({
         id: 'stale-tickets',
         severity: 'warning',
         category: 'tickets',
         title: 'Stale tickets',
-        detail: `${items}. Consider unblocking or reassigning.`,
+        detail: `${items}. Oldest: ${oldest.key} at ${oldest.staleDays} days.`,
       });
     }
 
-    if (crossRef && crossRef.zeroCodingDays.length > 0 && git && git.totalCommits > 0) {
-      insights.push({
-        id: 'zero-coding-days',
-        severity: 'info',
-        category: 'code',
-        title: 'Zero-commit days',
-        detail: `No commits on ${crossRef.zeroCodingDays.join(', ')}.`,
-      });
+    // Reframe as positive: show which days had commits, not which didn't
+    if (git && git.totalCommits > 0) {
+      const codingDayNames = git.daily
+        .filter((d) => d.commits > 0)
+        .map((d) => this.formatWeekday(d.date));
+      if (codingDayNames.length > 0 && codingDayNames.length < 5) {
+        insights.push({
+          id: 'coding-days',
+          severity: 'info',
+          category: 'code',
+          title: 'Commit activity',
+          detail: `Commits on ${codingDayNames.join(', ')} only.`,
+        });
+      }
     }
 
     if (git && git.totalCommits > 0 && git.totalPRsReviewed === 0) {
@@ -232,7 +263,7 @@ export class JournalService {
         severity: 'info',
         category: 'code',
         title: 'No PR reviews',
-        detail: 'You made commits this week but reviewed 0 PRs.',
+        detail: 'You pushed commits but reviewed 0 PRs this week.',
       });
     }
 
@@ -242,7 +273,7 @@ export class JournalService {
         severity: 'positive',
         category: 'time',
         title: 'All clear',
-        detail: 'No issues detected this week.',
+        detail: 'Nothing to flag this week.',
       });
     }
 

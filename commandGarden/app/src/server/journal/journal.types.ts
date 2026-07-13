@@ -113,6 +113,14 @@ export interface CrossRefData {
   zeroCodingDays: string[];
   meetingRatio: number;
   codingHours: number;
+  totalLoggedHours: number;
+  totalMeetingHours: number;
+  targetHours: number;
+  blockerCount: number;
+  resolvedCount: number;
+  inProgressCount: number;
+  totalCommits: number;
+  totalPRsMerged: number;
 }
 
 // --- Response ---

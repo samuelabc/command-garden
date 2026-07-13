@@ -44,6 +44,14 @@ export interface JournalCrossRef {
   zeroCodingDays: string[];
   meetingRatio: number;
   codingHours: number;
+  totalLoggedHours: number;
+  totalMeetingHours: number;
+  targetHours: number;
+  blockerCount: number;
+  resolvedCount: number;
+  inProgressCount: number;
+  totalCommits: number;
+  totalPRsMerged: number;
 }
 
 export interface MonthlyTimetrackingData {
