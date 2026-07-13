@@ -235,8 +235,8 @@ function Layout() {
             <NavLink to="/apps/timetracking" className={navClassIndented}><Clock className="w-4 h-4 shrink-0" />Time Tracking</NavLink>
             <NavLink to="/apps/rooms" className={navClassIndented}><DoorOpen className="w-4 h-4 shrink-0" />Room Availability</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Productivity</div>
-            <NavLink to="/apps/journal" className={navClassIndented}>Dev Journal</NavLink>
-            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
+            <NavLink to="/apps/journal" className={navClassIndented}><NotebookPen className="w-4 h-4 shrink-0" />Dev Journal</NavLink>
+            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}><ShieldCheck className="w-4 h-4 shrink-0" />Trusted Peer Expiry</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Security</div>
             <NavLink to="/apps/security-news" className={navClassIndented}><Newspaper className="w-4 h-4 shrink-0" />Security News</NavLink>
 
