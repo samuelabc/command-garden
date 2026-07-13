@@ -1,4 +1,5 @@
 ---
+name: connector-authoring
 description: "Connector authoring for commandGarden. Use when creating a new connector YAML, adding a data source, or debugging why a connector returns 0 rows."
 ---
 

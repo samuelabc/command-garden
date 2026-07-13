@@ -1,4 +1,5 @@
 ---
+name: cg
 description: "Run commandGarden connectors via `cg` to query enterprise data from authenticated browser sessions. Use when the user mentions `cg`, commandGarden, connectors, or wants to fetch timetracking, room availability, security news, or data behind SSO."
 ---
 
