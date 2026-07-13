@@ -5,3 +5,4 @@
 - [x] humanizer review on gui copywriting
 - [x] timetracking (goal tracking, time analysis)
 - [x] room availability (bulk checking)
+- [ ] expose connector returns format
