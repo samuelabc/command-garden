@@ -246,7 +246,7 @@ export function OfficeMap({ statuses = {}, selected, onSelect }: OfficeMapProps)
                                 {/* Capacity */}
                                 <text
                                     x={room.x + room.w / 2}
-                                    y={room.y + room.h / 2 + (room.h > 90 ? 10 : 8) + (smallRoom ? 9 : 10.5)}
+                                    y={room.y + room.h / 2 + (room.h > 90 ? 10 : 8) + (smallRoom ? 14 : 16)}
                                     textAnchor="middle"
                                     fontSize={smallRoom ? 10.5 : 10.5}
                                     letterSpacing="0.5"
