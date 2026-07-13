@@ -63,6 +63,20 @@ function currentMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+/** Human-scannable relative time (e.g. "5 min ago") for the cache banner —
+ *  paired with the absolute timestamp in a title attribute for precision. */
+function formatRelativeTime(iso: string): string {
+  const diffSec = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diffSec < 5) return 'just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
 export default function Journal() {
   const [weekStart, setWeekStart] = useState(currentMonday());
   const [month] = useState(currentMonth());
@@ -79,11 +93,21 @@ export default function Journal() {
     setSources((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  /** Change the selected week and clear any previously generated result —
+   *  otherwise the old week's data keeps rendering under the new week's
+   *  label/dates until the user clicks Generate again, which is misleading. */
+  function changeWeek(newWeekStart: string) {
+    setWeekStart(newWeekStart);
+    setData(null);
+    setError(null);
+    setElapsedMs(null);
+  }
+
   const isCurrentWeek = weekStart === currentMonday();
   const anySourceSelected = Object.values(sources).some(Boolean);
   const selectedSourceLabels = SOURCE_META.filter((s) => sources[s.key]).map((s) => s.label);
 
-  async function generate() {
+  async function generate(forceRefresh = false) {
     setLoading(true);
     setError(null);
     setData(null);
@@ -102,7 +126,7 @@ export default function Journal() {
     }
 
     try {
-      const result = await api.generateJournal({ weekStart, sources });
+      const result = await api.generateJournal({ weekStart, sources, forceRefresh });
       setElapsedMs(Date.now() - t0);
       setData(result);
     } catch (e) {
@@ -130,7 +154,7 @@ export default function Journal() {
           <div className="flex items-center gap-1">
             <button
               className="btn btn-sm btn-ghost btn-square"
-              onClick={() => setWeekStart(addWeeks(weekStart, -1))}
+              onClick={() => changeWeek(addWeeks(weekStart, -1))}
               disabled={loading}
               aria-label="Previous week"
             >
@@ -144,7 +168,7 @@ export default function Journal() {
             </div>
             <button
               className="btn btn-sm btn-ghost btn-square"
-              onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+              onClick={() => changeWeek(addWeeks(weekStart, 1))}
               disabled={loading}
               aria-label="Next week"
             >
@@ -153,7 +177,7 @@ export default function Journal() {
             {!isCurrentWeek && (
               <button
                 className="btn btn-xs btn-ghost ml-1"
-                onClick={() => setWeekStart(currentMonday())}
+                onClick={() => changeWeek(currentMonday())}
                 disabled={loading}
               >
                 Today
@@ -169,7 +193,7 @@ export default function Journal() {
             )}
             <button
               className="btn btn-primary gap-2"
-              onClick={generate}
+              onClick={() => generate()}
               disabled={loading || !anySourceSelected}
               title={!anySourceSelected ? 'Select at least one source first' : undefined}
             >
@@ -253,6 +277,32 @@ export default function Journal() {
       />
 
       <div className="h-6" />
+
+      {/* Cache provenance banner — always visible when a result is showing, so
+          it's never ambiguous whether you're looking at a cached snapshot or a
+          fresh fetch (visibility of system status), with an explicit escape
+          hatch to force a live refetch (user control & freedom). */}
+      {data?.cache && (
+        <div className="flex items-center justify-between gap-3 border border-base-300 px-3 py-2 mb-4 text-xs">
+          <span className="opacity-70">
+            {data.cache.hit ? 'Cached result from' : 'Freshly fetched'}{' '}
+            <span
+              className={`font-medium ${data.cache.hit ? 'text-warning' : 'text-success'}`}
+              title={new Date(data.cache.fetchedAt).toLocaleString()}
+            >
+              {formatRelativeTime(data.cache.fetchedAt)}
+            </span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs"
+            onClick={() => generate(true)}
+            disabled={loading}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
 
       {/* Partial-data warning (some sources failed but others returned data) */}
       {data?.status === 'partial' && (

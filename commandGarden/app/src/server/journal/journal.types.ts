@@ -105,6 +105,13 @@ export interface CrossRefData {
 
 export type JournalStatus = 'success' | 'partial' | 'error';
 
+/** Cache provenance — added at the route level (not by JournalService),
+ *  so the UI can show whether a result came from app.db and when it was fetched. */
+export interface JournalCacheInfo {
+  hit: boolean;
+  fetchedAt: string; // ISO timestamp
+}
+
 export interface JournalResponse {
   status: JournalStatus;
   week: string;
@@ -116,4 +123,5 @@ export interface JournalResponse {
   insights: string[];
   errors: string[];
   monthlyTimetracking: MonthlyTimetrackingData | null;
+  cache?: JournalCacheInfo;
 }

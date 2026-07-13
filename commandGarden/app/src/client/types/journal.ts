@@ -44,6 +44,13 @@ export interface MonthlyTimetrackingData {
   hoursByProject: { projectId: string; hours: number }[];
 }
 
+/** Cache provenance — lets the UI show whether a result came from app.db
+ *  (and when), instead of a fresh browser-driven fetch. */
+export interface JournalCacheInfo {
+  hit: boolean;
+  fetchedAt: string; // ISO timestamp
+}
+
 export interface JournalResponse {
   status: JournalStatus;
   week: string;
@@ -55,4 +62,5 @@ export interface JournalResponse {
   insights: string[];
   errors: string[];
   monthlyTimetracking: MonthlyTimetrackingData | null;
+  cache?: JournalCacheInfo;
 }

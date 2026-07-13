@@ -131,6 +131,14 @@ export class AppStore {
       data       TEXT NOT NULL,
       fetched_at TEXT NOT NULL
     )`);
+    // Keyed by weekStart + the enabled-sources signature, since different
+    // source combinations produce different results for the same week.
+    this.db.run(`CREATE TABLE IF NOT EXISTS journal_cache (
+      cache_key  TEXT PRIMARY KEY,
+      week_start TEXT NOT NULL,
+      data       TEXT NOT NULL,
+      fetched_at TEXT NOT NULL
+    )`);
   }
 
   getPreference(key: string): string | undefined {
@@ -288,24 +296,6 @@ export class AppStore {
 
   getCachedSecurityNews(): { data: Record<string, unknown>[]; fetchedAt: string } | null {
     const rows = this.query('SELECT data, fetched_at FROM security_news_cache WHERE id = 1');
-    if (rows.length === 0) return null;
-    return {
-      data: JSON.parse(rows[0].data as string),
-      fetchedAt: rows[0].fetched_at as string,
-    };
-  }
-
-  cacheRoomAvailability(date: string, data: Record<string, unknown>[]): void {
-    const now = new Date().toISOString();
-    this.db.run(
-      'INSERT OR REPLACE INTO room_availability_cache (date, data, fetched_at) VALUES (?, ?, ?)',
-      [date, JSON.stringify(data), now],
-    );
-    this.persist();
-  }
-
-  getCachedRoomAvailability(date: string): { data: Record<string, unknown>[]; fetchedAt: string } | null {
-    const rows = this.query('SELECT data, fetched_at FROM room_availability_cache WHERE date = ?', [date]);
     if (rows.length === 0) return null;
     return {
       data: JSON.parse(rows[0].data as string),

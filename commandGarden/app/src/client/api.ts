@@ -34,7 +34,7 @@ export const api = {
   cacheReport: (month: string, data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/timetracking/cache', { month, data }),
   getCachedProjects: () => request<{ ok: boolean; data: ProjectActivity[] | null; fetchedAt: string | null }>('GET', '/api/timetracking/projects'),
   cacheProjects: (data: ProjectActivity[]) => request<{ ok: boolean }>('POST', '/api/timetracking/projects', { data }),
-  generateJournal: (body: { weekStart: string; sources?: { timetracking?: boolean; meetings?: boolean; jira?: boolean; git?: boolean } }) =>
+  generateJournal: (body: { weekStart: string; sources?: { timetracking?: boolean; meetings?: boolean; jira?: boolean; git?: boolean }; forceRefresh?: boolean }) =>
     request<JournalResponse>('POST', '/api/journal/generate', body),
   getCachedSecurityNews: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/security-news/cache'),
   cacheSecurityNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/security-news/cache', { data }),
