@@ -6,8 +6,12 @@
  * to bypass the MCAS proxy (see docs/ado-git-commits-fix.md for the
  * Runtime.evaluate CSP bypass that also applies here).
  *
- * Calls the connector once per weekday in the date range, then
- * aggregates into MeetingsData (totalCount, totalHours, daily, entries).
+ * The Scheduling Assistant grid renders the whole work week around
+ * whichever date it's pointed at, so a single connector call (using any
+ * weekday in the target range as an anchor) already returns every day's
+ * meetings for that week — no need to call once per weekday. Rows outside
+ * [weekStart, weekEnd] (if the connector's week grid doesn't align exactly
+ * with our range) are filtered out before aggregating into MeetingsData.
  */
 
 import type { DaemonClient } from '@commandgarden/shared';
@@ -35,31 +39,21 @@ export class MeetingsSource {
 
   async fetch(weekStart: string, weekEnd: string): Promise<MeetingsData | null> {
     try {
-      // Fetch meetings for each weekday in the range.
-      // The connector opens the Scheduling Assistant per call, so we
-      // batch weekdays sequentially to avoid multiple browser tabs.
-      const allEntries: MeetingEntry[] = [];
-      const cursor = new Date(weekStart);
-      const end = new Date(weekEnd);
+      // Anchor on the first weekday in range — the connector's single call
+      // returns the whole work week's meetings for whichever date it's given.
+      const anchorDate = this.firstWeekday(weekStart, weekEnd);
+      if (!anchorDate) return null;
 
-      while (cursor <= end) {
-        const day = cursor.getDay();
-        // Only fetch weekdays (Mon–Fri) to avoid unnecessary calls
-        if (day >= 1 && day <= 5) {
-          const dateStr = cursor.toISOString().slice(0, 10);
-          const rows = await this.fetchDay(dateStr);
-          for (const r of rows) {
-            allEntries.push({
-              date: r.date,
-              subject: r.subject,
-              start: r.start,
-              end: r.end,
-              durationMin: r.durationMin,
-            });
-          }
-        }
-        cursor.setDate(cursor.getDate() + 1);
-      }
+      const rows = await this.fetchWeek(anchorDate);
+      const allEntries: MeetingEntry[] = rows
+        .filter((r) => r.date >= weekStart && r.date <= weekEnd)
+        .map((r) => ({
+          date: r.date,
+          subject: r.subject,
+          start: r.start,
+          end: r.end,
+          durationMin: r.durationMin,
+        }));
 
       if (allEntries.length === 0) return null;
 
@@ -85,16 +79,28 @@ export class MeetingsSource {
     }
   }
 
-  /** Fetch a single day's meetings via the daemon connector. */
-  private async fetchDay(date: string): Promise<ConnectorRow[]> {
+  /** Fetch the whole work week's meetings via the daemon connector, anchored on one date. */
+  private async fetchWeek(anchorDate: string): Promise<ConnectorRow[]> {
     try {
       const result = await this.daemon.post<DaemonRunResponse>('/api/run', {
         connector: 'outlook/my-meetings',
-        args: { date },
+        args: { date: anchorDate },
       });
       return result.ok && result.data ? result.data : [];
     } catch {
       return [];
     }
+  }
+
+  /** First weekday (Mon–Fri) in [start, end], or null if the range has none. */
+  private firstWeekday(start: string, end: string): string | null {
+    const cursor = new Date(start);
+    const endDate = new Date(end);
+    while (cursor <= endDate) {
+      const day = cursor.getDay();
+      if (day >= 1 && day <= 5) return cursor.toISOString().slice(0, 10);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return null;
   }
 }

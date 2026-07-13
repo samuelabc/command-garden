@@ -11,7 +11,6 @@ import Guide from './pages/Guide';
 import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
-import JournalDaily from './pages/JournalDaily';
 import SecurityNews from './pages/SecurityNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
 import Architecture from './pages/Architecture';
@@ -102,41 +101,6 @@ function SectionSubNav({ sections }: { sections: SectionDef[] }) {
         </button>
       ))}
     </div>
-  );
-}
-
-interface ChildDef { label: string; to: string }
-
-const JOURNAL_CHILDREN: ChildDef[] = [
-  { label: 'Daily', to: '/apps/journal/daily' },
-  { label: 'Weekly', to: '/apps/journal/weekly' },
-];
-
-function NavItemWithChildren({ to, label, icon, items }: { to: string; label: string; icon?: React.ReactNode; items: ChildDef[] }) {
-  const location = useLocation();
-  const isActive = location.pathname.startsWith(to);
-
-  return (
-    <>
-      <NavLink to={to} className={navClassIndented}>{icon}{label}</NavLink>
-      {isActive && items.length > 0 && (
-        <div className="ml-3 border-l border-base-300 py-0.5">
-          {items.map((c) => (
-            <NavLink
-              key={c.to}
-              to={c.to}
-              className={({ isActive: childActive }) =>
-                `block w-full text-left pl-3 py-1 text-[0.7rem] transition-colors ${
-                  childActive ? 'text-primary opacity-100' : 'opacity-50 hover:opacity-70'
-                }`
-              }
-            >
-              {c.label}
-            </NavLink>
-          ))}
-        </div>
-      )}
-    </>
   );
 }
 
@@ -271,8 +235,8 @@ function Layout() {
             <NavLink to="/apps/timetracking" className={navClassIndented}><Clock className="w-4 h-4 shrink-0" />Time Tracking</NavLink>
             <NavLink to="/apps/rooms" className={navClassIndented}><DoorOpen className="w-4 h-4 shrink-0" />Room Availability</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Productivity</div>
-            <NavItemWithChildren to="/apps/journal" label="Dev Journal" icon={<NotebookPen className="w-4 h-4 shrink-0" />} items={JOURNAL_CHILDREN} />
-            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}><ShieldCheck className="w-4 h-4 shrink-0" />Trusted Peer Expiry</NavLink>
+            <NavLink to="/apps/journal" className={navClassIndented}>Dev Journal</NavLink>
+            <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}>Trusted Peer Expiry</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Security</div>
             <NavLink to="/apps/security-news" className={navClassIndented}><Newspaper className="w-4 h-4 shrink-0" />Security News</NavLink>
 
@@ -335,9 +299,7 @@ export default function App() {
           <Route path="guide" element={<Guide />} />
           <Route path="apps/timetracking" element={<Timetracking />} />
           <Route path="apps/rooms" element={<Rooms />} />
-          <Route path="apps/journal" element={<Navigate to="/apps/journal/daily" replace />} />
-          <Route path="apps/journal/daily" element={<JournalDaily />} />
-          <Route path="apps/journal/weekly" element={<Journal />} />
+          <Route path="apps/journal" element={<Journal />} />
           <Route path="apps/security-news" element={<SecurityNews />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
           <Route path="architecture" element={<Architecture />} />

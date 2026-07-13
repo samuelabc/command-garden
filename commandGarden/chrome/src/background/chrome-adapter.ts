@@ -321,7 +321,15 @@ export class RealChromeAdapter implements ChromeAdapter {
     return result;
   }
 
-  cleanup(): void {
+  /**
+   * Detach debugger/listeners and optionally close the managed tab.
+   * `closeTab` defaults to false for callers that want to leave the tab
+   * open (e.g. for debugging a specific run). service-worker.ts passes
+   * `closeTab: true` unconditionally so tabs opened by connector runs
+   * (Jira/Meetings/TimeTracking/Saba/etc.) always close after the run,
+   * whether it succeeded or failed.
+   */
+  cleanup(closeTab = false): void {
     if (this.cdpEventHandler) {
       chrome.debugger.onEvent.removeListener(this.cdpEventHandler);
       this.cdpEventHandler = null;
@@ -335,7 +343,7 @@ export class RealChromeAdapter implements ChromeAdapter {
       this.debuggerAttached = false;
     }
     if (this.tabId) {
-      chrome.tabs.remove(this.tabId).catch(() => {});
+      if (closeTab) chrome.tabs.remove(this.tabId).catch(() => {});
       this.tabId = null;
     }
   }

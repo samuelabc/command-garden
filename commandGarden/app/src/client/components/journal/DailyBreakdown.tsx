@@ -9,6 +9,9 @@ import type { JournalResponse } from '../../types/journal';
 
 interface Props {
   data: JournalResponse;
+  /** Monday of the selected week (YYYY-MM-DD) — used to always render the
+   *  full Mon-Fri range, even for days with zero activity across every source. */
+  weekStart: string;
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -18,27 +21,49 @@ function weekdayLabel(dateStr: string): string {
   return WEEKDAYS[day - 1] ?? dateStr;
 }
 
-export function DailyBreakdown({ data }: Props) {
+export function DailyBreakdown({ data, weekStart }: Props) {
   const { timetracking, meetings, git, jira } = data;
 
-  // Build a list of dates from whichever source has data.
-  // Only show weekend days (Sat=6, Sun=0) if they have activity.
+  // Always include every weekday (Mon-Fri) of the selected week so days with
+  // zero activity across all sources still show up as empty rows, instead of
+  // silently disappearing (they'd otherwise never be added to the set below).
   const dates = new Set<string>();
+  const cursor = new Date(weekStart + 'T00:00:00');
+  for (let i = 0; i < 5; i++) {
+    const y = cursor.getFullYear();
+    const m = String(cursor.getMonth() + 1).padStart(2, '0');
+    const d = String(cursor.getDate()).padStart(2, '0');
+    dates.add(`${y}-${m}-${d}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // Also fold in any dates with actual data (weekends included).
   timetracking?.daily.forEach((d) => dates.add(d.date));
   meetings?.daily.forEach((d) => dates.add(d.date));
   git?.daily.forEach((d) => dates.add(d.date));
-  const sortedDates = [...dates].sort().filter((date) => {
-    const day = new Date(date + 'T00:00:00').getDay();
-    if (day === 0 || day === 6) {
-      // Weekend: only show if there's actual data for this day
-      const hasData =
-        timetracking?.daily.some((d) => d.date === date && d.hours > 0) ||
-        meetings?.daily.some((d) => d.date === date && d.count > 0) ||
-        git?.daily.some((d) => d.date === date && d.commits > 0);
-      return hasData;
-    }
-    return true;
-  });
+
+  // Bound everything to the selected week — guards against a stale `data`
+  // prop (e.g. from a week that was generated before the picker moved)
+  // leaking dates from a different week into this table.
+  const weekEndDate = new Date(weekStart + 'T00:00:00');
+  weekEndDate.setDate(weekEndDate.getDate() + 6);
+  const weekEnd = weekEndDate.toISOString().slice(0, 10);
+
+  const sortedDates = [...dates]
+    .filter((date) => date >= weekStart && date <= weekEnd)
+    .sort()
+    .filter((date) => {
+      const day = new Date(date + 'T00:00:00').getDay();
+      if (day === 0 || day === 6) {
+        // Weekend: only show if there's actual data for this day
+        const hasData =
+          timetracking?.daily.some((d) => d.date === date && d.hours > 0) ||
+          meetings?.daily.some((d) => d.date === date && d.count > 0) ||
+          git?.daily.some((d) => d.date === date && d.commits > 0);
+        return hasData;
+      }
+      return true;
+    });
 
   // Compute totals for the footer row
   const totalHours = timetracking?.totalHours ?? 0;

@@ -131,6 +131,36 @@ export class AppStore {
       data       TEXT NOT NULL,
       fetched_at TEXT NOT NULL
     )`);
+    // Legacy schema keyed by cache_key (weekStart + sources signature) —
+    // migrate to a plain weekStart-keyed table (one cached result per week,
+    // regardless of which sources were selected when it was generated).
+    try {
+      this.db.run(`SELECT cache_key FROM journal_cache LIMIT 0`);
+      // Old schema present — drop it, cached data will simply regenerate.
+      this.db.run(`DROP TABLE journal_cache`);
+    } catch { /* already on new schema, or table doesn't exist yet */ }
+    this.db.run(`CREATE TABLE IF NOT EXISTS journal_cache (
+      week_start TEXT PRIMARY KEY,
+      data       TEXT NOT NULL,
+      fetched_at TEXT NOT NULL
+    )`);
+    // saba_data holds the last Saba "pending training" connector result for
+    // the week, saved separately from `data` since it's fetched client-side
+    // (not part of JournalService.generate()) and can complete at a
+    // different time than the main journal fetch.
+    try { this.db.run(`ALTER TABLE journal_cache ADD COLUMN saba_data TEXT`); } catch { /* column already exists */ }
+    // Remembers the last-selected source toggles (Timetracking/Meetings/Jira/
+    // Git/Saba) so the UI can restore the user's picks on next load, instead
+    // of always resetting to "all enabled".
+    this.db.run(`CREATE TABLE IF NOT EXISTS journal_source_prefs (
+      id           INTEGER PRIMARY KEY CHECK (id = 1),
+      timetracking INTEGER NOT NULL DEFAULT 1,
+      meetings     INTEGER NOT NULL DEFAULT 1,
+      jira         INTEGER NOT NULL DEFAULT 1,
+      git          INTEGER NOT NULL DEFAULT 1,
+      saba         INTEGER NOT NULL DEFAULT 1,
+      updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
   }
 
   getPreference(key: string): string | undefined {
@@ -311,6 +341,75 @@ export class AppStore {
       data: JSON.parse(rows[0].data as string),
       fetchedAt: rows[0].fetched_at as string,
     };
+  }
+
+  cacheJournal(weekStart: string, data: Record<string, unknown>): string {
+    const now = new Date().toISOString();
+    // ON CONFLICT (rather than INSERT OR REPLACE) so an existing saba_data
+    // value for this week isn't wiped out when the main journal result is
+    // (re)generated — the two are cached independently.
+    this.db.run(
+      `INSERT INTO journal_cache (week_start, data, fetched_at) VALUES (?, ?, ?)
+       ON CONFLICT(week_start) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at`,
+      [weekStart, JSON.stringify(data), now],
+    );
+    this.persist();
+    return now;
+  }
+
+  getCachedJournal(weekStart: string): { data: Record<string, unknown>; fetchedAt: string; sabaData: Record<string, unknown> | null } | null {
+    const rows = this.query('SELECT data, fetched_at, saba_data FROM journal_cache WHERE week_start = ?', [weekStart]);
+    if (rows.length === 0) return null;
+    const sabaRaw = rows[0].saba_data as string | null;
+    return {
+      data: JSON.parse(rows[0].data as string),
+      fetchedAt: rows[0].fetched_at as string,
+      sabaData: sabaRaw ? JSON.parse(sabaRaw) : null,
+    };
+  }
+
+  /** Persists the Saba "pending training" connector result for a week,
+   *  independently of the main journal data — it's fetched client-side and
+   *  can complete at a different time. No-ops if the week has no cached
+   *  journal row yet (generate() always caches the main result first). */
+  cacheJournalSaba(weekStart: string, sabaData: Record<string, unknown> | null): void {
+    this.db.run(
+      'UPDATE journal_cache SET saba_data = ? WHERE week_start = ?',
+      [sabaData ? JSON.stringify(sabaData) : null, weekStart],
+    );
+    this.persist();
+  }
+
+  /** The last-selected source toggles, so the UI restores the user's picks
+   *  on next load instead of always resetting to "all enabled". */
+  getJournalSourcePrefs(): { timetracking: boolean; meetings: boolean; jira: boolean; git: boolean; saba: boolean } | null {
+    const rows = this.query('SELECT timetracking, meetings, jira, git, saba FROM journal_source_prefs WHERE id = 1');
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      timetracking: Boolean(r.timetracking),
+      meetings: Boolean(r.meetings),
+      jira: Boolean(r.jira),
+      git: Boolean(r.git),
+      saba: Boolean(r.saba),
+    };
+  }
+
+  saveJournalSourcePrefs(sources: { timetracking: boolean; meetings: boolean; jira: boolean; git: boolean; saba: boolean }): void {
+    const now = new Date().toISOString();
+    this.db.run(
+      `INSERT OR REPLACE INTO journal_source_prefs (id, timetracking, meetings, jira, git, saba, updated_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?)`,
+      [
+        sources.timetracking ? 1 : 0,
+        sources.meetings ? 1 : 0,
+        sources.jira ? 1 : 0,
+        sources.git ? 1 : 0,
+        sources.saba ? 1 : 0,
+        now,
+      ],
+    );
+    this.persist();
   }
 
   close(): void {

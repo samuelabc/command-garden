@@ -2,8 +2,16 @@
  *  Ported from dashboard/api/src/journal/journal.types.ts — identical interfaces,
  *  no NestJS dependencies. */
 
+export interface JournalSources {
+  timetracking: boolean;
+  meetings: boolean;
+  jira: boolean;
+  git: boolean;
+}
+
 export interface JournalInput {
   weekStart: string; // YYYY-MM-DD (Monday)
+  sources?: Partial<JournalSources>;
 }
 
 // --- Source data shapes ---
@@ -19,6 +27,15 @@ export interface TimetrackingData {
   targetHours: number;
   daily: TtDailyEntry[];
   gaps: string[];
+}
+
+export interface MonthlyTimetrackingData {
+  month: string; // YYYY-MM
+  workingDaysTotal: number;
+  workingDaysElapsed: number;
+  releasedDates: string[];
+  unreleasedDates: string[];
+  hoursByProject: { projectId: string; hours: number }[];
 }
 
 export interface MeetingEntry {
@@ -88,6 +105,13 @@ export interface CrossRefData {
 
 export type JournalStatus = 'success' | 'partial' | 'error';
 
+/** Cache provenance — added at the route level (not by JournalService),
+ *  so the UI can show whether a result came from app.db and when it was fetched. */
+export interface JournalCacheInfo {
+  hit: boolean;
+  fetchedAt: string; // ISO timestamp
+}
+
 export interface JournalResponse {
   status: JournalStatus;
   week: string;
@@ -98,4 +122,6 @@ export interface JournalResponse {
   crossRef: CrossRefData | null;
   insights: string[];
   errors: string[];
+  monthlyTimetracking: MonthlyTimetrackingData | null;
+  cache?: JournalCacheInfo;
 }
