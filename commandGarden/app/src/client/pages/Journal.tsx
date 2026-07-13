@@ -11,6 +11,7 @@ import type { JournalResponse } from '../types/journal';
 import { SummaryCards } from '../components/journal/SummaryCards';
 import { DailyBreakdown } from '../components/journal/DailyBreakdown';
 import { InsightsPanel } from '../components/journal/InsightsPanel';
+import { MonthlyStatus } from '../components/journal/MonthlyStatus';
 
 /** Format a Date as YYYY-MM-DD in the user's local timezone.
  *  (toISOString() uses UTC which shifts dates for UTC+ timezones.) */
@@ -48,6 +49,11 @@ export default function Journal() {
   const [data, setData] = useState<JournalResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
+  const [sources, setSources] = useState({ timetracking: true, meetings: true, jira: true, git: true });
+
+  function toggleSource(key: keyof typeof sources) {
+    setSources((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function generate() {
     setLoading(true);
@@ -56,7 +62,7 @@ export default function Journal() {
     setElapsedMs(null);
     const t0 = Date.now();
     try {
-      const result = await api.generateJournal({ weekStart });
+      const result = await api.generateJournal({ weekStart, sources });
       setElapsedMs(Date.now() - t0);
       setData(result);
     } catch (e) {
@@ -103,11 +109,56 @@ export default function Journal() {
         )}
       </div>
 
+      {/* Source selection checkboxes */}
+      <div className="flex flex-wrap items-center gap-4 mb-6 text-sm">
+        <span className="font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.1em]">Sources</span>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={sources.timetracking}
+            onChange={() => toggleSource('timetracking')}
+            disabled={loading}
+          />
+          Timetracking
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={sources.meetings}
+            onChange={() => toggleSource('meetings')}
+            disabled={loading}
+          />
+          Meetings
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={sources.jira}
+            onChange={() => toggleSource('jira')}
+            disabled={loading}
+          />
+          Jira
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={sources.git}
+            onChange={() => toggleSource('git')}
+            disabled={loading}
+          />
+          ADO (Git)
+        </label>
+      </div>
+
       {/* Loading state */}
       {loading && (
         <div className="flex items-center gap-3 text-base-content/60 mb-4">
           <span className="loading loading-spinner loading-md"></span>
-          <span>Gathering data from Git, Outlook, Jira…</span>
+          <span>Gathering data from selected sources…</span>
         </div>
       )}
 
@@ -154,6 +205,10 @@ export default function Journal() {
           <span>Failed to generate journal. {data.errors.join('; ')}</span>
         </div>
       )}
+
+      <div className="divider" />
+
+      <MonthlyStatus />
     </div>
   );
 }

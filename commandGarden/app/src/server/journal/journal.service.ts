@@ -33,14 +33,22 @@ export class JournalService {
     const weekStart = input.weekStart;
     const weekEnd = this.addDays(weekStart, 6); // Mon–Sun (full 7-day week)
 
+    const sources = {
+      timetracking: input.sources?.timetracking ?? true,
+      meetings: input.sources?.meetings ?? true,
+      jira: input.sources?.jira ?? true,
+      git: input.sources?.git ?? true,
+    };
+
     const errors: string[] = [];
 
-    // Fetch all sources in parallel; each source handles its own errors gracefully
+    // Fetch only the enabled sources in parallel; each source handles its own errors gracefully.
+    // Disabled sources resolve to null immediately without calling the connector.
     const [ttResult, meetingsResult, jiraResult, gitResult] = await Promise.allSettled([
-      this.timetracking.fetch(weekStart, weekEnd),
-      this.meetings.fetch(weekStart, weekEnd),
-      this.jira.fetch(weekStart, weekEnd),
-      this.git.fetch(weekStart, weekEnd),
+      sources.timetracking ? this.timetracking.fetch(weekStart, weekEnd) : Promise.resolve(null),
+      sources.meetings ? this.meetings.fetch(weekStart, weekEnd) : Promise.resolve(null),
+      sources.jira ? this.jira.fetch(weekStart, weekEnd) : Promise.resolve(null),
+      sources.git ? this.git.fetch(weekStart, weekEnd) : Promise.resolve(null),
     ]);
 
     const tt = ttResult.status === 'fulfilled' ? ttResult.value : null;

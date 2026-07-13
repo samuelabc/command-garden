@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useApprovalRun } from '../hooks/useApprovalRun';
-import { api, type Goal } from '../api';
-import { Spinner } from '../components/Spinner';
-import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
+import { useApprovalRun } from '../../hooks/useApprovalRun';
+import { api, type Goal } from '../../api';
+import { Spinner } from '../Spinner';
+import { AuthRequiredCallout } from '../AuthRequiredCallout';
 
 function currentMonth(): string {
   const d = new Date();
@@ -92,9 +92,14 @@ function urgencyLabel(row: { isOverdue?: boolean; daysUntilDue?: number }): stri
   return `${row.daysUntilDue}d left`;
 }
 
-export default function JournalDaily() {
+export function MonthlyStatus() {
   const [month] = useState(currentMonth());
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [enabled, setEnabled] = useState({ timetracking: true, saba: true });
+
+  function toggleEnabled(key: keyof typeof enabled) {
+    setEnabled((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   const tt = useApprovalRun();
   const saba = useApprovalRun();
@@ -103,9 +108,13 @@ export default function JournalDaily() {
     tt.reset();
     saba.reset();
     setGoals([]);
-    tt.run('timetracking/report', { month });
-    saba.run('saba/pending-training', {});
-    api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => {});
+    if (enabled.timetracking) {
+      tt.run('timetracking/report', { month });
+      api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => {});
+    }
+    if (enabled.saba) {
+      saba.run('saba/pending-training', {});
+    }
   }
 
   const ttRaw = useMemo(
@@ -145,10 +154,10 @@ export default function JournalDaily() {
   const hasData = tt.result !== null || saba.result !== null;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em]">Daily Check-in</h2>
+          <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Month-to-date Status</h3>
           <p className="text-sm opacity-40 mt-0.5">{formatMonth(month)}</p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={load} disabled={isLoading}>
@@ -156,11 +165,37 @@ export default function JournalDaily() {
         </button>
       </div>
 
+      {/* Source selection checkboxes */}
+      <div className="flex flex-wrap items-center gap-4 mb-6 text-sm">
+        <span className="font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.1em]">Sources</span>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={enabled.timetracking}
+            onChange={() => toggleEnabled('timetracking')}
+            disabled={isLoading}
+          />
+          Timetracking
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="checkbox checkbox-sm"
+            checked={enabled.saba}
+            onChange={() => toggleEnabled('saba')}
+            disabled={isLoading}
+          />
+          Saba Training
+        </label>
+      </div>
+
       {isLoading && !tt.approvalPending && !saba.approvalPending && (
         <div className="mb-4"><Spinner label="Fetching time tracking and Saba training…" /></div>
       )}
 
       {/* ── Time Tracking ── */}
+      {enabled.timetracking && (
       <section className="space-y-4 mb-6">
         <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Time Tracking</h3>
 
@@ -267,8 +302,10 @@ export default function JournalDaily() {
           </div>
         )}
       </section>
+      )}
 
       {/* ── Saba Training ── */}
+      {enabled.saba && (
       <section className="space-y-4">
         <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Pending Training (Saba)</h3>
 
@@ -348,6 +385,7 @@ export default function JournalDaily() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

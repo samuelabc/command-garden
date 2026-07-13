@@ -2,8 +2,16 @@
  *  Ported from dashboard/api/src/journal/journal.types.ts — identical interfaces,
  *  no NestJS dependencies. */
 
+export interface JournalSources {
+  timetracking: boolean;
+  meetings: boolean;
+  jira: boolean;
+  git: boolean;
+}
+
 export interface JournalInput {
   weekStart: string; // YYYY-MM-DD (Monday)
+  sources?: Partial<JournalSources>;
 }
 
 // --- Source data shapes ---
