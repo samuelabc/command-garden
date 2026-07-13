@@ -36,17 +36,19 @@ interface Props {
   month: string;
   monthly: MonthlyTimetrackingData | null;
   goals: Goal[];
+  projectNames: Map<string, string>;
+  activityNames: Map<string, string>;
   saba: ApprovalRun;
   enabled: { timetracking: boolean; saba: boolean };
 }
 
-export function MonthlyStatus({ month, monthly, goals, saba, enabled }: Props) {
+export function MonthlyStatus({ month, monthly, goals, projectNames, activityNames, saba, enabled }: Props) {
   const [expanded, setExpanded] = useState(false);
 
-  const hoursByProject = useMemo(() => {
+  const hoursByProjectActivity = useMemo(() => {
     const map = new Map<string, number>();
-    for (const row of monthly?.hoursByProject ?? []) {
-      map.set(row.projectId, row.hours);
+    for (const row of monthly?.hoursByProjectActivity ?? []) {
+      map.set(`${row.projectId}\0${row.activity}`, row.hours);
     }
     return map;
   }, [monthly]);
@@ -139,14 +141,20 @@ export function MonthlyStatus({ month, monthly, goals, saba, enabled }: Props) {
                   {goals.length > 0 && (
                     <div className="space-y-2 pt-1">
                       {goals.map((goal) => {
-                        const logged = Math.round((hoursByProject.get(goal.projectId) ?? 0) * 100) / 100;
+                        const logged = Math.round((hoursByProjectActivity.get(`${goal.projectId}\0${goal.activity}`) ?? 0) * 100) / 100;
                         const remaining = Math.round((goal.targetHours - logged) * 100) / 100;
                         const pct = Math.min(100, Math.round((logged / goal.targetHours) * 100));
                         const achieved = remaining <= 0;
                         return (
                           <div key={goal.id} className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="font-medium">{goal.projectId}</span>
+                              <span className="font-medium">
+                                {projectNames.get(goal.projectId) ?? goal.projectId}
+                                {projectNames.has(goal.projectId) && (
+                                  <span className="font-mono text-[0.6rem] opacity-50 ml-1">{goal.projectId}</span>
+                                )}
+                                <span className="font-mono text-[0.6rem] opacity-40 ml-1">· {activityNames.get(`${goal.projectId}\0${goal.activity}`) ?? goal.activity}</span>
+                              </span>
                               <span className={`font-mono ${achieved ? 'text-success' : 'text-warning'}`}>
                                 {achieved ? '✓ Goal met' : `${remaining}h to go`}
                               </span>

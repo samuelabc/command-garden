@@ -27,6 +27,17 @@ export interface JournalGitDaily { date: string; commits: number; filesChanged: 
 export interface JournalGitRepo { project: string; repo: string; commits: number; }
 export interface JournalGit { totalCommits: number; totalPRsMerged: number; totalPRsReviewed: number; daily: JournalGitDaily[]; repos: JournalGitRepo[]; }
 
+export type InsightSeverity = 'action' | 'warning' | 'info' | 'positive';
+export type InsightCategory = 'time' | 'meetings' | 'tickets' | 'code';
+
+export interface Insight {
+  id: string;
+  severity: InsightSeverity;
+  category: InsightCategory;
+  title: string;
+  detail: string;
+}
+
 export interface JournalCrossRef {
   forgottenDays: string[];
   heavyMeetingDays: { date: string; hours: number }[];
@@ -42,6 +53,7 @@ export interface MonthlyTimetrackingData {
   releasedDates: string[];
   unreleasedDates: string[];
   hoursByProject: { projectId: string; hours: number }[];
+  hoursByProjectActivity: { projectId: string; activity: string; hours: number }[];
 }
 
 /** Cache provenance — lets the UI show whether a result came from app.db
@@ -59,7 +71,7 @@ export interface JournalResponse {
   jira: JournalJira | null;
   git: JournalGit | null;
   crossRef: JournalCrossRef | null;
-  insights: string[];
+  insights: Insight[];
   errors: string[];
   monthlyTimetracking: MonthlyTimetrackingData | null;
   cache?: JournalCacheInfo;

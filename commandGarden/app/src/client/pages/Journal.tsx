@@ -85,6 +85,8 @@ export default function Journal() {
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [projectNames, setProjectNames] = useState<Map<string, string>>(new Map());
+  const [activityNames, setActivityNames] = useState<Map<string, string>>(new Map());
   const [sources, setSources] = useState({ timetracking: true, meetings: true, jira: true, git: true, saba: true });
 
   const saba = useApprovalRun();
@@ -156,16 +158,25 @@ export default function Journal() {
   async function generate(forceRefresh = false) {
     setLoading(true);
     setError(null);
-    setData(null);
     setElapsedMs(null);
-    saba.reset();
-    setGoals([]);
     const t0 = Date.now();
 
     // Fire goals + Saba training off immediately so they run in parallel
     // with the weekly journal fetch below, instead of waiting for it.
     if (sources.timetracking) {
       api.getGoals(month).then((r) => setGoals(r.goals)).catch(() => { });
+      api.getCachedProjects().then((r) => {
+        if (r.data) {
+          const pn = new Map<string, string>();
+          const an = new Map<string, string>();
+          for (const p of r.data) {
+            if (p.projectId && p.projectName) pn.set(p.projectId, p.projectName);
+            if (p.projectId && p.activityNumber && p.activityName) an.set(`${p.projectId}\0${p.activityNumber}`, p.activityName);
+          }
+          setProjectNames(pn);
+          setActivityNames(an);
+        }
+      }).catch(() => { });
     }
     if (sources.saba) {
       saba.run('saba/pending-training', {});
@@ -343,6 +354,8 @@ export default function Journal() {
         month={month}
         monthly={data?.monthlyTimetracking ?? null}
         goals={goals}
+        projectNames={projectNames}
+        activityNames={activityNames}
         saba={saba}
         enabled={{ timetracking: sources.timetracking, saba: sources.saba }}
       />
@@ -376,7 +389,8 @@ export default function Journal() {
             <DailyBreakdown data={data} weekStart={weekStart} />
           </section>
           <section className="space-y-4">
-            <InsightsPanel insights={data.insights} errors={data.errors} />
+            <h3 className="font-mono text-[0.65rem] font-medium opacity-50 uppercase tracking-[0.12em]">Insights</h3>
+            <InsightsPanel insights={data.insights} errors={data.errors} crossRef={data.crossRef} />
           </section>
         </div>
       )}

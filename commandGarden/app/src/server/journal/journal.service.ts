@@ -20,6 +20,7 @@ import type {
   JiraData,
   CrossRefData,
   MonthlyTimetrackingData,
+  Insight,
 } from './journal.types.js';
 
 export class JournalService {
@@ -159,34 +160,90 @@ export class JournalService {
     jira: JiraData | null,
     git: GitData | null,
     crossRef: CrossRefData | null,
-  ): string[] {
-    const insights: string[] = [];
+  ): Insight[] {
+    const insights: Insight[] = [];
 
     if (crossRef?.forgottenDays.length) {
-      insights.push(
-        `You have activity on ${crossRef.forgottenDays.join(', ')} but 0 hours logged in TimeTracking — you may have forgotten to fill it.`,
-      );
+      insights.push({
+        id: 'forgotten-days',
+        severity: 'action',
+        category: 'time',
+        title: 'Unreleased hours',
+        detail: `Activity on ${crossRef.forgottenDays.join(', ')} but 0 hours logged — you may have forgotten to fill TimeTracking.`,
+      });
+    }
+
+    if (tt && tt.totalHours < tt.targetHours * 0.8) {
+      const gap = Math.round((tt.targetHours - tt.totalHours) * 100) / 100;
+      insights.push({
+        id: 'below-target',
+        severity: 'warning',
+        category: 'time',
+        title: 'Below weekly target',
+        detail: `${gap}h short of your ${tt.targetHours}h target.`,
+      });
     }
 
     if (crossRef?.heavyMeetingDays.length) {
       const days = crossRef.heavyMeetingDays.map((d) => `${d.date} (${d.hours}h)`).join(', ');
-      insights.push(`Heavy meeting days: ${days}. Consider blocking focus time.`);
+      insights.push({
+        id: 'heavy-meetings',
+        severity: 'warning',
+        category: 'meetings',
+        title: 'Heavy meeting days',
+        detail: `${days}. Consider blocking focus time.`,
+      });
     }
 
-    if (tt && tt.totalHours < tt.targetHours * 0.8) {
-      const gap = tt.targetHours - tt.totalHours;
-      insights.push(`You're ${gap}h below your ${tt.targetHours}h weekly target.`);
+    if (crossRef && crossRef.meetingRatio > 0.5 && mtg) {
+      insights.push({
+        id: 'high-meeting-ratio',
+        severity: 'info',
+        category: 'meetings',
+        title: 'High meeting ratio',
+        detail: `Meetings consumed ${Math.round(crossRef.meetingRatio * 100)}% of your logged hours this week.`,
+      });
     }
 
     if (jira?.blockers.length) {
       const items = jira.blockers.map((b) => `${b.key} (${b.staleDays}d)`).join(', ');
-      insights.push(`Stale tickets: ${items}. Consider unblocking or reassigning.`);
+      insights.push({
+        id: 'stale-tickets',
+        severity: 'warning',
+        category: 'tickets',
+        title: 'Stale tickets',
+        detail: `${items}. Consider unblocking or reassigning.`,
+      });
     }
 
-    if (crossRef && crossRef.meetingRatio > 0.5 && mtg) {
-      insights.push(
-        `Meetings consumed ${Math.round(crossRef.meetingRatio * 100)}% of your logged hours this week.`,
-      );
+    if (crossRef && crossRef.zeroCodingDays.length > 0 && git && git.totalCommits > 0) {
+      insights.push({
+        id: 'zero-coding-days',
+        severity: 'info',
+        category: 'code',
+        title: 'Zero-commit days',
+        detail: `No commits on ${crossRef.zeroCodingDays.join(', ')}.`,
+      });
+    }
+
+    if (git && git.totalCommits > 0 && git.totalPRsReviewed === 0) {
+      insights.push({
+        id: 'low-pr-reviews',
+        severity: 'info',
+        category: 'code',
+        title: 'No PR reviews',
+        detail: 'You made commits this week but reviewed 0 PRs.',
+      });
+    }
+
+    if (insights.length === 0) {
+      insights.push({
+        id: 'all-clear',
+        severity: 'positive',
+        category: 'time',
+        title: 'All clear',
+        detail: 'No issues detected this week.',
+      });
     }
 
     return insights;

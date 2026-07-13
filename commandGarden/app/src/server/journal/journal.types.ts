@@ -36,6 +36,7 @@ export interface MonthlyTimetrackingData {
   releasedDates: string[];
   unreleasedDates: string[];
   hoursByProject: { projectId: string; hours: number }[];
+  hoursByProjectActivity: { projectId: string; activity: string; hours: number }[];
 }
 
 export interface MeetingEntry {
@@ -91,6 +92,19 @@ export interface GitData {
   repos: GitRepoActivity[];
 }
 
+// --- Insights ---
+
+export type InsightSeverity = 'action' | 'warning' | 'info' | 'positive';
+export type InsightCategory = 'time' | 'meetings' | 'tickets' | 'code';
+
+export interface Insight {
+  id: string;
+  severity: InsightSeverity;
+  category: InsightCategory;
+  title: string;
+  detail: string;
+}
+
 // --- Cross-reference ---
 
 export interface CrossRefData {
@@ -120,7 +134,7 @@ export interface JournalResponse {
   jira: JiraData | null;
   git: GitData | null;
   crossRef: CrossRefData | null;
-  insights: string[];
+  insights: Insight[];
   errors: string[];
   monthlyTimetracking: MonthlyTimetrackingData | null;
   cache?: JournalCacheInfo;

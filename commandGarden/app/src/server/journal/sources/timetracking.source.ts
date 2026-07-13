@@ -16,6 +16,7 @@ interface TtRow {
   date?: string;
   status?: string;
   projectId?: string;
+  activity?: string;
   hours?: number | null;
 }
 
@@ -144,14 +145,29 @@ export class TimetrackingSource {
     const unreleasedDates = workingDatesElapsed.filter((d) => !releasedDateSet.has(d));
 
     const hoursMap = new Map<string, number>();
+    const hoursByPAMap = new Map<string, { projectId: string; activity: string; hours: number }>();
     for (const row of raw) {
       if (!row.projectId) continue;
       const hrs = typeof row.hours === 'number' ? row.hours : 0;
       hoursMap.set(row.projectId, (hoursMap.get(row.projectId) ?? 0) + hrs);
+
+      if (row.activity) {
+        const paKey = `${row.projectId}\0${row.activity}`;
+        const existing = hoursByPAMap.get(paKey);
+        if (existing) {
+          existing.hours += hrs;
+        } else {
+          hoursByPAMap.set(paKey, { projectId: row.projectId, activity: row.activity, hours: hrs });
+        }
+      }
     }
     const hoursByProject = [...hoursMap.entries()].map(([projectId, hours]) => ({
       projectId,
       hours: Math.round(hours * 100) / 100,
+    }));
+    const hoursByProjectActivity = [...hoursByPAMap.values()].map((e) => ({
+      ...e,
+      hours: Math.round(e.hours * 100) / 100,
     }));
 
     return {
@@ -161,6 +177,7 @@ export class TimetrackingSource {
       releasedDates,
       unreleasedDates,
       hoursByProject,
+      hoursByProjectActivity,
     };
   }
 }
