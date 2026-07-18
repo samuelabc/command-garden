@@ -36,9 +36,9 @@ The CLI is a single published npm package that ships three private workspace pac
 
 - [ ] All tests pass: `npm test` (from monorepo root)
 - [ ] All packages build: `npm run build` (from monorepo root)
-- [ ] Version is bumped in `cli/package.json`
+- [ ] Version is bumped in `src/cli/package.json`
 - [ ] `CHANGELOG.md` is updated (if maintained)
-- [ ] Tarball contents look correct: `npm pack --dry-run` (from `cli/`)
+- [ ] Tarball contents look correct: `npm pack --dry-run` (from `src/cli/`)
 
 ---
 
@@ -47,7 +47,6 @@ The CLI is a single published npm package that ships three private workspace pac
 ### 1. Build all packages
 
 ```bash
-cd commandGarden
 npm install
 npm run build
 ```
@@ -57,7 +56,7 @@ This builds in dependency order: `shared` -> `daemon` -> `cli` -> `chrome` -> `a
 ### 2. Verify the tarball
 
 ```bash
-cd cli
+cd src/cli
 npm pack --dry-run
 ```
 
@@ -109,10 +108,10 @@ Follow [semver](https://semver.org/):
 | New feature, new command | minor | Added `cg audit export --format parquet` |
 | Bug fix, dependency update | patch | Fixed `cg up` race condition |
 
-Bump the version in `cli/package.json`:
+Bump the version in `src/cli/package.json`:
 
 ```bash
-cd cli
+cd src/cli
 npm version patch   # or minor, or major
 ```
 
@@ -127,17 +126,17 @@ This updates `package.json` and creates a git tag.
 The bundled packages are missing. This usually means the `prepack` script did not run.
 
 ```bash
-cd cli
+cd src/cli
 node scripts/prepare-bundle.mjs   # manually stage bundled packages
 npm pack --dry-run                 # verify they appear in the tarball
 ```
 
 ### Tarball is too large
 
-Check that `daemon/package.json`, `app/package.json`, and `shared/package.json` all have `"files": ["dist"]`. Without this, source files and tests get bundled.
+Check that `src/daemon/package.json`, `src/app/package.json`, and `src/shared/package.json` all have `"files": ["dist"]`. Without this, source files and tests get bundled.
 
 ```bash
-cd cli
+cd src/cli
 npm pack --dry-run 2>&1 | head -50
 ```
 
@@ -146,7 +145,6 @@ npm pack --dry-run 2>&1 | head -50
 Build all packages first:
 
 ```bash
-cd commandGarden
 npm run build
 ```
 
