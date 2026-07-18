@@ -10,7 +10,7 @@
 // the gap by copying each package's published files (package.json +
 // entries listed in "files") into the correct location.
 
-import { cpSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,8 +50,10 @@ for (const pkg of PACKAGES) {
   rmSync(destDir, { recursive: true, force: true });
   mkdirSync(destDir, { recursive: true });
 
-  // Copy package.json (always included)
-  cpSync(pkgJsonPath, join(destDir, 'package.json'));
+  // Write package.json without "files" field — npm otherwise filters bundled
+  // dependency contents by their own files field, excluding skills/ etc.
+  const { files: _files, ...pkgJsonWithoutFiles } = pkgJson;
+  writeFileSync(join(destDir, 'package.json'), JSON.stringify(pkgJsonWithoutFiles, null, 2) + '\n');
 
   // Copy each entry listed in "files"
   for (const f of filesToInclude) {
