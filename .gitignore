@@ -8,6 +8,7 @@ yarn.lock
 **/out/
 **/coverage/
 *.tsbuildinfo
+src/daemon/connectors/
 
 # env files (secrets)
 **/.env
