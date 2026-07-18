@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const daemonDir = join(__dirname, '..');
-const monorepoDir = join(daemonDir, '..');
+const monorepoDir = join(daemonDir, '..', '..');
 
 const srcDir = join(monorepoDir, 'connectors');
 const destDir = join(daemonDir, 'connectors');

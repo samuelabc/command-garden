@@ -16,7 +16,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const cliDir = join(__dirname, '..');
-const monorepoDir = join(cliDir, '..');
+const monorepoDir = join(cliDir, '..', '..');
+const srcPackagesDir = join(monorepoDir, 'src');
 
 const PACKAGES = ['shared', 'daemon', 'app', 'chrome'];
 
@@ -25,7 +26,7 @@ console.log('Preparing workspace packages for bundleDependencies...\n');
 let hasErrors = false;
 
 for (const pkg of PACKAGES) {
-  const srcDir = join(monorepoDir, pkg);
+  const srcDir = join(srcPackagesDir, pkg);
   const destDir = join(cliDir, 'node_modules', '@commandgarden', pkg);
 
   // Read the package's own package.json to get "files" field
@@ -64,7 +65,7 @@ for (const pkg of PACKAGES) {
 
 if (hasErrors) {
   console.error('\nBundle preparation failed. Build all packages first:');
-  console.error('  cd commandGarden && npm run build\n');
+  console.error('  npm run build\n');
   process.exit(1);
 }
 

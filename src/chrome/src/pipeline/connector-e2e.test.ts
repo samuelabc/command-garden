@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { parseConnectorYaml } from '@commandgarden/shared';
 import { PipelineRunner, type ChromeAdapter } from './runner';
 
-const CONNECTORS_DIR = join(__dirname, '../../../connectors');
+const CONNECTORS_DIR = join(__dirname, '../../../../connectors');
 
 function loadConnectorDef(filename: string) {
   const yaml = readFileSync(join(CONNECTORS_DIR, filename), 'utf-8');

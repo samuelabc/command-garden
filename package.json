@@ -2,11 +2,11 @@
   "name": "commandgarden",
   "private": true,
   "workspaces": [
-    "shared",
-    "daemon",
-    "cli",
-    "chrome",
-    "app"
+    "src/shared",
+    "src/daemon",
+    "src/cli",
+    "src/chrome",
+    "src/app"
   ],
   "scripts": {
     "test": "npm test --workspaces --if-present",

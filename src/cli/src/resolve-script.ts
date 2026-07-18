@@ -54,13 +54,13 @@ export function resolveScript(
     console.error(`  cd ${monorepoRoot} && npm install && npm run build`);
     console.error('');
     console.error('Then re-link the CLI globally:');
-    console.error(`  cd ${join(monorepoRoot, 'cli')} && npm link`);
+    console.error(`  cd ${join(monorepoRoot, 'src/cli')} && npm link`);
   } else {
     console.error('To fix this, run from the monorepo root:');
-    console.error('  cd <monorepo>/commandGarden && npm install && npm run build');
+    console.error('  cd <monorepo> && npm install && npm run build');
     console.error('');
     console.error('Then re-link the CLI globally:');
-    console.error('  cd <monorepo>/commandGarden/cli && npm link');
+    console.error('  cd <monorepo>/src/cli && npm link');
   }
 
   process.exit(1);

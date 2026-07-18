@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseConnectorYaml, validateConnectorSemantics } from './loader';
 
-const CONNECTORS_DIR = join(__dirname, '../../connectors');
+const CONNECTORS_DIR = join(__dirname, '../../../connectors');
 
 function loadConnector(filename: string) {
   const yaml = readFileSync(join(CONNECTORS_DIR, filename), 'utf-8');
