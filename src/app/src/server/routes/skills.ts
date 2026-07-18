@@ -18,10 +18,10 @@ interface Skill {
 
 function findSkillsDir(): string | null {
   const candidates = [
-    // From app/{dist,src}/server/routes/ → commandGarden/skills/
-    join(__dirname, '..', '..', '..', '..', 'skills'),
     // From app/{dist,src}/server/routes/ → app/skills/ (bundled via prepare-bundle)
     join(__dirname, '..', '..', '..', 'skills'),
+    // From app/{dist,src}/server/routes/ → monorepo root skills/ (local dev)
+    join(__dirname, '..', '..', '..', '..', '..', 'skills'),
   ];
   for (const p of candidates) {
     if (existsSync(p) && statSync(p).isDirectory()) return p;
