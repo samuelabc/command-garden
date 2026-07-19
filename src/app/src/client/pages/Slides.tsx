@@ -161,12 +161,6 @@ function SlideSolution() {
 
 const BATTERIES = [
   {
-    icon: Terminal,
-    title: 'CLI',
-    mono: 'cg run · cg list · cg inspect',
-    desc: 'Same command for humans and agents. One call in, structured JSON out.',
-  },
-  {
     icon: Server,
     title: 'Daemon',
     mono: 'Fastify :9091',
@@ -177,6 +171,12 @@ const BATTERIES = [
     title: 'Chrome Extension',
     mono: 'Manifest V3',
     desc: 'Runs inside your authenticated browser. Reads cookies, DOM, and network responses.',
+  },
+  {
+    icon: Terminal,
+    title: 'CLI',
+    mono: 'cg run · cg list · cg inspect',
+    desc: 'Same command for humans and agents. One call in, structured JSON out.',
   },
   {
     icon: Layout,
@@ -227,11 +227,31 @@ const riskVariant: Record<string, 'success' | 'warning' | 'error'> = {
 };
 
 function SlideBatteries() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { setMounted(true); });
+    });
+  }, []);
+
+  const staggerStyle = (index: number): React.CSSProperties => ({
+    transitionProperty: 'opacity, transform',
+    transitionDuration: '250ms',
+    transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+    transitionDelay: `${index * 50}ms`,
+  });
+
   return (
     <SlideShell kicker="Everything ships together" title="Batteries Included">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {BATTERIES.map(({ icon: Icon, title, mono, desc }) => (
-          <div key={title} className="border border-base-300 p-4 flex flex-col">
+        {BATTERIES.map(({ icon: Icon, title, mono, desc }, i) => (
+          <div
+            key={title}
+            className={`slide-stagger border border-base-300 p-4 flex flex-col transition-[opacity,transform] ${
+              mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+            }`}
+            style={staggerStyle(i)}
+          >
             <div className="flex items-center gap-2 mb-2">
               <Icon className="w-4 h-4 shrink-0 opacity-40" />
               <span className="font-display font-semibold text-sm">{title}</span>
@@ -243,7 +263,12 @@ function SlideBatteries() {
       </div>
 
       {/* Capability risk tiers strip */}
-      <div className="border border-base-300 p-4">
+      <div
+        className={`slide-stagger border border-base-300 p-4 transition-[opacity,transform] ${
+          mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+        style={staggerStyle(BATTERIES.length)}
+      >
         <div className="flex items-center gap-2 mb-3">
           <Fingerprint className="w-4 h-4 opacity-40" />
           <span className="font-display font-semibold text-sm">Capability risk tiers</span>
@@ -262,9 +287,86 @@ function SlideBatteries() {
   );
 }
 
+/* ─── slide 4: outro ───────────────────────────────────────── */
+
+const SHIMMER_KEYFRAMES = `
+@keyframes shimmer {
+  0%, 20%  { background-position: 100% 0; }
+  80%, 100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-stagger { transition-duration: 0ms !important; transition-delay: 0ms !important; transform: none !important; }
+  .shimmer-text { animation: none !important; background: none !important; color: inherit !important; -webkit-text-fill-color: unset !important; }
+}
+`;
+
+function SlideOutro() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { setMounted(true); });
+    });
+  }, []);
+
+  const staggerStyle = (index: number): React.CSSProperties => ({
+    transitionProperty: 'opacity, transform',
+    transitionDuration: '300ms',
+    transitionTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+    transitionDelay: `${index * 150}ms`,
+  });
+
+  return (
+    <div className="min-h-full w-full flex flex-col items-center justify-center text-center px-8 py-20 bg-[#0a0a0a]">
+      {/* Logo */}
+      <div
+        className={`slide-stagger mb-12 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+        style={staggerStyle(0)}
+      >
+        <svg width="96" height="96" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="64" cy="64" r="64" fill="#0a0a0a"/>
+          <path d="M 47 57 A 14 14 0 1 0 47 79"
+                fill="none" stroke="#a3a3a3" strokeWidth="7" strokeLinecap="round"/>
+          <path d="M 98 48 A 22 22 0 1 0 98 80 L 98 64 L 82 64"
+                fill="none" stroke="#4ade80" strokeWidth="9"
+                strokeLinejoin="round" strokeLinecap="round"/>
+        </svg>
+      </div>
+
+      {/* Title with shimmer */}
+      <h1
+        className={`slide-stagger shimmer-text font-display text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6 ${
+          mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+        style={{
+          ...staggerStyle(1),
+          background: 'linear-gradient(110deg, #fff 45%, rgba(180,220,255,0.9) 50%, #fff 55%)',
+          backgroundSize: '200% 100%',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          animation: mounted ? 'shimmer 2.5s ease-in-out infinite' : 'none',
+          animationDelay: '450ms',
+        }}
+      >
+        commandGarden
+      </h1>
+
+      {/* Subtitle */}
+      <p
+        className={`slide-stagger text-sm sm:text-base uppercase tracking-[0.15em] text-white ${
+          mounted ? 'opacity-40 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+        style={staggerStyle(2)}
+      >
+        Browser Automation for Agents and Humans
+      </p>
+    </div>
+  );
+}
+
 /* ─── slide deck ───────────────────────────────────────────── */
 
-const SLIDES = [SlideProblem, SlideSolution, SlideBatteries];
+const SLIDES = [SlideProblem, SlideSolution, SlideBatteries, SlideOutro];
 
 export default function Slides() {
   const [current, setCurrent] = useState(0);
@@ -297,6 +399,7 @@ export default function Slides() {
 
   return (
     <div className="fixed inset-0 z-50 bg-base-100 flex flex-col select-none">
+      <style dangerouslySetInnerHTML={{ __html: SHIMMER_KEYFRAMES }} />
       {/* Slide content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div
