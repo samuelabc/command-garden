@@ -1,0 +1,62 @@
+site: alice
+name: role-list
+version: "1.0"
+description: "List role assignments for a user from Alice"
+access: read
+
+domains:
+  - "alice.mercedes-benz.com"
+capabilities:
+  - navigate
+  - cookie_read
+
+args:
+  - name: userId
+    type: string
+    required: true
+    help: "User ID to look up (e.g. SATHIEN)"
+
+columns:
+  - name: roleId
+    type: string
+  - name: roleName
+    type: string
+  - name: description
+    type: string
+  - name: roleType
+    type: string
+  - name: validFrom
+    type: string
+  - name: validTo
+    type: string
+  - name: isSelfRequestable
+    type: boolean
+  - name: privileged
+    type: boolean
+  - name: dataClassification
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://alice.mercedes-benz.com/access"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: fetch
+    # Fetches up to 500 roles in a single request; users with more will be truncated
+    url: "https://alice.mercedes-benz.com/alice-proxy-v2/gems/users/${{ args.userId }}/roles?withAttachments=false&withCustomScopeLegacy=false&withCustomScopeValues=false&withTermValues=false&withFormValues=false&filter=roleDefinition.isDynamic==false&sort=+roleDefinition.name&offset=0&limit=500"
+    method: "GET"
+    headers:
+      Accept: "application/json"
+    dataPath: "roles"
+  - step: map
+    fields:
+      roleId: "${{ row.roleDefinition.id }}"
+      roleName: "${{ row.roleDefinition.name }}"
+      description: "${{ row.roleDefinition.description }}"
+      roleType: "${{ row.roleDefinition.roleType }}"
+      validFrom: "${{ row.validFrom | default('') }}"
+      validTo: "${{ row.validTo | default('') }}"
+      isSelfRequestable: "${{ row.roleDefinition.isSelfRequestable }}"
+      privileged: "${{ row.roleDefinition.privileged }}"
+      dataClassification: "${{ row.roleDefinition.dataClassification }}"

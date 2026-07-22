@@ -147,4 +147,61 @@ describe('AppStore', () => {
       expect(store.getCachedRoomAvailability('2026-07-14')!.data).toEqual([{ day: '14' }]);
     });
   });
+
+  describe('AI news cache', () => {
+    it('returns null when no cached data', () => {
+      expect(store.getCachedAiNews()).toBeNull();
+    });
+
+    it('caches and retrieves AI news', () => {
+      const data = [{ title: 'AI Post', source: 'simon' }, { title: 'Every Post', source: 'every' }];
+      store.cacheAiNews(data);
+      const cached = store.getCachedAiNews();
+      expect(cached).not.toBeNull();
+      expect(cached!.data).toEqual(data);
+      expect(cached!.fetchedAt).toBeDefined();
+    });
+
+    it('overwrites previous cache', () => {
+      store.cacheAiNews([{ title: 'Old' }]);
+      const updated = [{ title: 'New' }];
+      store.cacheAiNews(updated);
+      expect(store.getCachedAiNews()!.data).toEqual(updated);
+    });
+  });
+
+  describe('roles cache', () => {
+    it('returns null when no cached data', () => {
+      expect(store.getCachedRoles()).toBeNull();
+    });
+
+    it('caches and retrieves roles with all fields', () => {
+      const uisData = { uid: 'SATHIEN', givenName: 'Sam' };
+      const aliceData = [{ roleId: 'R1', roleName: 'Admin' }];
+      store.cacheRoles('SATHIEN', uisData, aliceData);
+      const cached = store.getCachedRoles();
+      expect(cached).not.toBeNull();
+      expect(cached!.userId).toBe('SATHIEN');
+      expect(cached!.uisData).toEqual(uisData);
+      expect(cached!.aliceData).toEqual(aliceData);
+      expect(cached!.fetchedAt).toBeDefined();
+    });
+
+    it('handles null uisData and aliceData', () => {
+      store.cacheRoles('TESTUSER', null, null);
+      const cached = store.getCachedRoles();
+      expect(cached).not.toBeNull();
+      expect(cached!.userId).toBe('TESTUSER');
+      expect(cached!.uisData).toBeNull();
+      expect(cached!.aliceData).toBeNull();
+    });
+
+    it('overwrites previous cache', () => {
+      store.cacheRoles('USER1', { uid: 'USER1' }, []);
+      store.cacheRoles('USER2', { uid: 'USER2' }, [{ roleId: 'R2' }]);
+      const cached = store.getCachedRoles();
+      expect(cached!.userId).toBe('USER2');
+      expect(cached!.uisData).toEqual({ uid: 'USER2' });
+    });
+  });
 });

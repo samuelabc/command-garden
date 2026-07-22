@@ -68,6 +68,10 @@ const APP_ENDPOINTS: Endpoint[] = [
   { method: 'POST', path: '/api/journal/generate', auth: false, desc: 'Generate a dev journal for a given week.', body: '{ weekStart: string }' },
   { method: 'GET', path: '/api/security-news/cache', auth: false, desc: 'Get cached security news articles.' },
   { method: 'POST', path: '/api/security-news/cache', auth: false, desc: 'Store security news in cache.', body: '{ data }' },
+  { method: 'GET', path: '/api/ai-news/cache', auth: false, desc: 'Get cached AI news articles.' },
+  { method: 'POST', path: '/api/ai-news/cache', auth: false, desc: 'Store AI news in cache.', body: '{ data }' },
+  { method: 'GET', path: '/api/roles/cache', auth: false, desc: 'Get cached user roles and identity.' },
+  { method: 'POST', path: '/api/roles/cache', auth: false, desc: 'Store user roles and identity in cache.', body: '{ userId, uisData, aliceData }' },
 ];
 
 const CLI_COMMANDS: CliCmd[] = [

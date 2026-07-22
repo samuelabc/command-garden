@@ -46,6 +46,17 @@ export const api = {
     request<{ ok: boolean }>('POST', '/api/journal/source-prefs', sources),
   getCachedSecurityNews: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/security-news/cache'),
   cacheSecurityNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/security-news/cache', { data }),
+  getCachedAiNews: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/ai-news/cache'),
+  cacheAiNews: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/ai-news/cache', { data }),
+  getCachedRoles: () => request<{
+    ok: boolean;
+    userId: string | null;
+    uisData: Record<string, unknown> | null;
+    aliceData: Record<string, unknown>[] | null;
+    fetchedAt: string | null;
+  }>('GET', '/api/roles/cache'),
+  cacheRoles: (payload: { userId: string; uisData: Record<string, unknown> | null; aliceData: Record<string, unknown>[] | null }) =>
+    request<{ ok: boolean }>('POST', '/api/roles/cache', payload),
   getCachedTrustedPeers: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/trusted-peers/cache'),
   cacheTrustedPeers: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/trusted-peers/cache', { data }),
   getCachedRoomAvailability: (date: string) => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', `/api/room-availability/cache?date=${date}`),

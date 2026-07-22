@@ -1,6 +1,8 @@
 ## Learned User Preferences
 
 - Place code packages (`app`, `cli`, `chrome`, `daemon`, `shared`) under `src/`; keep `docs/`, `skills/`, and `connectors/` at the repo root.
+- Author new built-in connectors using `skills/connector-authoring/SKILL.md` (and `RECON-PLAYBOOK.md` when needed).
+- When adding built-in connectors, update `README.md` and `skills/cg/SKILL.md` (connector table, usage section, and CLI-from-source examples).
 
 ## Learned Workspace Facts
 
@@ -11,3 +13,5 @@
 - Root `connectors/` holds built-in YAML connectors; the daemon build copies them to `src/daemon/connectors/` (gitignored artifact).
 - Root `skills/` holds agent skills; `src/cli/scripts/prepare-bundle.mjs` copies them into the bundled app and strips the `files` field from bundled dependency `package.json` files so npm includes `skills/` in the CLI tarball.
 - Build order: shared → daemon → cli → chrome → app (`npm run build` from root).
+- Built-in connector files are `{site}-{name}.yaml` (plus optional `.eval.js`) in root `connectors/`; runtime id is `{site}/{name}`.
+- Connectors using `js_evaluate` must be approved before first run: `cg config set security.approvedHighRisk {site}/{name}`.

@@ -8,6 +8,10 @@ const APP_ROUTES: Record<string, string> = {
   'saba/pending-training': '/apps/saba',
   'tokenmaster/clients-list': '/apps/trusted-peer-expiry',
   'tokenmaster/client-trustedby': '/apps/trusted-peer-expiry',
+  'alice/role-list': '/apps/roles',
+  'uis/mic-user-information': '/apps/roles',
+  'simonwillison/blog': '/apps/ai-news',
+  'every/newsletter': '/apps/ai-news',
 };
 
 export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): void {

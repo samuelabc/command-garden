@@ -1,0 +1,40 @@
+site: every
+name: newsletter
+version: "1.0"
+description: "Latest blog posts from Every — AI-focused newsletter"
+access: read
+
+domains:
+  - "every.to"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: sort
+    type: string
+    required: false
+    default: ""
+    enum: ["", "popular", "newest", "oldest"]
+    help: "Sort order: popular, newest, oldest (default: newest)"
+
+columns:
+  - name: title
+    type: string
+  - name: url
+    type: string
+  - name: published
+    type: string
+  - name: author
+    type: string
+  - name: summary
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://every.to/newsletter?sort=${{ args.sort }}"
+  - step: wait
+    selector: "body"
+    timeout: 15000
+  - step: js_evaluate
+    file: every-newsletter.eval.js

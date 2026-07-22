@@ -41,7 +41,7 @@ export class PipelineContext {
   applyFilter(field: string, operator: string, value: string): void {
     this.data = this.data.filter(row => {
       const actual = row[field];
-      const expected = isNaN(Number(value)) ? value : Number(value);
+      const expected = value === '' || isNaN(Number(value)) ? value : Number(value);
       switch (operator) {
         case 'eq': return actual === expected;
         case 'ne': return actual !== expected;

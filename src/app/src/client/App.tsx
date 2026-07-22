@@ -12,7 +12,9 @@ import Timetracking from './pages/Timetracking';
 import Rooms from './pages/Rooms';
 import Journal from './pages/Journal';
 import SecurityNews from './pages/SecurityNews';
+import AiNews from './pages/AiNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
+import Roles from './pages/Roles';
 import Architecture from './pages/Architecture';
 import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
@@ -22,6 +24,7 @@ import {
   LayoutDashboard, BookOpen, Clock, DoorOpen, NotebookPen,
   ShieldCheck, Newspaper, Plug, ScrollText, Settings,
   Lightbulb, Terminal, Sparkles, Layers, Network, Presentation,
+  UserCheck, Astroid
 } from 'lucide-react';
 
 const Slides = lazy(() => import('./pages/Slides'));
@@ -236,9 +239,11 @@ function Layout() {
             <NavLink to="/apps/rooms" className={navClassIndented}><DoorOpen className="w-4 h-4 shrink-0" />Room Availability</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Productivity</div>
             <NavLink to="/apps/journal" className={navClassIndented}><NotebookPen className="w-4 h-4 shrink-0" />Dev Journal</NavLink>
+            <NavLink to="/apps/roles" className={navClassIndented}><UserCheck className="w-4 h-4 shrink-0" />Roles</NavLink>
             <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}><ShieldCheck className="w-4 h-4 shrink-0" />Trusted Peer Expiry</NavLink>
-            <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Security</div>
+            <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Intelligence</div>
             <NavLink to="/apps/security-news" className={navClassIndented}><Newspaper className="w-4 h-4 shrink-0" />Security News</NavLink>
+            <NavLink to="/apps/ai-news" className={navClassIndented}><Astroid className="w-4 h-4 shrink-0" />AI News</NavLink>
 
             <div className="px-3 pt-6 pb-1.5 font-mono text-[0.6rem] font-medium opacity-70 uppercase tracking-[0.12em]">Platform</div>
             <NavItemWithSections to="/connectors" label="Connectors" icon={<Plug className="w-4 h-4 shrink-0" />} sections={connectorSections} />
@@ -301,6 +306,8 @@ export default function App() {
           <Route path="apps/rooms" element={<Rooms />} />
           <Route path="apps/journal" element={<Journal />} />
           <Route path="apps/security-news" element={<SecurityNews />} />
+          <Route path="apps/ai-news" element={<AiNews />} />
+          <Route path="apps/roles" element={<Roles />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
           <Route path="architecture" element={<Architecture />} />
           <Route path="api-reference" element={<ApiReference />} />

@@ -145,4 +145,90 @@ describe('routes', () => {
       expect(body.error).toBe('Extension not connected');
     });
   });
+
+  describe('AI news cache', () => {
+    it('GET returns null when empty', async () => {
+      const resp = await app.inject({ method: 'GET', url: '/api/ai-news/cache' });
+      expect(resp.statusCode).toBe(200);
+      expect(JSON.parse(resp.payload)).toEqual({ ok: true, data: null, fetchedAt: null });
+    });
+
+    it('POST stores and GET retrieves data', async () => {
+      const data = [{ title: 'Post 1', source: 'simon' }, { title: 'Post 2', source: 'every' }];
+      const postResp = await app.inject({
+        method: 'POST', url: '/api/ai-news/cache',
+        payload: { data },
+      });
+      expect(postResp.statusCode).toBe(200);
+      expect(JSON.parse(postResp.payload).ok).toBe(true);
+
+      const getResp = await app.inject({ method: 'GET', url: '/api/ai-news/cache' });
+      const body = JSON.parse(getResp.payload);
+      expect(body.ok).toBe(true);
+      expect(body.data).toEqual(data);
+      expect(body.fetchedAt).toBeDefined();
+    });
+
+    it('POST returns 400 without data array', async () => {
+      const resp = await app.inject({
+        method: 'POST', url: '/api/ai-news/cache',
+        payload: {},
+      });
+      expect(resp.statusCode).toBe(400);
+      expect(JSON.parse(resp.payload).ok).toBe(false);
+    });
+  });
+
+  describe('Roles cache', () => {
+    it('GET returns null fields when empty', async () => {
+      const resp = await app.inject({ method: 'GET', url: '/api/roles/cache' });
+      expect(resp.statusCode).toBe(200);
+      expect(JSON.parse(resp.payload)).toEqual({ ok: true, userId: null, uisData: null, aliceData: null, fetchedAt: null });
+    });
+
+    it('POST stores and GET retrieves roles data', async () => {
+      const payload = {
+        userId: 'SATHIEN',
+        uisData: { uid: 'SATHIEN', givenName: 'Sam', department: 'IT' },
+        aliceData: [{ roleId: 'R1', roleName: 'Admin' }],
+      };
+      const postResp = await app.inject({
+        method: 'POST', url: '/api/roles/cache',
+        payload,
+      });
+      expect(postResp.statusCode).toBe(200);
+      expect(JSON.parse(postResp.payload).ok).toBe(true);
+
+      const getResp = await app.inject({ method: 'GET', url: '/api/roles/cache' });
+      const body = JSON.parse(getResp.payload);
+      expect(body.ok).toBe(true);
+      expect(body.userId).toBe('SATHIEN');
+      expect(body.uisData).toEqual(payload.uisData);
+      expect(body.aliceData).toEqual(payload.aliceData);
+      expect(body.fetchedAt).toBeDefined();
+    });
+
+    it('POST stores with null uisData and aliceData', async () => {
+      const postResp = await app.inject({
+        method: 'POST', url: '/api/roles/cache',
+        payload: { userId: 'TESTUSER', uisData: null, aliceData: null },
+      });
+      expect(postResp.statusCode).toBe(200);
+
+      const getResp = await app.inject({ method: 'GET', url: '/api/roles/cache' });
+      const body = JSON.parse(getResp.payload);
+      expect(body.userId).toBe('TESTUSER');
+      expect(body.uisData).toBeNull();
+      expect(body.aliceData).toBeNull();
+    });
+
+    it('POST returns 400 without userId', async () => {
+      const resp = await app.inject({
+        method: 'POST', url: '/api/roles/cache',
+        payload: { uisData: null, aliceData: null },
+      });
+      expect(resp.statusCode).toBe(400);
+      expect(JSON.parse(resp.payload).ok).toBe(false);
+    });
+  });
 });

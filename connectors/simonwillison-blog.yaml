@@ -1,0 +1,39 @@
+site: simonwillison
+name: blog
+version: "1.0"
+description: "Latest blog posts from Simon Willison's Weblog"
+access: read
+
+domains:
+  - "simonwillison.net"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: tag
+    type: string
+    required: false
+    default: ""
+    help: "Filter by tag (e.g. 'ai', 'python', 'llms')"
+
+columns:
+  - name: title
+    type: string
+  - name: url
+    type: string
+  - name: published
+    type: string
+  - name: summary
+    type: string
+  - name: tags
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://simonwillison.net/"
+  - step: wait
+    selector: "body"
+    timeout: 15000
+  - step: js_evaluate
+    file: simonwillison-blog.eval.js

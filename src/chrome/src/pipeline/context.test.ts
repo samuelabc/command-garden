@@ -50,4 +50,15 @@ describe('PipelineContext', () => {
     ctx.applyFilter('score', 'gt', '10');
     expect(ctx.getData()).toHaveLength(2);
   });
+
+  it('contains filter with empty string matches all rows', () => {
+    const ctx = new PipelineContext({});
+    ctx.setData([
+      { tags: 'ai, python' },
+      { tags: 'security' },
+      { tags: 'llms, rust' },
+    ]);
+    ctx.applyFilter('tags', 'contains', '');
+    expect(ctx.getData()).toHaveLength(3);
+  });
 });

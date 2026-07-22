@@ -122,7 +122,7 @@ The GUI provides a browser-based interface at `http://127.0.0.1:9092` with:
 
 - **Dashboard** — system health cards (daemon, extension, connectors) and recent activity
 - **Connectors** — browse all connectors with approval status badges, inline approve action for high-risk connectors, run any connector via an auto-generated form
-- **App pages** — dedicated UI for Time Tracking (month picker, summary cards, grouped-by-project table), Room Availability (room combobox, timeline bar), and Security News (aggregated feed from Socket, Wiz, and tl;dr sec with caching, source indicators, and date range filtering)
+- **App pages** — dedicated UI for Time Tracking (month picker, summary cards, grouped-by-project table), Room Availability (room combobox, timeline bar), Security News (aggregated feed from Socket, Wiz, and tl;dr sec with caching, source indicators, and date range filtering), AI News (aggregated feed from Simon Willison's blog and Every newsletter with caching and date range filtering), and Roles (user identity from UIS + role assignments from Alice with search, expandable details, and caching)
 - **Audit Log** — filterable, paginated event viewer with expandable pipeline step detail
 - **Configuration** — task-oriented settings page with Server, Connector Security (per-connector approval table with toggles), Connector Sources, Audit & Retention, and Output sections; includes a raw YAML editor and sticky save bar with dirty tracking
 - **Setup Guide** — interactive checklist with live status polling
@@ -148,11 +148,15 @@ timetracking/report            read    timetracking.mercedes…       navigate, 
 teams/room-availability        read    outlook.cloud.microsoft.…    navigate, js_evaluate
 tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, cookie_read
 tokenmaster/client-trustedby   read    tma.query.api.dvb.corp…      navigate, cookie_read
+uis/mic-user-information       read    uis.query.api.dvb.corp…      navigate, js_evaluate
+alice/role-list                read    alice.mercedes-benz.com      navigate, cookie_read
+every/newsletter               read    every.to                     navigate, js_evaluate
 gcs/kb-pages                   read    pages.i.mercedes-benz.com    navigate, dom_read, dom_write
 gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, dom_read
 socket/security-news           read    socket.dev                   navigate, cookie_read
 wiz/blog-security              read    www.wiz.io                   navigate, js_evaluate
 tldrsec/newsletter             read    tldrsec.com                  navigate, js_evaluate
+simonwillison/blog             read    simonwillison.net            navigate, js_evaluate
 ```
 
 ### Timetracking report
@@ -195,6 +199,24 @@ cg run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C95
 ```
 
 This connector calls the TokenMaster API (`/v2/clients/{clientid}/trustedby`) to retrieve the list of clients that trust a given client. Returns `id`, `name`, `is_onboard_client`, `idDisplay`, and `expiry_date`. Same declarative `navigate → wait → fetch → map` pipeline as `clients-list`.
+
+### UIS user information
+
+```bash
+cg run uis/mic-user-information --userId SATHIEN --format json
+```
+
+This connector fetches full user information from the UIS API (`/v1/users/prod/{userId}`) using your browser session cookies. Returns a single row with `uid`, `givenName`, `familyName`, `mail`, `department`, `supervisor`, `usertype`, `employeeType`, `managementlevel`, `active`, `isClient`, plus comma-separated `groups` (AD group memberships) and `scopes` (UIS scope IDs).
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### Alice role list
+
+```bash
+cg run alice/role-list --userId SATHIEN --format json
+```
+
+This connector fetches role assignments for a user from the Alice access management portal (`/alice-proxy-v2/gems/users/{userId}/roles`). Returns `roleId`, `roleName`, `description`, `roleType`, `validFrom`, `validTo`, `isSelfRequestable`, `privileged`, and `dataClassification`. Uses the declarative `navigate → wait → fetch → map` pipeline with `cookie_read` capability — no `js_evaluate`.
 
 ### Room availability (Teams/Outlook)
 
@@ -268,6 +290,38 @@ cg run tldrsec/newsletter --format table
 The **tl;dr sec** connector navigates to `https://tldrsec.com/t/Newsletter` (a Beehiiv-hosted Remix app), reads the embedded `__remixContext` loader data, and extracts newsletter issues with title, slug, URL, publish date, excerpt, authors, and tags. Returns the first page of results (~12 issues).
 
 > **Note:** `wiz/blog-security` and `tldrsec/newsletter` use `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### Simon Willison's blog
+
+```bash
+# All recent posts
+cg run simonwillison/blog --format table
+
+# Filter by tag
+cg run simonwillison/blog --tag ai --format table
+cg run simonwillison/blog --tag python --format json
+```
+
+This connector fetches the Atom feed from `https://simonwillison.net/atom/everything/`, parses the XML entries, and returns blog posts with title, URL, publish date, a plain-text summary (truncated to 300 chars), and comma-separated tags. The optional `--tag` argument filters posts by tag (e.g. `ai`, `python`, `llms`).
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### Every newsletter
+
+```bash
+# Latest posts (default: newest first)
+cg run every/newsletter --format table
+
+# Sort by popularity
+cg run every/newsletter --sort popular --format table
+
+# Sort oldest first
+cg run every/newsletter --sort oldest --format json
+```
+
+This connector scrapes blog posts from `https://every.to/newsletter`, extracting title, URL, publish date, author, and a plain-text summary (truncated to 300 chars). It tries Next.js `__NEXT_DATA__` extraction first, falling back to DOM scraping. The optional `--sort` argument controls sort order (`popular`, `newest`, `oldest`).
+
+> **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
 ---
 
@@ -601,11 +655,17 @@ node src/cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node src/cli/dist/main.js run tokenmaster/clients-list --format table
 node src/cli/dist/main.js run tokenmaster/clients-list --region emea --format table
 node src/cli/dist/main.js run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --format table
+node src/cli/dist/main.js run uis/mic-user-information --userId SATHIEN --format json
+node src/cli/dist/main.js run alice/role-list --userId SATHIEN --format json
 node src/cli/dist/main.js run gcs/kb-pages --format table
 node src/cli/dist/main.js run gcs/kb-content --path general-security/edr/ --format json
 node src/cli/dist/main.js run socket/security-news --format table
 node src/cli/dist/main.js run wiz/blog-security --format table
 node src/cli/dist/main.js run tldrsec/newsletter --format table
+node src/cli/dist/main.js run simonwillison/blog --format table
+node src/cli/dist/main.js run simonwillison/blog --tag ai --format json
+node src/cli/dist/main.js run every/newsletter --format table
+node src/cli/dist/main.js run every/newsletter --sort popular --format json
 ```
 
 ### Linking globally (optional)

@@ -42,6 +42,8 @@ Errors return plain text starting with `Error:` — not JSON.
 | Key | Description | Args |
 |-----|-------------|------|
 | `ado/git-commits` | ADO Git commits & PRs for a date range | `org`, `project`, `repo`, `fromDate`, `toDate`, `author` |
+| `alice/role-list` | Role assignments for a user from Alice | `userId` |
+| `every/newsletter` | Latest blog posts from Every | `sort` (optional) |
 | `gcs/kb-pages` | GCS Knowledge Base page index | — |
 | `gcs/kb-content` | Retrieve one GCS KB page as Markdown | `path` |
 | `jira/my-tickets` | Jira tickets assigned to user | `fromDate`, `toDate`, `assignee` |
@@ -55,6 +57,8 @@ Errors return plain text starting with `Error:` — not JSON.
 | `tldrsec/newsletter` | tl;dr sec newsletter issues | — |
 | `tokenmaster/client-trustedby` | Clients that trust a given client | `clientid`, `region` |
 | `tokenmaster/clients-list` | Clients managed by current user | `region` |
+| `uis/mic-user-information` | User identity, department, groups, and scopes from UIS | `userId` |
+| `simonwillison/blog` | Simon Willison's blog posts (Atom feed) | `tag` (optional) |
 | `wiz/blog-security` | Wiz security blog posts | `tag` (optional) |
 
 ## Errors

@@ -1,0 +1,54 @@
+site: uis
+name: mic-user-information
+version: "1.0"
+description: "Show full user identity, department, groups, and scopes from UIS"
+access: read
+
+domains:
+  - "uis.query.api.dvb.corpinter.net"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: userId
+    type: string
+    required: true
+    help: "User ID to look up (e.g. SATHIEN)"
+
+columns:
+  - name: uid
+    type: string
+  - name: givenName
+    type: string
+  - name: familyName
+    type: string
+  - name: mail
+    type: string
+  - name: department
+    type: string
+  - name: supervisor
+    type: string
+  - name: usertype
+    type: string
+  - name: employeeType
+    type: string
+  - name: managementlevel
+    type: string
+  - name: active
+    type: boolean
+  - name: isClient
+    type: boolean
+  - name: groups
+    type: string
+  - name: scopes
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://uis.query.api.dvb.corpinter.net/v1/users/prod/${{ args.userId }}"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: "uis-mic-user-information.eval.js"
