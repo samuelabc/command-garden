@@ -363,6 +363,10 @@ async function dismissRoom() {
   await sleep(200);
 }
 
+function scheduleItemKey(it) {
+  return it.id || JSON.stringify([it.startTime, it.endTime, it.subject]);
+}
+
 // ── Capture schedule for the most recently added room ────────────────
 
 async function captureNewSchedule(knownIds) {
@@ -383,8 +387,8 @@ async function captureNewSchedule(knownIds) {
         if (s.error) errMsg = s.error.message || s.error.responseCode || 'unknown';
         if (s.availabilityView && s.availabilityView.length) sawView = true;
         for (const it of (s.scheduleItems || [])) {
-          const key = it && it.id ? it.id : JSON.stringify(it && [it.startTime, it.endTime, it.subject]);
-          if (it) itemsById.set(key, it);
+          if (!it) continue;
+          itemsById.set(scheduleItemKey(it), it);
         }
       }
     }
@@ -396,11 +400,13 @@ async function captureNewSchedule(knownIds) {
 
 /**
  * Batch capture: wait for getSchedule responses covering all expected emails.
+ * Accumulates scheduleItems across multiple responses per room (OWA fires a
+ * new getSchedule each time a room is added; later responses may carry an
+ * empty scheduleItems array for previously-added rooms).
  * Returns a Map of email (lowercased) -> { schedule, items, sawView, errMsg }.
  */
 async function captureBatchSchedules(expectedEmails, knownIds) {
   const byEmail = new Map();
-
   for (let i = 0; i < 80; i++) {
     await sleep(100);
     for (const pair of readCapture()) {
@@ -408,16 +414,36 @@ async function captureBatchSchedules(expectedEmails, knownIds) {
         if (knownIds.has(id)) continue;
         const idLower = id.toLowerCase();
         if (!expectedEmails.has(idLower)) continue;
-        const items = (s.scheduleItems || []).filter(Boolean);
-        byEmail.set(idLower, {
-          schedule: s,
-          items,
-          sawView: !!(s.availabilityView && s.availabilityView.length),
-          errMsg: s.error ? (s.error.message || s.error.responseCode || 'unknown') : null,
-        });
+
+        const existing = byEmail.get(idLower);
+        const sawView = !!(s.availabilityView && s.availabilityView.length);
+        const errMsg = s.error ? (s.error.message || s.error.responseCode || 'unknown') : null;
+
+        if (existing) {
+          existing.schedule = s;
+          if (sawView) existing.sawView = true;
+          if (errMsg && !existing.errMsg) existing.errMsg = errMsg;
+          for (const it of (s.scheduleItems || [])) {
+            if (!it) continue;
+            const key = scheduleItemKey(it);
+            if (!existing.itemsById.has(key)) existing.itemsById.set(key, it);
+          }
+        } else {
+          const itemsById = new Map();
+          for (const it of (s.scheduleItems || [])) {
+            if (!it) continue;
+            itemsById.set(scheduleItemKey(it), it);
+          }
+          byEmail.set(idLower, { schedule: s, itemsById, sawView, errMsg });
+        }
       }
     }
-    if (expectedEmails.size > 0 && [...expectedEmails].every(e => byEmail.has(e))) break;
+    if (expectedEmails.size > 0 && [...expectedEmails].every(e => byEmail.get(e)?.sawView)) break;
+  }
+
+  for (const entry of byEmail.values()) {
+    entry.items = [...entry.itemsById.values()];
+    delete entry.itemsById;
   }
 
   return byEmail;

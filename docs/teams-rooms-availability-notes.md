@@ -47,6 +47,10 @@ When typing into the room finder for the **first** room (fresh input opened via 
 
 The **reuse path** (subsequent rooms via `reactType` on an already-open input) already had `await sleep(1000)`. The first-room path was missing it.
 
+### Batch capture accumulation
+
+In batch mode, OWA fires a new `getSchedule` response each time a room is added. Later responses may carry an **empty `scheduleItems` array** for previously-added rooms while including items only for the most recently added room. The eval accumulates items across all responses per `scheduleId`, deduplicating by item `id` (or a composite key of `[startTime, endTime, subject]`), so that earlier rooms' data is never lost to a later overwrite.
+
 ### Capture ordering matters
 
 The `getSchedule` GraphQL response must be captured **before** the remove step. If remove runs first, the response may arrive during the remove sleep period and get lost when `readCapture()` clears the buffer for the next room.
