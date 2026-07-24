@@ -8,6 +8,8 @@ export interface GoalProgress {
   workingDaysTotal: number;
   workingDaysElapsed: number;
   workingDaysRemaining: number;
+  expectedHours: number;
+  surplusHours: number;
 }
 
 function isWeekday(date: Date): boolean {
@@ -23,6 +25,18 @@ export function workingDaysInMonth(month: string): number {
     if (isWeekday(new Date(y, m - 1, d))) count++;
   }
   return count;
+}
+
+export function workingDayDates(month: string): string[] {
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const dates: string[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    if (isWeekday(new Date(y, m - 1, d))) {
+      dates.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+    }
+  }
+  return dates;
 }
 
 export function workingDaysElapsed(month: string, todayStr: string): number {
@@ -54,6 +68,9 @@ export function computeGoalProgress(input: {
   const percentage = targetHours > 0 ? (actualHours / targetHours) * 100 : 0;
   const daysRemaining = Math.max(0, (targetHours - actualHours) / 8);
 
+  const expectedHours = wdTotal > 0 ? (targetHours / wdTotal) * wdElapsed : 0;
+  const surplusHours = actualHours - expectedHours;
+
   if (actualHours >= targetHours) {
     return {
       status: 'reached',
@@ -63,10 +80,11 @@ export function computeGoalProgress(input: {
       workingDaysTotal: wdTotal,
       workingDaysElapsed: wdElapsed,
       workingDaysRemaining: wdRemaining,
+      expectedHours,
+      surplusHours,
     };
   }
 
-  const expectedHours = wdTotal > 0 ? (targetHours / wdTotal) * wdElapsed : 0;
   const hoursPerDayNeeded = wdRemaining > 0 ? Math.max(0, (targetHours - actualHours) / wdRemaining) : 0;
 
   let status: PaceStatus;
@@ -86,5 +104,7 @@ export function computeGoalProgress(input: {
     workingDaysTotal: wdTotal,
     workingDaysElapsed: wdElapsed,
     workingDaysRemaining: wdRemaining,
+    expectedHours,
+    surplusHours,
   };
 }

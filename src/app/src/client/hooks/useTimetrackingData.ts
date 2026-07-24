@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { api, type Goal, type ProjectActivity, type RunResponse } from '../api';
+import { computeGoalProgress, workingDaysInMonth, type GoalProgress } from '../lib/goals';
 
 interface ProjectGroup {
   projectId: string;
@@ -182,6 +183,38 @@ export function useTimetrackingData(month: string, result: RunResponse | null) {
     return Array.from(map.values());
   }, [rows]);
 
+  // Per-day hours grouped by (projectId, activity) for sparklines
+  const dailyHoursByGoal = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    for (const row of rows) {
+      const pid = String(row.projectId ?? '');
+      const act = String(row.activity ?? '');
+      const date = String(row.date ?? '');
+      const hrs = Number(row.hours ?? 0);
+      if (!pid || !act || !date) continue;
+      const key = `${pid}\0${act}`;
+      let dateMap = map.get(key);
+      if (!dateMap) {
+        dateMap = new Map();
+        map.set(key, dateMap);
+      }
+      dateMap.set(date, (dateMap.get(date) ?? 0) + hrs);
+    }
+    return map;
+  }, [rows]);
+
+  // Per-day total hours across all projects (for calendar strip)
+  const dailyTotalHours = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      const date = String(row.date ?? '');
+      const hrs = Number(row.hours ?? 0);
+      if (!date) continue;
+      map.set(date, (map.get(date) ?? 0) + hrs);
+    }
+    return map;
+  }, [rows]);
+
   // Build allCombos from cached projects (all available), falling back to report data
   const allCombos = useMemo(() => {
     return allProjects.length > 0
@@ -190,6 +223,38 @@ export function useTimetrackingData(month: string, result: RunResponse | null) {
   }, [allProjects, activityHours]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Aggregate goal stats for summary bar
+  const goalStats = useMemo(() => {
+    if (goals.length === 0) {
+      return { onTrack: 0, total: 0, bookedHours: 0, targetHours: 0, workingDaysLeft: 0, avgHoursPerDay: 0 };
+    }
+    const wdTotal = workingDaysInMonth(month);
+    const progresses: { progress: GoalProgress; goal: Goal; actual: number }[] = goals.map((g) => {
+      const entry = activityHours.find((a) => a.projectId === g.projectId && a.activity === g.activity);
+      const actual = entry?.totalHours ?? 0;
+      return {
+        progress: computeGoalProgress({ targetHours: g.targetHours, actualHours: actual, month, today: todayStr }),
+        goal: g,
+        actual,
+      };
+    });
+    const onTrack = progresses.filter((p) => p.progress.status === 'reached' || p.progress.status === 'on_track').length;
+    const bookedHours = progresses.reduce((sum, p) => sum + p.actual, 0);
+    const targetHours = progresses.reduce((sum, p) => sum + p.goal.targetHours, 0);
+    const wdRemaining = progresses.length > 0 ? progresses[0].progress.workingDaysRemaining : 0;
+    const hoursRemaining = Math.max(0, targetHours - bookedHours);
+    const avgHoursPerDay = wdRemaining > 0 ? hoursRemaining / wdRemaining : 0;
+    return {
+      onTrack,
+      total: goals.length,
+      bookedHours,
+      targetHours,
+      workingDaysLeft: wdRemaining,
+      avgHoursPerDay,
+      workingDaysTotal: wdTotal,
+    };
+  }, [goals, activityHours, month, todayStr]);
 
   return {
     goals,
@@ -204,6 +269,9 @@ export function useTimetrackingData(month: string, result: RunResponse | null) {
     draftCount,
     workingDayCount,
     activityHours,
+    dailyHoursByGoal,
+    dailyTotalHours,
+    goalStats,
     allCombos,
     todayStr,
     refreshProjects,

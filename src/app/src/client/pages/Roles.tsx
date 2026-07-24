@@ -33,6 +33,8 @@ interface AliceRole {
 }
 
 type LoadPhase = 'idle' | 'loading' | 'done' | 'error';
+type SortKey = 'name' | 'validFrom' | 'validTo';
+type SortDir = 'asc' | 'desc';
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -87,6 +89,24 @@ function parseAliceRole(raw: Record<string, unknown>): AliceRole {
   };
 }
 
+function SortChevron({ active, dir }: { active: boolean; dir: SortDir }) {
+  if (!active) {
+    return (
+      <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4M8 15l4 4 4-4" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      {dir === 'asc'
+        ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+        : <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+      }
+    </svg>
+  );
+}
+
 export default function Roles() {
   const [phase, setPhase] = useState<LoadPhase>('idle');
   const [userId, setUserId] = useState('');
@@ -97,9 +117,9 @@ export default function Roles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [showGroups, setShowGroups] = useState(false);
-  const [showScopes, setShowScopes] = useState(false);
+
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
   const lastFetchedUserId = useRef<string | null>(null);
 
@@ -114,7 +134,6 @@ export default function Roles() {
       .catch(() => {});
   }, []);
 
-  // Hydrate from cache and config on mount
   useEffect(() => {
     loadConfig();
     let stale = false;
@@ -137,7 +156,6 @@ export default function Roles() {
     return () => { stale = true; };
   }, [loadConfig]);
 
-  // Reset displayed data when the user ID input diverges from last fetched
   useEffect(() => {
     const trimmed = userId.trim().toUpperCase();
     if (lastFetchedUserId.current !== null && trimmed !== lastFetchedUserId.current && phase !== 'loading') {
@@ -148,7 +166,6 @@ export default function Roles() {
       setAliceError(null);
       setFetchedAt(null);
       setIsCached(false);
-      setExpandedRows(new Set());
     }
   }, [userId, phase]);
 
@@ -162,7 +179,6 @@ export default function Roles() {
     setUserInfo(null);
     setRoles([]);
     setIsCached(false);
-    setExpandedRows(new Set());
 
     const [aliceResult, uisResult] = await Promise.allSettled([
       api.run('alice/role-list', { userId: trimmed }),
@@ -173,7 +189,6 @@ export default function Roles() {
     let newUser: UisUser | null = null;
     let anySuccess = false;
 
-    // Process Alice result
     if (aliceResult.status === 'fulfilled') {
       const resp = aliceResult.value;
       if (resp.ok && resp.data) {
@@ -186,7 +201,6 @@ export default function Roles() {
       setAliceError(aliceResult.reason instanceof Error ? aliceResult.reason.message : 'Failed to fetch roles');
     }
 
-    // Process UIS result
     if (uisResult.status === 'fulfilled') {
       const resp = uisResult.value;
       if (resp.ok && resp.data && resp.data.length > 0) {
@@ -217,15 +231,6 @@ export default function Roles() {
     }
   }, [userId]);
 
-  const toggleRow = useCallback((roleId: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(roleId)) next.delete(roleId);
-      else next.add(roleId);
-      return next;
-    });
-  }, []);
-
   const filteredRoles = useMemo(() => {
     let filtered = roles;
     if (searchQuery) {
@@ -234,12 +239,36 @@ export default function Roles() {
         (r) => r.roleName.toLowerCase().includes(q) || r.description.toLowerCase().includes(q),
       );
     }
-    return [...filtered].sort((a, b) => a.roleName.localeCompare(b.roleName));
-  }, [roles, searchQuery]);
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const toTime = (s: string) => {
+      if (!s) return Infinity;
+      const t = new Date(s).getTime();
+      return isNaN(t) ? Infinity : t;
+    };
+    return [...filtered].sort((a, b) => {
+      switch (sortKey) {
+        case 'name':
+          return dir * a.roleName.localeCompare(b.roleName);
+        case 'validFrom':
+          return dir * (toTime(a.validFrom) - toTime(b.validFrom));
+        case 'validTo':
+          return dir * (toTime(a.validTo) - toTime(b.validTo));
+        default: {
+          const _exhaustive: never = sortKey;
+          return _exhaustive;
+        }
+      }
+    });
+  }, [roles, searchQuery, sortKey, sortDir]);
 
-  const stats = useMemo(() => {
-    return { total: roles.length };
-  }, [roles]);
+  const handleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }, [sortKey]);
 
   const isAuthError = (err: string | null) =>
     err?.includes('auth_required') || err?.includes('sign in');
@@ -274,19 +303,28 @@ export default function Roles() {
     if (e.key === 'Enter') handleLoad();
   }, [handleLoad]);
 
+  const groups = useMemo(() => {
+    if (!userInfo?.groups) return [];
+    return userInfo.groups.split(',').map((g) => g.trim()).filter(Boolean);
+  }, [userInfo]);
+
+  const scopes = useMemo(() => {
+    if (!userInfo?.scopes) return [];
+    return userInfo.scopes.split(',').map((s) => s.trim()).filter(Boolean);
+  }, [userInfo]);
+
   return (
     <div className="max-w-5xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Roles</h2>
 
-      {/* Cache indicator */}
       {fetchedAt && !loading && (
         <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-3">
           {isCached ? 'Showing cached data from' : 'Last fetched'} {timeAgo(fetchedAt)}
         </div>
       )}
 
-      {/* User ID input + fetch button */}
-      <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-6">
+      {/* User ID input */}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-8">
         <label className="form-control w-full sm:w-auto sm:flex-1 sm:max-w-xs">
           <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">User ID</span>
           <input
@@ -310,7 +348,7 @@ export default function Roles() {
 
       {loading && <Spinner label="Fetching roles and user info..." />}
 
-      {/* Full error state — both sources failed */}
+      {/* Error state — both sources failed */}
       {phase === 'error' && (
         <div className="space-y-3">
           {aliceError && (
@@ -335,197 +373,216 @@ export default function Roles() {
         </div>
       )}
 
-      {/* Identity header */}
+      {/* Main content */}
       {phase === 'done' && !loading && (
-        <>
+        <div className="space-y-8">
+
+          {/* Identity panel */}
           {userInfo ? (
-            <div className="border border-base-300 p-4 mb-6">
-              <div className="flex items-center gap-3 mb-3">
-                <h3 className="font-display text-lg font-bold">
-                  {userInfo.givenName} {userInfo.familyName}
-                </h3>
-                <Badge variant={userInfo.active ? 'success' : 'error'} size="xs">
-                  {userInfo.active ? 'ACTIVE' : 'INACTIVE'}
-                </Badge>
-              </div>
+            <section>
+              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em] mb-3">Identity</div>
+              <div className="border border-base-300 p-5">
+                {/* Name + status */}
+                <div className="flex items-center gap-3 mb-4">
+                  <h3 className="font-display text-lg font-bold">
+                    {userInfo.givenName} {userInfo.familyName}
+                  </h3>
+                  <Badge variant={userInfo.active ? 'success' : 'error'} size="xs">
+                    {userInfo.active ? 'ACTIVE' : 'INACTIVE'}
+                  </Badge>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
-                <div className="flex gap-2">
-                  <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Department</span>
-                  <span>{userInfo.department || '—'}</span>
+                {/* Metadata grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm mb-5">
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Department</span>
+                    <span>{userInfo.department || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Email</span>
+                    <span className="break-all">{userInfo.mail || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Supervisor</span>
+                    <span>{userInfo.supervisor || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Type</span>
+                    <span>{userInfo.employeeType || '—'}</span>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Email</span>
-                  <span className="break-all">{userInfo.mail || '—'}</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Supervisor</span>
-                  <span>{userInfo.supervisor || '—'}</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-mono text-[0.65rem] uppercase opacity-40 min-w-[5.5rem] shrink-0 pt-0.5">Type</span>
-                  <span>{userInfo.employeeType || '—'}</span>
-                </div>
-              </div>
 
-              {/* Collapsible groups */}
-              {userInfo.groups && (
-                <div className="mt-3 border-t border-base-300/50 pt-2">
-                  <button
-                    className="flex items-center gap-1.5 font-mono text-[0.65rem] uppercase opacity-50 hover:opacity-80 transition-opacity"
-                    onClick={() => setShowGroups((p) => !p)}
-                  >
-                    <svg className={`w-3 h-3 transition-transform duration-150 ${showGroups ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                    Groups ({userInfo.groups.split(',').filter(Boolean).length})
-                  </button>
-                  {showGroups && (
-                    <div className="mt-1.5 font-mono text-xs opacity-60 leading-relaxed pl-4">
-                      {userInfo.groups}
+                {/* Groups — always visible */}
+                {groups.length > 0 && (
+                  <div className="border-t border-base-300/50 pt-4 mb-4">
+                    <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em] mb-2">
+                      Groups ({groups.length})
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* Collapsible scopes */}
-              {userInfo.scopes && (
-                <div className="mt-2 border-t border-base-300/50 pt-2">
-                  <button
-                    className="flex items-center gap-1.5 font-mono text-[0.65rem] uppercase opacity-50 hover:opacity-80 transition-opacity"
-                    onClick={() => setShowScopes((p) => !p)}
-                  >
-                    <svg className={`w-3 h-3 transition-transform duration-150 ${showScopes ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                    Scopes ({userInfo.scopes.split(',').filter(Boolean).length})
-                  </button>
-                  {showScopes && (
-                    <div className="mt-1.5 font-mono text-xs opacity-60 leading-relaxed pl-4">
-                      {userInfo.scopes}
+                    <div className="flex flex-wrap gap-1.5">
+                      {groups.map((g) => (
+                        <span
+                          key={g}
+                          className="inline-flex items-center font-mono text-[0.65rem] px-2 py-0.5 border border-base-300 text-base-content/70"
+                        >
+                          {g}
+                        </span>
+                      ))}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+
+                {/* Scopes — always visible */}
+                {scopes.length > 0 && (
+                  <div className={`${groups.length > 0 ? '' : 'border-t border-base-300/50 pt-4'}`}>
+                    <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em] mb-2">
+                      Scopes ({scopes.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {scopes.map((s) => (
+                        <span
+                          key={s}
+                          className="inline-flex items-center font-mono text-[0.65rem] px-2 py-0.5 border border-base-300 text-base-content/70"
+                        >
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
           ) : uisError ? (
-            // UIS failed but Alice succeeded — show inline error
-            isApprovalError(uisError) ? (
-              <div className="alert alert-warning mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
-                  <span className="flex-1">UIS connector requires approval to show user identity.</span>
-                  <button className="btn btn-sm btn-warning" onClick={handleApproveUis}>Approve &amp; fetch</button>
+            <section>
+              {isApprovalError(uisError) ? (
+                <div className="alert alert-warning">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+                    <span className="flex-1">UIS connector requires approval to show user identity.</span>
+                    <button className="btn btn-sm btn-warning" onClick={handleApproveUis}>Approve &amp; fetch</button>
+                  </div>
                 </div>
-              </div>
-            ) : isAuthError(uisError) ? (
-              <AuthRequiredCallout message="Sign in to UIS in Chrome to see user identity details." />
-            ) : (
-              <div className="alert alert-error mb-6">
-                <span>User identity unavailable: {uisError}</span>
-              </div>
-            )
+              ) : isAuthError(uisError) ? (
+                <AuthRequiredCallout message="Sign in to UIS in Chrome to see user identity details." />
+              ) : (
+                <div className="alert alert-error">
+                  <span>User identity unavailable: {uisError}</span>
+                </div>
+              )}
+            </section>
           ) : null}
 
           {/* Alice error when UIS succeeded */}
           {aliceError && roles.length === 0 && (
             isAuthError(aliceError)
               ? <AuthRequiredCallout message="Sign in to Alice in Chrome to see role assignments." />
-              : <div className="alert alert-error mb-6"><span>Roles unavailable: {aliceError}</span></div>
+              : <div className="alert alert-error"><span>Roles unavailable: {aliceError}</span></div>
           )}
 
-          {/* Filter bar */}
+          {/* Roles section */}
           {roles.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-              <input
-                type="text"
-                className="input input-bordered input-sm flex-1 sm:max-w-xs"
-                placeholder="Search roles..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <span className="font-mono text-xs opacity-40 sm:ml-auto">
-                {filteredRoles.length} of {stats.total} role{stats.total !== 1 ? 's' : ''}
-              </span>
-            </div>
-          )}
+            <section>
+              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.12em] mb-3">Role Assignments</div>
 
-          {/* Role table */}
-          {filteredRoles.length > 0 && (
-            <div className="border border-base-300 overflow-x-auto">
-              <table className="table table-sm w-full">
-                <thead>
-                  <tr className="border-b border-base-300">
-                    <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] w-6"></th>
-                    <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Role Name</th>
-                    <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Type</th>
-                    <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Valid From</th>
-                    <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Valid To</th>
-                    <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Priv</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRoles.map((role) => {
-                    const expanded = expandedRows.has(role.roleId);
-                    return (
-                      <tr
-                        key={role.roleId}
-                        className="border-b border-base-300/50 cursor-pointer hover:bg-base-200/50 transition-colors duration-150"
-                        onClick={() => toggleRow(role.roleId)}
-                      >
-                        <td className="align-top">
-                          <svg className={`w-3 h-3 opacity-30 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </td>
-                        <td className="align-top">
-                          <div className="text-sm font-semibold">{role.roleName}</div>
-                          {expanded && (
-                            <div className="mt-2 space-y-1.5 pb-1">
-                              {role.description && (
-                                <div className="text-xs opacity-60 max-w-lg">{role.description}</div>
-                              )}
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.6rem] opacity-40">
-                                <span>ID: {role.roleId}</span>
-                                <span>Classification: {role.dataClassification || '—'}</span>
-                                <span>Self-requestable: {role.isSelfRequestable ? 'Yes' : 'No'}</span>
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="align-top">
-                          <Badge variant="neutral" size="xs">{role.roleType || '—'}</Badge>
-                        </td>
-                        <td className="align-top font-mono text-sm">{formatDate(role.validFrom)}</td>
-                        <td className="align-top font-mono text-sm">{formatDate(role.validTo)}</td>
-                        <td className="align-top">
-                          {role.privileged
-                            ? <Badge variant="warning" size="xs">YES</Badge>
-                            : <span className="font-mono text-[0.65rem] opacity-30">—</span>}
-                        </td>
+              {/* Filter bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                <input
+                  type="text"
+                  className="input input-bordered input-sm flex-1 sm:max-w-xs"
+                  placeholder="Search roles..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <span className="font-mono text-xs opacity-40 sm:ml-auto">
+                  {filteredRoles.length} of {roles.length} role{roles.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {/* Sortable roles table */}
+              {filteredRoles.length > 0 ? (
+                <div className="border border-base-300 overflow-x-auto">
+                  <table className="table table-sm w-full">
+                    <thead>
+                      <tr className="border-b border-base-300">
+                        <th
+                          className={`font-mono text-[0.6rem] font-medium uppercase tracking-[0.1em] cursor-pointer select-none ${sortKey === 'name' ? 'opacity-60' : 'opacity-40 hover:opacity-70'}`}
+                          onClick={() => handleSort('name')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Name
+                            <SortChevron active={sortKey === 'name'} dir={sortDir} />
+                          </span>
+                        </th>
+                        <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Type</th>
+                        <th
+                          className={`font-mono text-[0.6rem] font-medium uppercase tracking-[0.1em] cursor-pointer select-none ${sortKey === 'validFrom' ? 'opacity-60' : 'opacity-40 hover:opacity-70'}`}
+                          onClick={() => handleSort('validFrom')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Valid From
+                            <SortChevron active={sortKey === 'validFrom'} dir={sortDir} />
+                          </span>
+                        </th>
+                        <th
+                          className={`font-mono text-[0.6rem] font-medium uppercase tracking-[0.1em] cursor-pointer select-none ${sortKey === 'validTo' ? 'opacity-60' : 'opacity-40 hover:opacity-70'}`}
+                          onClick={() => handleSort('validTo')}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            Valid To
+                            <SortChevron active={sortKey === 'validTo'} dir={sortDir} />
+                          </span>
+                        </th>
+                        <th className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em]">Flags</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {filteredRoles.map((role) => (
+                        <tr
+                          key={role.roleId}
+                          className={`border-b border-base-300/50 ${
+                            role.privileged ? 'bg-amber-500/[0.03]' : ''
+                          }`}
+                        >
+                          <td className="align-top py-3">
+                            <div className="text-sm font-semibold">{role.roleName}</div>
+                            {role.description && (
+                              <div className="text-xs opacity-50 mt-0.5 max-w-[40ch]">{role.description}</div>
+                            )}
+                          </td>
+                          <td className="align-top py-3">
+                            <Badge variant="neutral" size="xs">{role.roleType || '—'}</Badge>
+                          </td>
+                          <td className="align-top py-3 font-mono text-sm">{formatDate(role.validFrom)}</td>
+                          <td className="align-top py-3 font-mono text-sm">{formatDate(role.validTo)}</td>
+                          <td className="align-top py-3">
+                            <div className="flex flex-wrap gap-1.5">
+                              {role.privileged && <Badge variant="warning" size="xs">PRIVILEGED</Badge>}
+                              {role.isSelfRequestable && <Badge variant="info" size="xs">SELF-REQUESTABLE</Badge>}
+                              {!role.privileged && !role.isSelfRequestable && (
+                                <span className="font-mono text-[0.65rem] opacity-30">—</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="border border-base-300 p-6 text-center">
+                  <p className="text-sm opacity-50 mb-1">No matching roles</p>
+                  <p className="font-mono text-xs opacity-30">Try adjusting your search query.</p>
+                </div>
+              )}
+            </section>
           )}
 
-          {/* Empty filtered results */}
-          {roles.length > 0 && filteredRoles.length === 0 && (
-            <div className="border border-base-300 p-6 text-center">
-              <p className="text-sm opacity-50 mb-1">No matching roles</p>
-              <p className="font-mono text-xs opacity-30">Try adjusting your search query.</p>
-            </div>
-          )}
-
-          {/* No roles from Alice at all */}
+          {/* No roles from Alice */}
           {phase === 'done' && roles.length === 0 && !aliceError && (
             <div className="border border-base-300 p-6 text-center">
               <p className="text-sm opacity-50 mb-1">No role assignments found</p>
               <p className="font-mono text-xs opacity-30">This user has no roles assigned in Alice.</p>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Idle state */}

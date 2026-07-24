@@ -3,7 +3,8 @@ import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 import { GoalProgressGrid } from '../components/GoalProgressGrid';
-import { ManageGoals } from '../components/ManageGoals';
+import { GoalSummaryStats } from '../components/GoalSummaryStats';
+import { MonthCalendarStrip } from '../components/MonthCalendarStrip';
 import { useApprovalRun } from '../hooks/useApprovalRun';
 import { useTimetrackingData } from '../hooks/useTimetrackingData';
 
@@ -30,12 +31,14 @@ export default function Timetracking() {
   const {
     goals, loadGoals, rows, isCached, cachedAt,
     projectNames, activityNames, projectList,
-    totalHours, draftCount, workingDayCount,
-    activityHours, allCombos, todayStr,
+    totalHours,
+    activityHours, dailyHoursByGoal, dailyTotalHours,
+    goalStats, allCombos, todayStr,
     refreshProjects, refreshingProjects,
   } = useTimetrackingData(month, result);
 
   const isAuthRequired = error?.includes('auth_required') || error?.includes('sign in');
+  const hasData = rows.length > 0;
 
   const handleRun = useCallback(async () => {
     const args: Record<string, string> = {};
@@ -48,6 +51,7 @@ export default function Timetracking() {
     <div className="max-w-4xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Time Tracking</h2>
 
+      {/* Header: month picker + load */}
       <div className="flex items-end gap-4 mb-6">
         <label className="form-control">
           <span className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Month</span>
@@ -64,6 +68,7 @@ export default function Timetracking() {
         </button>
       </div>
 
+      {/* Loading / approval / error states */}
       {running && !approvalPending && <Spinner label="Fetching timetracking data..." />}
 
       {approvalPending && (
@@ -88,33 +93,54 @@ export default function Timetracking() {
         <div className="alert alert-error mb-4"><span>{error}</span></div>
       )}
 
-      {rows.length > 0 && (
+      {/* Data-loaded content */}
+      {hasData && (
         <>
           {isCached && cachedAt && (
             <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-2">
               Showing cached data from {timeAgo(cachedAt)}
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-4 border border-base-300 mb-6">
-            <div className="p-3 border-r border-b border-base-300 md:border-b-0">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Total hours</div>
-              <div className="font-display text-xl font-bold">{totalHours.toFixed(1)}</div>
-            </div>
-            <div className="p-3 border-b border-base-300 md:border-r md:border-b-0">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Working days</div>
-              <div className="font-display text-xl font-bold">{workingDayCount}</div>
-            </div>
-            <div className="p-3 border-r border-base-300">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Projects</div>
-              <div className="font-display text-xl font-bold">{projectList.length}</div>
-            </div>
-            <div className="p-3">
-              <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Draft entries</div>
-              <div className="font-display text-xl font-bold">{draftCount}</div>
-            </div>
-          </div>
 
-          <h3 className="font-display text-base font-semibold mb-3">By project</h3>
+          {/* 1. Goal-oriented summary stats */}
+          <GoalSummaryStats
+            onTrack={goalStats.onTrack}
+            total={goalStats.total}
+            bookedHours={goalStats.bookedHours}
+            targetHours={goalStats.targetHours}
+            workingDaysLeft={goalStats.workingDaysLeft}
+            avgHoursPerDay={goalStats.avgHoursPerDay}
+          />
+
+          {/* 2. Month calendar strip */}
+          <MonthCalendarStrip
+            month={month}
+            today={todayStr}
+            dailyTotalHours={dailyTotalHours}
+          />
+        </>
+      )}
+
+      {/* 3. Goal progress grid (always visible when data loaded or goals exist) */}
+      <GoalProgressGrid
+        goals={goals}
+        activityHours={activityHours}
+        dailyHoursByGoal={dailyHoursByGoal}
+        projectNames={projectNames}
+        activityNames={activityNames}
+        month={month}
+        today={todayStr}
+        onGoalChange={loadGoals}
+        knownCombos={allCombos}
+        onRefreshProjects={refreshProjects}
+        refreshingProjects={refreshingProjects}
+        hasData={hasData}
+      />
+
+      {/* 4. By project table (secondary) */}
+      {hasData && (
+        <>
+          <h3 className="font-display text-base font-semibold mb-3 mt-2">All projects</h3>
           <div className="overflow-x-auto border border-base-300 mb-6">
             <table className="table table-sm">
               <thead><tr><th>Project</th><th>Activities</th><th className="text-right">Hours</th><th className="text-right">Entries</th></tr></thead>
@@ -137,9 +163,18 @@ export default function Timetracking() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="font-semibold">
+                  <td>Total</td>
+                  <td></td>
+                  <td className="text-right">{totalHours.toFixed(1)}</td>
+                  <td className="text-right">{rows.length}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
 
+          {/* 5. Raw booking lines (collapsed) */}
           <details open={showRaw} onToggle={(e) => setShowRaw((e.target as HTMLDetailsElement).open)}>
             <summary className="cursor-pointer text-sm font-semibold mb-2">Raw booking lines ({rows.length})</summary>
             <div className="overflow-x-auto">
@@ -163,40 +198,12 @@ export default function Timetracking() {
               </table>
             </div>
           </details>
-
         </>
       )}
 
       {result && (result.data ?? []).length === 0 && rows.length === 0 && !error && (
         <p className="text-sm opacity-50">No entries found for {month}.</p>
       )}
-
-      {goals.length > 0 && (
-        <div className="mb-6">
-          <h3 className="font-display text-base font-semibold mb-3">Goal progress</h3>
-          <GoalProgressGrid
-            goals={goals}
-            activityHours={activityHours}
-            projectNames={projectNames}
-            activityNames={activityNames}
-            month={month}
-            today={todayStr}
-          />
-        </div>
-      )}
-
-      <div className="mt-6">
-        <ManageGoals
-          goals={goals}
-          month={month}
-          onGoalChange={loadGoals}
-          knownCombos={allCombos}
-          projectNames={projectNames}
-          activityNames={activityNames}
-          onRefreshProjects={refreshProjects}
-          refreshingProjects={refreshingProjects}
-        />
-      </div>
     </div>
   );
 }
