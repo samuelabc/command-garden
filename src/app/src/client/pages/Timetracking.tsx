@@ -102,19 +102,21 @@ export default function Timetracking() {
             </div>
           )}
 
-          {/* 1. Monthly overview (collapsed by default) */}
+          {/* 1. Goal summary stats (always visible) */}
+          <GoalSummaryStats
+            onTrack={goalStats.onTrack}
+            total={goalStats.total}
+            bookedHours={goalStats.bookedHours}
+            targetHours={goalStats.targetHours}
+            workingDaysLeft={goalStats.workingDaysLeft}
+            avgHoursPerDay={goalStats.avgHoursPerDay}
+          />
+
+          {/* 2. Month calendar (collapsed) */}
           <details className="mb-6">
             <summary className="cursor-pointer font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.1em] mb-3 select-none">
-              Monthly overview
+              Monthly calendar
             </summary>
-            <GoalSummaryStats
-              onTrack={goalStats.onTrack}
-              total={goalStats.total}
-              bookedHours={goalStats.bookedHours}
-              targetHours={goalStats.targetHours}
-              workingDaysLeft={goalStats.workingDaysLeft}
-              avgHoursPerDay={goalStats.avgHoursPerDay}
-            />
             <MonthCalendarGrid
               month={month}
               today={todayStr}
