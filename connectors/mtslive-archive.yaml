@@ -1,6 +1,6 @@
 site: mtslive
 name: archive
-version: "1.0"
+version: "1.1"
 description: "Latest blog posts from the MTS Substack archive"
 access: read
 
@@ -31,8 +31,6 @@ columns:
     type: string
   - name: date
     type: string
-  - name: authors
-    type: string
   - name: wordcount
     type: number
   - name: reactions
@@ -55,6 +53,5 @@ pipeline:
       subtitle: "${{ row.subtitle }}"
       url: "${{ row.canonical_url }}"
       date: "${{ row.post_date }}"
-      authors: "${{ row.publishedBylines }}"
       wordcount: "${{ row.wordcount }}"
       reactions: "${{ row.reaction_count }}"

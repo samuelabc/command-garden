@@ -337,7 +337,7 @@ cg run mtslive/archive --limit 25 --format table
 cg run mtslive/archive --limit 12 --offset 12 --format json
 ```
 
-This connector fetches blog posts from the MTS Substack archive (`https://mtslive.substack.com/api/v1/archive`) using the declarative `navigate → wait → fetch → map` pipeline with `cookie_read` capability — no `js_evaluate`. Returns title, subtitle, URL, publish date, authors, word count, and reaction count.
+This connector fetches blog posts from the MTS Substack archive (`https://mtslive.substack.com/api/v1/archive`) using the declarative `navigate → wait → fetch → map` pipeline with `cookie_read` capability — no `js_evaluate`. Returns title, subtitle, URL, publish date, word count, and reaction count.
 
 ---
 
