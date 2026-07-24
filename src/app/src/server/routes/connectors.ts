@@ -12,6 +12,7 @@ const APP_ROUTES: Record<string, string> = {
   'uis/mic-user-information': '/apps/roles',
   'simonwillison/blog': '/apps/ai-news',
   'every/newsletter': '/apps/ai-news',
+  'mtslive/archive': '/apps/ai-news',
 };
 
 export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): void {

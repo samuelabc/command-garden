@@ -157,6 +157,7 @@ socket/security-news           read    socket.dev                   navigate, co
 wiz/blog-security              read    www.wiz.io                   navigate, js_evaluate
 tldrsec/newsletter             read    tldrsec.com                  navigate, js_evaluate
 simonwillison/blog             read    simonwillison.net            navigate, js_evaluate
+mtslive/archive                read    mtslive.substack.com         navigate, cookie_read
 ```
 
 ### Timetracking report
@@ -322,6 +323,21 @@ cg run every/newsletter --sort oldest --format json
 This connector scrapes blog posts from `https://every.to/newsletter`, extracting title, URL, publish date, author, and a plain-text summary (truncated to 300 chars). It tries Next.js `__NEXT_DATA__` extraction first, falling back to DOM scraping. The optional `--sort` argument controls sort order (`popular`, `newest`, `oldest`).
 
 > **Note:** This connector uses `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+
+### MTS Substack archive
+
+```bash
+# Latest posts (default: 12)
+cg run mtslive/archive --format table
+
+# Retrieve more posts
+cg run mtslive/archive --limit 25 --format table
+
+# Paginate (skip first 12)
+cg run mtslive/archive --limit 12 --offset 12 --format json
+```
+
+This connector fetches blog posts from the MTS Substack archive (`https://mtslive.substack.com/api/v1/archive`) using the declarative `navigate → wait → fetch → map` pipeline with `cookie_read` capability — no `js_evaluate`. Returns title, subtitle, URL, publish date, authors, word count, and reaction count.
 
 ---
 
@@ -666,6 +682,8 @@ node src/cli/dist/main.js run simonwillison/blog --format table
 node src/cli/dist/main.js run simonwillison/blog --tag ai --format json
 node src/cli/dist/main.js run every/newsletter --format table
 node src/cli/dist/main.js run every/newsletter --sort popular --format json
+node src/cli/dist/main.js run mtslive/archive --format table
+node src/cli/dist/main.js run mtslive/archive --limit 25 --format json
 ```
 
 ### Linking globally (optional)

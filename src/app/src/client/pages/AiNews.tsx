@@ -4,15 +4,15 @@ import { Badge, type BadgeVariant } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 
-const SOURCE_BADGE: Record<string, BadgeVariant> = { simon: 'info', every: 'secondary' };
-const SOURCE_LABEL: Record<string, string> = { simon: 'SIMON WILLISON', every: 'EVERY' };
+const SOURCE_BADGE: Record<string, BadgeVariant> = { simon: 'info', every: 'secondary', mts: 'warning' };
+const SOURCE_LABEL: Record<string, string> = { simon: 'SIMON WILLISON', every: 'EVERY', mts: 'MTS' };
 
 interface AiNewsItem {
   title: string;
   url: string;
   published: string;
   summary: string;
-  source: 'simon' | 'every';
+  source: 'simon' | 'every' | 'mts';
   author: string;
   tags: string;
 }
@@ -70,6 +70,18 @@ function parseEveryRows(resp: RunResponse): AiNewsItem[] {
   }));
 }
 
+function parseMtsRows(resp: RunResponse): AiNewsItem[] {
+  return (resp.data ?? []).map((r) => ({
+    title: String(r.title ?? ''),
+    url: String(r.url ?? ''),
+    published: String(r.date ?? ''),
+    summary: String(r.subtitle ?? ''),
+    source: 'mts' as const,
+    author: String(r.authors ?? ''),
+    tags: '',
+  }));
+}
+
 type SourceStatus = 'idle' | 'loading' | 'done' | 'error';
 
 type RangeDays = 7 | 30;
@@ -89,10 +101,13 @@ export default function AiNews() {
   const [range, setRange] = useState<RangeDays>(7);
   const [simonStatus, setSimonStatus] = useState<SourceStatus>('idle');
   const [everyStatus, setEveryStatus] = useState<SourceStatus>('idle');
+  const [mtsStatus, setMtsStatus] = useState<SourceStatus>('idle');
   const [simonItems, setSimonItems] = useState<AiNewsItem[]>([]);
   const [everyItems, setEveryItems] = useState<AiNewsItem[]>([]);
+  const [mtsItems, setMtsItems] = useState<AiNewsItem[]>([]);
   const [simonError, setSimonError] = useState<string | null>(null);
   const [everyError, setEveryError] = useState<string | null>(null);
+  const [mtsError, setMtsError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
@@ -119,48 +134,57 @@ export default function AiNews() {
         if (stale) return;
         const simon: AiNewsItem[] = [];
         const every: AiNewsItem[] = [];
+        const mts: AiNewsItem[] = [];
         for (const r of res.data) {
           const item = r as unknown as AiNewsItem;
           if (item.source === 'every') every.push(item);
+          else if (item.source === 'mts') mts.push(item);
           else simon.push(item);
         }
         setSimonItems(simon);
         setEveryItems(every);
+        setMtsItems(mts);
         setFetchedAt(res.fetchedAt);
         setIsCached(true);
         setEveryStatus('done');
+        setMtsStatus('done');
       }
     }).catch(() => {});
     return () => { stale = true; };
   }, [loadConfig]);
 
-  const loading = simonStatus === 'loading' || everyStatus === 'loading';
-  const hasResults = simonItems.length > 0 || everyItems.length > 0;
+  const loading = simonStatus === 'loading' || everyStatus === 'loading' || mtsStatus === 'loading';
+  const hasResults = simonItems.length > 0 || everyItems.length > 0 || mtsItems.length > 0;
 
   const allItems = useMemo(() => {
-    const merged = [...simonItems, ...everyItems]
+    const merged = [...simonItems, ...everyItems, ...mtsItems]
       .filter((item) => isWithinDays(item.published, range))
       .sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
     return merged;
-  }, [simonItems, everyItems, range]);
+  }, [simonItems, everyItems, mtsItems, range]);
 
   const stats = useMemo(() => {
     const simonCount = allItems.filter((i) => i.source === 'simon').length;
     const everyCount = allItems.filter((i) => i.source === 'every').length;
-    return { total: allItems.length, simonCount, everyCount };
+    const mtsCount = allItems.filter((i) => i.source === 'mts').length;
+    return { total: allItems.length, simonCount, everyCount, mtsCount };
   }, [allItems]);
 
   const handleLoad = useCallback(async () => {
     setSimonStatus('loading');
     setEveryStatus('loading');
+    setMtsStatus('loading');
     setSimonError(null);
     setEveryError(null);
+    setMtsError(null);
     setSimonItems([]);
     setEveryItems([]);
+    setMtsItems([]);
     setIsCached(false);
 
     let freshSimon: AiNewsItem[] = [];
     let freshEvery: AiNewsItem[] = [];
+    let freshMts: AiNewsItem[] = [];
 
     const simonPromise = api.run('simonwillison/blog', {})
       .then((resp) => {
@@ -194,9 +218,25 @@ export default function AiNews() {
         setEveryStatus('error');
       });
 
-    await Promise.allSettled([simonPromise, everyPromise]);
+    const mtsPromise = api.run('mtslive/archive', {})
+      .then((resp) => {
+        if (!resp.ok && resp.error) {
+          setMtsError(resp.error);
+          setMtsStatus('error');
+        } else {
+          freshMts = parseMtsRows(resp);
+          setMtsItems(freshMts);
+          setMtsStatus('done');
+        }
+      })
+      .catch((e) => {
+        setMtsError(e instanceof Error ? e.message : 'Failed to fetch');
+        setMtsStatus('error');
+      });
 
-    const all = [...freshSimon, ...freshEvery];
+    await Promise.allSettled([simonPromise, everyPromise, mtsPromise]);
+
+    const all = [...freshSimon, ...freshEvery, ...freshMts];
     if (all.length > 0) {
       const now = new Date().toISOString();
       setFetchedAt(now);
@@ -259,6 +299,7 @@ export default function AiNews() {
         <div className="flex items-center gap-3">
           <SourceIndicator label="Simon Willison" status={simonStatus} />
           <SourceIndicator label="Every" status={everyStatus} />
+          <SourceIndicator label="MTS" status={mtsStatus} />
         </div>
       </div>
 
@@ -296,6 +337,15 @@ export default function AiNews() {
           </div>
         )
       )}
+      {mtsError && (
+        isAuthRequired(mtsError) ? (
+          <AuthRequiredCallout message="Sign in to mtslive.substack.com in Chrome, then try again." />
+        ) : (
+          <div className="alert alert-error mb-3">
+            <span><span className="font-semibold">MTS:</span> {mtsError}</span>
+          </div>
+        )
+      )}
 
       {fetchedAt && !loading && (
         <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-2">
@@ -304,7 +354,7 @@ export default function AiNews() {
       )}
 
       {hasResults && !loading && (
-        <div className="grid grid-cols-3 border border-base-300 mb-6">
+        <div className="grid grid-cols-4 border border-base-300 mb-6">
           <div className="p-3 border-r border-base-300">
             <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">{RANGE_LABELS[range]}</div>
             <div className="font-display text-xl font-bold">{stats.total}</div>
@@ -313,9 +363,13 @@ export default function AiNews() {
             <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Simon Willison</div>
             <div className="font-display text-xl font-bold">{stats.simonCount}</div>
           </div>
-          <div className="p-3">
+          <div className="p-3 border-r border-base-300">
             <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">Every</div>
             <div className="font-display text-xl font-bold">{stats.everyCount}</div>
+          </div>
+          <div className="p-3">
+            <div className="font-mono text-[0.6rem] font-medium opacity-40 uppercase tracking-[0.1em] mb-1">MTS</div>
+            <div className="font-display text-xl font-bold">{stats.mtsCount}</div>
           </div>
         </div>
       )}
@@ -365,9 +419,9 @@ export default function AiNews() {
         </div>
       )}
 
-      {!hasResults && !loading && !simonError && !everyError && (
+      {!hasResults && !loading && !simonError && !everyError && !mtsError && (
         <div className="border border-base-300 p-8 text-center">
-          <p className="text-sm opacity-50 mb-1">AI news from Simon Willison and Every</p>
+          <p className="text-sm opacity-50 mb-1">AI news from Simon Willison, Every, and MTS</p>
           <p className="font-mono text-xs opacity-30">Select a range and press Load news to fetch the latest posts.</p>
         </div>
       )}

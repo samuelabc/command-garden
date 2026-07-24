@@ -1,0 +1,60 @@
+site: mtslive
+name: archive
+version: "1.0"
+description: "Latest blog posts from the MTS Substack archive"
+access: read
+
+domains:
+  - "mtslive.substack.com"
+capabilities:
+  - navigate
+  - cookie_read
+
+args:
+  - name: limit
+    type: string
+    required: false
+    default: "12"
+    help: "Number of posts to retrieve (default: 12)"
+  - name: offset
+    type: string
+    required: false
+    default: "0"
+    help: "Pagination offset (default: 0)"
+
+columns:
+  - name: title
+    type: string
+  - name: subtitle
+    type: string
+  - name: url
+    type: string
+  - name: date
+    type: string
+  - name: authors
+    type: string
+  - name: wordcount
+    type: number
+  - name: reactions
+    type: number
+
+pipeline:
+  - step: navigate
+    url: "https://mtslive.substack.com/"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: fetch
+    url: "https://mtslive.substack.com/api/v1/archive?sort=new&limit=${{ args.limit }}&offset=${{ args.offset }}"
+    method: "GET"
+    headers:
+      Accept: "application/json"
+  - step: map
+    fields:
+      title: "${{ row.title }}"
+      subtitle: "${{ row.subtitle }}"
+      url: "${{ row.canonical_url }}"
+      date: "${{ row.post_date }}"
+      authors: "${{ row.publishedBylines }}"
+      wordcount: "${{ row.wordcount }}"
+      reactions: "${{ row.reaction_count }}"

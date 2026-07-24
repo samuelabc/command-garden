@@ -59,6 +59,7 @@ Errors return plain text starting with `Error:` — not JSON.
 | `tokenmaster/clients-list` | Clients managed by current user | `region` |
 | `uis/mic-user-information` | User identity, department, groups, and scopes from UIS | `userId` |
 | `simonwillison/blog` | Simon Willison's blog posts (Atom feed) | `tag` (optional) |
+| `mtslive/archive` | MTS Substack blog posts | `limit` (optional), `offset` (optional) |
 | `wiz/blog-security` | Wiz security blog posts | `tag` (optional) |
 
 ## Errors
