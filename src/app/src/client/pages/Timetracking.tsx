@@ -4,7 +4,7 @@ import { Spinner } from '../components/Spinner';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 import { GoalProgressGrid } from '../components/GoalProgressGrid';
 import { GoalSummaryStats } from '../components/GoalSummaryStats';
-import { MonthCalendarStrip } from '../components/MonthCalendarStrip';
+import { MonthCalendarGrid } from '../components/MonthCalendarGrid';
 import { useApprovalRun } from '../hooks/useApprovalRun';
 import { useTimetrackingData } from '../hooks/useTimetrackingData';
 
@@ -102,22 +102,25 @@ export default function Timetracking() {
             </div>
           )}
 
-          {/* 1. Goal-oriented summary stats */}
-          <GoalSummaryStats
-            onTrack={goalStats.onTrack}
-            total={goalStats.total}
-            bookedHours={goalStats.bookedHours}
-            targetHours={goalStats.targetHours}
-            workingDaysLeft={goalStats.workingDaysLeft}
-            avgHoursPerDay={goalStats.avgHoursPerDay}
-          />
-
-          {/* 2. Month calendar strip */}
-          <MonthCalendarStrip
-            month={month}
-            today={todayStr}
-            dailyTotalHours={dailyTotalHours}
-          />
+          {/* 1. Monthly overview (collapsed by default) */}
+          <details className="mb-6">
+            <summary className="cursor-pointer font-mono text-[0.6rem] font-medium opacity-50 uppercase tracking-[0.1em] mb-3 select-none">
+              Monthly overview
+            </summary>
+            <GoalSummaryStats
+              onTrack={goalStats.onTrack}
+              total={goalStats.total}
+              bookedHours={goalStats.bookedHours}
+              targetHours={goalStats.targetHours}
+              workingDaysLeft={goalStats.workingDaysLeft}
+              avgHoursPerDay={goalStats.avgHoursPerDay}
+            />
+            <MonthCalendarGrid
+              month={month}
+              today={todayStr}
+              dailyTotalHours={dailyTotalHours}
+            />
+          </details>
         </>
       )}
 

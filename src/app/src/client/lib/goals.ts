@@ -39,6 +39,17 @@ export function workingDayDates(month: string): string[] {
   return dates;
 }
 
+export function allDaysInMonth(month: string): { date: string; isWeekday: boolean }[] {
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const days: { date: string; isWeekday: boolean }[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    days.push({ date: dateStr, isWeekday: isWeekday(new Date(y, m - 1, d)) });
+  }
+  return days;
+}
+
 export function workingDaysElapsed(month: string, todayStr: string): number {
   const [y, m] = month.split('-').map(Number);
   const today = new Date(todayStr + 'T00:00:00');
