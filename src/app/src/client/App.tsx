@@ -15,6 +15,7 @@ import SecurityNews from './pages/SecurityNews';
 import AiNews from './pages/AiNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
 import Roles from './pages/Roles';
+import Saba from './pages/Saba';
 import Architecture from './pages/Architecture';
 import ApiReference from './pages/ApiReference';
 import Skills from './pages/Skills';
@@ -308,6 +309,7 @@ export default function App() {
           <Route path="apps/security-news" element={<SecurityNews />} />
           <Route path="apps/ai-news" element={<AiNews />} />
           <Route path="apps/roles" element={<Roles />} />
+          <Route path="apps/saba" element={<Saba />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
           <Route path="architecture" element={<Architecture />} />
           <Route path="api-reference" element={<ApiReference />} />

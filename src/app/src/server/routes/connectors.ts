@@ -4,15 +4,24 @@ import { HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 
 const APP_ROUTES: Record<string, string> = {
   'timetracking/report': '/apps/timetracking',
+  'timetracking/projects': '/apps/timetracking',
   'teams/room-availability': '/apps/rooms',
+  'teams/rooms-availability': '/apps/rooms',
   'saba/pending-training': '/apps/saba',
   'tokenmaster/clients-list': '/apps/trusted-peer-expiry',
   'tokenmaster/client-trustedby': '/apps/trusted-peer-expiry',
   'alice/role-list': '/apps/roles',
   'uis/mic-user-information': '/apps/roles',
+  'ado/git-commits': '/apps/journal',
+  'jira/my-tickets': '/apps/journal',
+  'outlook/my-meetings': '/apps/journal',
   'simonwillison/blog': '/apps/ai-news',
   'every/newsletter': '/apps/ai-news',
   'mtslive/archive': '/apps/ai-news',
+  'socket/security-news': '/apps/security-news',
+  'wiz/blog-security': '/apps/security-news',
+  'tldrsec/newsletter': '/apps/security-news',
+  'trailofbits/blog': '/apps/security-news',
 };
 
 export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): void {
@@ -25,7 +34,9 @@ export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): voi
 
     const security = (configData.config?.security ?? {}) as Record<string, unknown>;
     const highRiskCaps = new Set((security.highRiskCapabilities as string[] | undefined) ?? [...HIGH_RISK_CAPABILITIES]);
-    const approvedHighRisk = new Set((security.approvedHighRisk as string[] | undefined) ?? []);
+    const approvedHighRisk = (security.approvedHighRisk && typeof security.approvedHighRisk === 'object' && !Array.isArray(security.approvedHighRisk))
+      ? security.approvedHighRisk as Record<string, string[]>
+      : {};
     const autoApproveConnectors = new Set((security.autoApproveConnectors as string[] | undefined) ?? []);
 
     const enriched = connectorData.connectors.map((c: Record<string, unknown>) => {
@@ -36,7 +47,7 @@ export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): voi
         hasAppPage: key in APP_ROUTES,
         appRoute: APP_ROUTES[key] ?? null,
         isHighRisk: capabilities.some(cap => highRiskCaps.has(cap)),
-        isApproved: approvedHighRisk.has(key),
+        isApproved: key in approvedHighRisk,
         isAutoApproved: autoApproveConnectors.has(key),
       };
     });
