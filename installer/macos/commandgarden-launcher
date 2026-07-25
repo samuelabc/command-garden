@@ -1,0 +1,23 @@
+#!/bin/bash
+# macOS .app launcher — starts commandGarden and opens the GUI in browser
+DIR="$(cd "$(dirname "$0")/../Resources" && pwd)"
+NODE="$DIR/runtime/node"
+CLI="$DIR/app/cli/dist/main.js"
+LOG="$HOME/.commandgarden/daemon.log"
+
+OUTPUT=$("$NODE" "$CLI" up 2>&1)
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+  MSGFILE=$(mktemp)
+  echo "$OUTPUT" | tail -10 > "$MSGFILE"
+  osascript <<APPLESCRIPT
+set msgContent to (do shell script "cat '$MSGFILE'")
+set dialogResult to display dialog "commandGarden failed to start." & return & return & msgContent buttons {"Open Log", "OK"} default button "OK" with icon caution
+if button returned of dialogResult = "Open Log" then
+  do shell script "open '$LOG'"
+end if
+APPLESCRIPT
+  rm -f "$MSGFILE"
+  exit 1
+fi

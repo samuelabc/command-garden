@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+# pkg postinstall — create /usr/local/bin/cg symlink
+mkdir -p /usr/local/bin
+ln -sf /Applications/commandGarden.app/Contents/Resources/bin/cg /usr/local/bin/cg
+exit 0

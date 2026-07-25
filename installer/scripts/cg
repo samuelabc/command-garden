@@ -1,0 +1,4 @@
+#!/bin/bash
+# CLI wrapper script — invokes bundled Node with the CLI entry point
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$DIR/runtime/node" "$DIR/app/cli/dist/main.js" "$@"

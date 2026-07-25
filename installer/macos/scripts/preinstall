@@ -1,0 +1,7 @@
+#!/bin/bash
+set -euo pipefail
+# pkg preinstall — remove old version if present
+if [ -L /usr/local/bin/cg ]; then
+  rm -f /usr/local/bin/cg
+fi
+exit 0

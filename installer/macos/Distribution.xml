@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+  <title>commandGarden</title>
+  <options customize="never" require-scripts="false" hostArchitectures="__HOST_ARCH__"/>
+  <choices-outline>
+    <line choice="default">
+      <line choice="com.commandgarden.app"/>
+    </line>
+  </choices-outline>
+  <choice id="default"/>
+  <choice id="com.commandgarden.app" visible="false">
+    <pkg-ref id="com.commandgarden.app"/>
+  </choice>
+  <pkg-ref id="com.commandgarden.app"
+    version="0"
+    onConclusion="none">commandGarden-component.pkg</pkg-ref>
+</installer-gui-script>
