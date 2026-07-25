@@ -21,7 +21,7 @@ export async function executeDaemonStatus(baseUrl: string): Promise<string> {
   }
 }
 
-export async function executeDaemonStart(baseUrl: string, cgHome: string, daemonScript: string): Promise<LifecycleStartResult> {
+export async function executeDaemonStart(baseUrl: string, cgHome: string, daemonScript: string, nodeBinary: string): Promise<LifecycleStartResult> {
   try {
     const resp = await fetch(`${baseUrl}/api/status`);
     if (resp.ok) return { status: 'already-running', message: 'Daemon is already running.' };
@@ -45,7 +45,7 @@ export async function executeDaemonStart(baseUrl: string, cgHome: string, daemon
     console.error('Starting daemon...');
 
     const logFd = openSync(logPath, 'a');
-    const child = spawn('node', [daemonScript], { detached: true, stdio: ['ignore', logFd, logFd], cwd: cgHome });
+    const child = spawn(nodeBinary, [daemonScript], { detached: true, stdio: ['ignore', logFd, logFd], cwd: cgHome });
     closeSync(logFd);
 
     let spawnFailed = false;

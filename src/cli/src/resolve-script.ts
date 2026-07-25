@@ -67,6 +67,26 @@ export function resolveScript(
 }
 
 /**
+ * Resolve the Node.js binary to use for spawning child processes.
+ *
+ * Resolution strategy:
+ * 1. Bundled runtime node relative to CLI dist/ (installer layout)
+ * 2. Fallback to system 'node' on PATH (developer/npm-install path)
+ */
+export function resolveNodeBinary(baseDir: string): string {
+  let resolvedBase = baseDir;
+  try { resolvedBase = realpathSync(baseDir); } catch { /* use original */ }
+
+  // Installer layout: .../Resources/app/cli/dist/main.js → baseDir is .../Resources/app/cli/dist/
+  // Bundled node at:  .../Resources/runtime/node
+  // From dist/, go up 3 levels (dist → cli → app → Resources) then into runtime/
+  const bundled = join(resolvedBase, '..', '..', '..', 'runtime', process.platform === 'win32' ? 'node.exe' : 'node');
+  if (existsSync(bundled)) return bundled;
+
+  return 'node';
+}
+
+/**
  * Walk up from startDir to find a directory containing a package.json
  * with a `workspaces` field (the monorepo root).
  */

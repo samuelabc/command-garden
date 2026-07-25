@@ -99,7 +99,7 @@ describe('executeGuiStart', () => {
   it('returns failed status when daemon is not running', async () => {
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
     const result = await executeGuiStart(
-      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true },
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('failed');
     expect(result.message).toContain('Daemon is not running');
@@ -112,7 +112,7 @@ describe('executeGuiStart', () => {
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     const result = await executeGuiStart(
-      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true, noOpen: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('already-running');
     killSpy.mockRestore();
@@ -125,7 +125,7 @@ describe('executeGuiStart', () => {
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     const result = await executeGuiStart(
-      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true },
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('already-running');
     expect(spawn).toHaveBeenCalledWith(
@@ -142,7 +142,7 @@ describe('executeGuiStart', () => {
     vi.mocked(readFileSync).mockReturnValue('12345');
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
-    await executeGuiStart('http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true });
+    await executeGuiStart('http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true });
 
     const onMock = child.on as unknown as ReturnType<typeof vi.fn>;
     const errorHandler = onMock.mock.calls.find(([event]: [string]) => event === 'error')?.[1];
@@ -156,7 +156,7 @@ describe('executeGuiStart', () => {
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     const result = await executeGuiStart(
-      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true },
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('started');
     expect(spawn).toHaveBeenCalledWith(
@@ -171,7 +171,7 @@ describe('executeGuiStart', () => {
     mockFetch.mockResolvedValue({ ok: true } as Response);
 
     const result = await executeGuiStart(
-      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true, noOpen: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('started');
     expect(spawn).toHaveBeenCalledWith('node', ['/fake/app.js'], expect.anything());
@@ -185,7 +185,7 @@ describe('executeGuiStart', () => {
     vi.spyOn(process, 'kill').mockImplementation(() => true);
 
     const result = await executeGuiStart(
-      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', { background: true, noOpen: true },
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true, noOpen: true },
     ) as import('./lifecycle-types.js').LifecycleStartResult;
     expect(result.status).toBe('locked');
     expect(spawn).not.toHaveBeenCalled();
