@@ -4,15 +4,15 @@ import { type BadgeVariant } from '../components/Badge';
 import { AuthRequiredCallout } from '../components/AuthRequiredCallout';
 import { NewsFeedLayout, type FeedItem, type SourceDef } from '../components/NewsFeedLayout';
 
-const SOURCE_VARIANT: Record<string, BadgeVariant> = { socket: 'info', wiz: 'secondary', tldrsec: 'warning' };
-const SOURCE_LABEL: Record<string, string> = { socket: 'Socket', wiz: 'Wiz', tldrsec: 'tl;dr sec' };
+const SOURCE_VARIANT: Record<string, BadgeVariant> = { socket: 'info', wiz: 'secondary', tldrsec: 'warning', trailofbits: 'success' };
+const SOURCE_LABEL: Record<string, string> = { socket: 'Socket', wiz: 'Wiz', tldrsec: 'tl;dr sec', trailofbits: 'Trail of Bits' };
 
 interface NewsItem {
   title: string;
   summary: string;
   url: string;
   date: string;
-  source: 'socket' | 'wiz' | 'tldrsec';
+  source: 'socket' | 'wiz' | 'tldrsec' | 'trailofbits';
   author: string;
   tags: string;
 }
@@ -64,6 +64,18 @@ function parseTldrsecRows(resp: RunResponse): NewsItem[] {
   }));
 }
 
+function parseTrailofbitsRows(resp: RunResponse): NewsItem[] {
+  return (resp.data ?? []).map((r) => ({
+    title: String(r.title ?? ''),
+    summary: String(r.summary ?? ''),
+    url: String(r.url ?? ''),
+    date: String(r.published ?? ''),
+    source: 'trailofbits' as const,
+    author: '',
+    tags: String(r.tags ?? ''),
+  }));
+}
+
 type SourceStatus = 'idle' | 'loading' | 'done' | 'error';
 type RangeDays = 7 | 30;
 
@@ -72,12 +84,15 @@ export default function SecurityNews() {
   const [socketStatus, setSocketStatus] = useState<SourceStatus>('idle');
   const [wizStatus, setWizStatus] = useState<SourceStatus>('idle');
   const [tldrsecStatus, setTldrsecStatus] = useState<SourceStatus>('idle');
+  const [trailofbitsStatus, setTrailofbitsStatus] = useState<SourceStatus>('idle');
   const [socketItems, setSocketItems] = useState<NewsItem[]>([]);
   const [wizItems, setWizItems] = useState<NewsItem[]>([]);
   const [tldrsecItems, setTldrsecItems] = useState<NewsItem[]>([]);
+  const [trailofbitsItems, setTrailofbitsItems] = useState<NewsItem[]>([]);
   const [socketError, setSocketError] = useState<string | null>(null);
   const [wizError, setWizError] = useState<string | null>(null);
   const [tldrsecError, setTldrsecError] = useState<string | null>(null);
+  const [trailofbitsError, setTrailofbitsError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
 
@@ -94,59 +109,67 @@ export default function SecurityNews() {
         const socket: NewsItem[] = [];
         const wiz: NewsItem[] = [];
         const tldrsec: NewsItem[] = [];
+        const trailofbits: NewsItem[] = [];
         for (const r of res.data) {
           const item = r as unknown as NewsItem;
           if (item.source === 'wiz') wiz.push(item);
           else if (item.source === 'tldrsec') tldrsec.push(item);
+          else if (item.source === 'trailofbits') trailofbits.push(item);
           else socket.push(item);
         }
         setSocketItems(socket);
         setWizItems(wiz);
         setTldrsecItems(tldrsec);
+        setTrailofbitsItems(trailofbits);
         setFetchedAt(res.fetchedAt);
         setIsCached(true);
         setWizStatus('done');
         setTldrsecStatus('done');
+        setTrailofbitsStatus('done');
       }
     }).catch(() => {});
     return () => { stale = true; };
   }, []);
 
-  const loading = socketStatus === 'loading' || wizStatus === 'loading' || tldrsecStatus === 'loading';
+  const loading = socketStatus === 'loading' || wizStatus === 'loading' || tldrsecStatus === 'loading' || trailofbitsStatus === 'loading';
 
   const allItems = useMemo<FeedItem[]>(() => {
-    return [...socketItems, ...wizItems, ...tldrsecItems]
+    return [...socketItems, ...wizItems, ...tldrsecItems, ...trailofbitsItems]
       .filter((item) => isWithinDays(item.date, range))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [socketItems, wizItems, tldrsecItems, range]);
+  }, [socketItems, wizItems, tldrsecItems, trailofbitsItems, range]);
 
   const sources = useMemo<SourceDef[]>(() => {
     const counts: Record<string, number> = {};
     for (const item of allItems) counts[item.source] = (counts[item.source] ?? 0) + 1;
-    return (['socket', 'wiz', 'tldrsec'] as const).map((key) => ({
+    return (['socket', 'wiz', 'tldrsec', 'trailofbits'] as const).map((key) => ({
       key,
       label: SOURCE_LABEL[key],
       variant: SOURCE_VARIANT[key],
-      status: ({ socket: socketStatus, wiz: wizStatus, tldrsec: tldrsecStatus })[key],
+      status: ({ socket: socketStatus, wiz: wizStatus, tldrsec: tldrsecStatus, trailofbits: trailofbitsStatus })[key],
       count: counts[key] ?? 0,
     }));
-  }, [allItems, socketStatus, wizStatus, tldrsecStatus]);
+  }, [allItems, socketStatus, wizStatus, tldrsecStatus, trailofbitsStatus]);
 
   const handleLoad = useCallback(async () => {
     setSocketStatus('loading');
     setWizStatus('loading');
     setTldrsecStatus('loading');
+    setTrailofbitsStatus('loading');
     setSocketError(null);
     setWizError(null);
     setTldrsecError(null);
+    setTrailofbitsError(null);
     setSocketItems([]);
     setWizItems([]);
     setTldrsecItems([]);
+    setTrailofbitsItems([]);
     setIsCached(false);
 
     let freshSocket: NewsItem[] = [];
     let freshWiz: NewsItem[] = [];
     let freshTldrsec: NewsItem[] = [];
+    let freshTrailofbits: NewsItem[] = [];
 
     const socketPromise = api.run('socket/security-news', {})
       .then((resp) => {
@@ -196,9 +219,25 @@ export default function SecurityNews() {
         setTldrsecStatus('error');
       });
 
-    await Promise.allSettled([socketPromise, wizPromise, tldrsecPromise]);
+    const trailofbitsPromise = api.run('trailofbits/blog', {})
+      .then((resp) => {
+        if (!resp.ok && resp.error) {
+          setTrailofbitsError(resp.error);
+          setTrailofbitsStatus('error');
+        } else {
+          freshTrailofbits = parseTrailofbitsRows(resp);
+          setTrailofbitsItems(freshTrailofbits);
+          setTrailofbitsStatus('done');
+        }
+      })
+      .catch((e) => {
+        setTrailofbitsError(e instanceof Error ? e.message : 'Failed to fetch');
+        setTrailofbitsStatus('error');
+      });
 
-    const all = [...freshSocket, ...freshWiz, ...freshTldrsec];
+    await Promise.allSettled([socketPromise, wizPromise, tldrsecPromise, trailofbitsPromise]);
+
+    const all = [...freshSocket, ...freshWiz, ...freshTldrsec, ...freshTrailofbits];
     if (all.length > 0) {
       const now = new Date().toISOString();
       setFetchedAt(now);
@@ -212,7 +251,7 @@ export default function SecurityNews() {
   return (
     <NewsFeedLayout
       title="Security News"
-      description="Aggregated security news from Socket, Wiz, and tl;dr sec — load to fetch the latest posts."
+      description="Aggregated security news from Socket, Wiz, tl;dr sec, and Trail of Bits — load to fetch the latest posts."
       items={allItems}
       sources={sources}
       range={range}
@@ -244,6 +283,11 @@ export default function SecurityNews() {
           {tldrsecError && (
             <div className="alert alert-error mb-3">
               <span><span className="font-semibold">tl;dr sec:</span> {tldrsecError}</span>
+            </div>
+          )}
+          {trailofbitsError && (
+            <div className="alert alert-error mb-3">
+              <span><span className="font-semibold">Trail of Bits:</span> {trailofbitsError}</span>
             </div>
           )}
         </>

@@ -156,6 +156,7 @@ gcs/kb-content                 read    pages.i.mercedes-benz.com    navigate, do
 socket/security-news           read    socket.dev                   navigate, cookie_read
 wiz/blog-security              read    www.wiz.io                   navigate, js_evaluate
 tldrsec/newsletter             read    tldrsec.com                  navigate, js_evaluate
+trailofbits/blog               read    blog.trailofbits.com         navigate, js_evaluate
 simonwillison/blog             read    simonwillison.net            navigate, js_evaluate
 mtslive/archive                read    mtslive.substack.com         navigate, cookie_read
 ```
@@ -275,7 +276,7 @@ This connector retrieves a single GCS Knowledge Base page and converts it to Mar
 
 ### Security news connectors
 
-Three connectors power the **Security News** app page, fetching the latest posts from different sources:
+Four connectors power the **Security News** app page, fetching the latest posts from different sources:
 
 ```bash
 # Socket.dev blog feed (declarative fetch, no js_evaluate)
@@ -286,11 +287,17 @@ cg run wiz/blog-security --format table
 
 # tl;dr sec newsletter (extracts from Remix __remixContext)
 cg run tldrsec/newsletter --format table
+
+# Trail of Bits blog (fetches RSS 2.0 feed)
+cg run trailofbits/blog --format table
+cg run trailofbits/blog --tag cryptography --format json
 ```
 
 The **tl;dr sec** connector navigates to `https://tldrsec.com/t/Newsletter` (a Beehiiv-hosted Remix app), reads the embedded `__remixContext` loader data, and extracts newsletter issues with title, slug, URL, publish date, excerpt, authors, and tags. Returns the first page of results (~12 issues).
 
-> **Note:** `wiz/blog-security` and `tldrsec/newsletter` use `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
+The **Trail of Bits** connector fetches the RSS 2.0 feed from `https://blog.trailofbits.com/index.xml`, parses the XML items, and returns blog posts with title, URL, publish date, a plain-text summary (truncated to 300 chars), and comma-separated tags. The optional `--tag` argument filters posts by tag (e.g. `cryptography`, `fuzzing`, `blockchain`).
+
+> **Note:** `wiz/blog-security`, `tldrsec/newsletter`, and `trailofbits/blog` use `js_evaluate` (a high-risk capability) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
 ### Simon Willison's blog
 
@@ -678,6 +685,8 @@ node src/cli/dist/main.js run gcs/kb-content --path general-security/edr/ --form
 node src/cli/dist/main.js run socket/security-news --format table
 node src/cli/dist/main.js run wiz/blog-security --format table
 node src/cli/dist/main.js run tldrsec/newsletter --format table
+node src/cli/dist/main.js run trailofbits/blog --format table
+node src/cli/dist/main.js run trailofbits/blog --tag cryptography --format json
 node src/cli/dist/main.js run simonwillison/blog --format table
 node src/cli/dist/main.js run simonwillison/blog --tag ai --format json
 node src/cli/dist/main.js run every/newsletter --format table

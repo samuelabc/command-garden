@@ -1,0 +1,39 @@
+site: trailofbits
+name: blog
+version: "1.0"
+description: "Latest security blog posts from Trail of Bits"
+access: read
+
+domains:
+  - "blog.trailofbits.com"
+capabilities:
+  - navigate
+  - js_evaluate
+
+args:
+  - name: tag
+    type: string
+    required: false
+    default: ""
+    help: "Filter by tag (e.g. 'cryptography', 'fuzzing', 'blockchain')"
+
+columns:
+  - name: title
+    type: string
+  - name: url
+    type: string
+  - name: published
+    type: string
+  - name: summary
+    type: string
+  - name: tags
+    type: string
+
+pipeline:
+  - step: navigate
+    url: "https://blog.trailofbits.com/"
+  - step: wait
+    selector: "body"
+    timeout: 15000
+  - step: js_evaluate
+    file: trailofbits-blog.eval.js
