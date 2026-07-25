@@ -9,6 +9,7 @@ yarn.lock
 **/coverage/
 *.tsbuildinfo
 src/daemon/connectors/
+installer/dist/
 
 # env files (secrets)
 **/.env
@@ -20,3 +21,6 @@ src/daemon/connectors/
 # OS
 .DS_Store
 Thumbs.db
+
+# extension zip
+src/chrome/commandgarden-chrome.zip
