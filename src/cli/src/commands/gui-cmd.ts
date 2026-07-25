@@ -19,7 +19,7 @@ function readAppPort(configPath: string): number {
 }
 
 export async function executeGuiStart(
-  baseUrl: string, cgHome: string, appScript: string, opts: { background?: boolean; noOpen?: boolean; configPath?: string },
+  baseUrl: string, cgHome: string, appScript: string, nodeBinary: string, opts: { background?: boolean; noOpen?: boolean; configPath?: string },
 ): Promise<LifecycleStartResult | string> {
   const appPort = opts.configPath ? readAppPort(opts.configPath) : 9092;
 
@@ -55,7 +55,7 @@ export async function executeGuiStart(
       console.error('Starting GUI...');
       const logPath = join(cgHome, 'app.log');
       const logFd = openSync(logPath, 'a');
-      const child = spawn('node', [appScript], { detached: true, stdio: ['ignore', logFd, logFd] });
+      const child = spawn(nodeBinary, [appScript], { detached: true, stdio: ['ignore', logFd, logFd] });
       closeSync(logFd);
 
       let spawnFailed = false;
@@ -89,7 +89,7 @@ export async function executeGuiStart(
   }
 
   // Foreground — exec directly (this blocks)
-  const child = spawn('node', [appScript], { stdio: 'inherit' });
+  const child = spawn(nodeBinary, [appScript], { stdio: 'inherit' });
   if (!opts.noOpen) {
     const appUrl = `http://127.0.0.1:${appPort}`;
     const ready = await waitForServer(appUrl, child);

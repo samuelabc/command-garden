@@ -10,7 +10,7 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "permissions": ["alarms", "cookies", "debugger", "idle", "tabs", "scripting", "webRequest", "storage"],
+  "permissions": ["alarms", "cookies", "debugger", "declarativeNetRequest", "idle", "tabs", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service-worker.js",

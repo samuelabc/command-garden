@@ -68,7 +68,7 @@ function ConnectorGroup({ site, connectors, approvingKey, onApprove }: { site: s
 
 export default function Connectors() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
-  const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
+  const [approvedHighRisk, setApprovedHighRisk] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [approvingKey, setApprovingKey] = useState<string | null>(null);
 
@@ -79,7 +79,10 @@ export default function Connectors() {
       .then(([connRes, configRes]) => {
         setConnectors(connRes.connectors);
         const security = (configRes.config.security ?? {}) as Record<string, unknown>;
-        setApprovedHighRisk((security.approvedHighRisk as string[]) ?? []);
+        const raw = security.approvedHighRisk;
+        setApprovedHighRisk(
+          (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw as Record<string, string[]> : {},
+        );
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -90,7 +93,7 @@ export default function Connectors() {
   const handleApprove = useCallback(async (connectorKey: string) => {
     setApprovingKey(connectorKey);
     try {
-      const updated = [...approvedHighRisk, connectorKey];
+      const updated = { ...approvedHighRisk, [connectorKey]: ['js_evaluate'] };
       await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
       load();
     } catch {

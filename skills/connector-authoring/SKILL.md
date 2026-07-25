@@ -11,15 +11,15 @@ Open the target site in Chrome with DevTools. Goal: find where the data lives an
 
 **Check in this order (cheapest capability first):**
 
-1. **Network tab → XHR/Fetch** — filter requests while using the UI. JSON API responses → **`fetch → map`** (capabilities: `navigate`, `cookie_read`). Safest pattern — prefer it.
+1. **Network tab → XHR/Fetch** — filter requests while using the UI. JSON API responses → **`fetch → map`** (capabilities: `navigate`, `network_fetch`). Safest pattern — prefer it.
 
 2. **Elements tab → DOM** — repeating elements (table rows, cards) → **`extract`** (`navigate`, `dom_read`). Nested tree (sidebar nav) → **`extract_tree`** (add `dom_write` if collapsed sections need `click_all`).
 
-3. **Network tab → page-initiated requests** — data from requests the page makes on its own (GraphQL, polling) → **`intercept`** step with `urlPattern` (`navigate`, `intercept_response`). Middle ground between `fetch` and `js_evaluate`.
+3. **CDP network capture** — data from requests the page makes on its own (GraphQL, polling) → `cdp: true` in the connector with a **`js_evaluate`** step to access captured responses (`navigate`, `js_evaluate`, `cdp_attach`).
 
 4. **Source tab → `<script id="__NEXT_DATA__">`** or `__remixContext` — framework-embedded page data → **`js_evaluate`** parsing the script tag.
 
-5. **Console → `sessionStorage`** — MSAL/OAuth tokens needed as Bearer for API calls → **`js_evaluate`** polling sessionStorage then calling fetch with the token.
+5. **Console → `sessionStorage`** — MSAL/OAuth tokens needed as Bearer for API calls → **`js_evaluate`** polling sessionStorage then calling fetch with the token (add `network_egress` if the eval.js calls `fetch()`).
 
 6. **Network tab → invisible transports** — requests missing from `window.fetch` interception (MCAS proxy, Service Workers) → **`js_evaluate`** with fetch interception, potentially requiring CDP `Fetch.enable`. Read [`RECON-PLAYBOOK.md`](RECON-PLAYBOOK.md) technique 5 before going this route.
 
@@ -103,8 +103,8 @@ The loop: **run → read audit → probe → fix → repeat.**
 ### First run
 
 ```bash
-# Approve if using js_evaluate
-cg config set security.approvedHighRisk <site>/<name>
+# Approve high-risk capabilities
+cg config approve <site>/<name> js_evaluate network_egress
 
 cg run <site>/<name> --format json
 ```

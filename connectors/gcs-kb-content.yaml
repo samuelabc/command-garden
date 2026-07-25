@@ -9,6 +9,7 @@ domains:
 capabilities:
   - navigate
   - dom_read
+  - daemon_transform
 
 args:
   - name: path

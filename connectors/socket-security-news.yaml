@@ -8,7 +8,8 @@ domains:
   - "socket.dev"
 capabilities:
   - navigate
-  - cookie_read
+  - network_fetch
+  - daemon_transform
 
 args:
   - name: tag

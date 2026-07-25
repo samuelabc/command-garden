@@ -213,11 +213,14 @@ const BATTERIES = [
 const CAPABILITIES = [
   { name: 'navigate', risk: 'low' as const },
   { name: 'dom_read', risk: 'low' as const },
+  { name: 'daemon_transform', risk: 'low' as const },
   { name: 'cookie_read', risk: 'medium' as const },
   { name: 'dom_write', risk: 'medium' as const },
-  { name: 'intercept_response', risk: 'medium' as const },
-  { name: 'cookie_write', risk: 'high' as const },
+  { name: 'network_fetch', risk: 'medium' as const },
   { name: 'js_evaluate', risk: 'high' as const },
+  { name: 'cdp_attach', risk: 'high' as const },
+  { name: 'state_mutate', risk: 'high' as const },
+  { name: 'network_egress', risk: 'high' as const },
 ];
 
 const riskVariant: Record<string, 'success' | 'warning' | 'error'> = {

@@ -552,7 +552,7 @@ export default function Overview() {
           {[
             { icon: Lock, title: 'No credentials stored', desc: 'Reuses session cookies already in Chrome. Nothing stored on disk, nothing sent externally.' },
             { icon: Shield, title: 'Domain-scoped permissions', desc: 'Connectors declare allowed domains. Undeclared domains are blocked by the daemon.' },
-            { icon: Eye, title: 'Capability gating', desc: 'Each step requires a declared capability. High-risk ops (js_evaluate, cookie_write) need approval.' },
+            { icon: Eye, title: 'Capability gating', desc: 'Each step requires declared capabilities. High-risk ops (js_evaluate, cdp_attach, state_mutate, network_egress) need per-capability approval.' },
             { icon: Fingerprint, title: 'Step-by-step approval', desc: 'Sensitive operations pause for confirmation. Approve in CLI or via Chrome notification.' },
             { icon: Server, title: 'Local-only processing', desc: 'Daemon on :9091, app server on :9092. Bound to localhost. No network exposure.' },
             { icon: FileText, title: 'Declarative connectors', desc: 'Pure YAML pipelines. No JavaScript evaluation unless explicitly declared and approved.' },

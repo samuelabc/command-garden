@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { DaemonClient, readToken } from '@commandgarden/shared';
-import { resolveScript } from './resolve-script.js';
+import { resolveScript, resolveNodeBinary } from './resolve-script.js';
 import { parseDuration } from './duration.js';
 import type { OutputFormat } from './formatters.js';
 import { executeRun, parseConnectorArgs } from './commands/run.js';
@@ -14,7 +14,7 @@ import { executeInspect } from './commands/inspect.js';
 import { executeValidate } from './commands/validate.js';
 import { executeDaemonStatus, executeDaemonStart, executeDaemonStop } from './commands/daemon-cmd.js';
 import { executeAuditList, executeAuditExport, executeAuditShow } from './commands/audit.js';
-import { executeConfigShow, executeConfigSet } from './commands/config-cmd.js';
+import { executeConfigShow, executeConfigSet, executeConfigApprove, executeConfigRevoke } from './commands/config-cmd.js';
 import { executeGuiStart, executeGuiStop, executeGuiStatus } from './commands/gui-cmd.js';
 import { executeUp, executeDown } from './commands/up-down.js';
 import { executeExtensionSetup } from './commands/extension-cmd.js';
@@ -39,6 +39,11 @@ function getDaemonScript(): string {
 let _appScript: string | undefined;
 function getAppScript(): string {
   return (_appScript ??= resolveScript(__dirname, '../../app/dist/server/main.js', '@commandgarden/app', 'dist/server/main.js'));
+}
+
+let _nodeBinary: string | undefined;
+function getNodeBinary(): string {
+  return (_nodeBinary ??= resolveNodeBinary(__dirname));
 }
 
 const CG_HOME = join(homedir(), '.commandgarden');
@@ -116,7 +121,7 @@ daemon
   .command('start')
   .description('Start the daemon in background')
   .action(async () => {
-    const result = await executeDaemonStart(BASE_URL, CG_HOME, getDaemonScript());
+    const result = await executeDaemonStart(BASE_URL, CG_HOME, getDaemonScript(), getNodeBinary());
     console.log(result.message);
   });
 
@@ -193,6 +198,22 @@ config
     console.log(await executeConfigSet(client, key, value));
   });
 
+config
+  .command('approve <connector-id> <capabilities...>')
+  .description('Approve high-risk capabilities for a connector')
+  .action(async (connectorId: string, capabilities: string[]) => {
+    const client = createClient();
+    console.log(await executeConfigApprove(client, connectorId, capabilities));
+  });
+
+config
+  .command('revoke <connector-id> [capabilities...]')
+  .description('Revoke capability approvals for a connector')
+  .action(async (connectorId: string, capabilities: string[]) => {
+    const client = createClient();
+    console.log(await executeConfigRevoke(client, connectorId, capabilities ?? []));
+  });
+
 // --- gui ---
 const gui = program
   .command('gui')
@@ -204,7 +225,7 @@ gui
   .option('-b, --background', 'Run in background')
   .option('--no-open', 'Do not open browser')
   .action(async (opts: { background?: boolean; open?: boolean }) => {
-    const result = await executeGuiStart(BASE_URL, CG_HOME, getAppScript(), {
+    const result = await executeGuiStart(BASE_URL, CG_HOME, getAppScript(), getNodeBinary(), {
       background: opts.background,
       noOpen: opts.open === false,
       configPath: CONFIG_PATH,
@@ -240,7 +261,7 @@ program
   .description('Start daemon + GUI, open browser (use --no-open to skip)')
   .option('--no-open', 'Do not open browser')
   .action(async (opts: { open?: boolean }) => {
-    console.log(await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), CONFIG_PATH, {
+    console.log(await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), getNodeBinary(), CONFIG_PATH, {
       noOpen: opts.open === false,
     }));
   });

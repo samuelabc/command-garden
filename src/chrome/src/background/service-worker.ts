@@ -54,12 +54,12 @@ client.onApprovalResponse((response: ApprovalResponse) => {
 });
 
 function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: number): ApprovalGate {
-  return async (stepType, stepIndex, capability, description) => {
+  return async (stepType, stepIndex, capabilities, description) => {
     const approvalId = `${requestId}-step-${stepIndex}`;
 
     // Store info for popup
     pendingApprovalInfos.set(approvalId, {
-      approvalId, connectorKey, stepIndex, stepType, capability,
+      approvalId, connectorKey, stepIndex, stepType, capabilities,
     });
     updateBadge();
     broadcastApprovalUpdate();
@@ -72,7 +72,7 @@ function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: 
       connectorKey,
       stepIndex,
       stepType,
-      capability,
+      capabilities,
       description,
     };
     client.sendApprovalRequest(approvalRequest);
@@ -92,7 +92,7 @@ function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: 
 }
 
 client.onRequest(async (request: ExtensionRequest) => {
-  const useCdp = request.connector.cdp === true || request.connector.pipeline.some(s => s.step === 'intercept');
+  const useCdp = request.connector.cdp === true;
   const adapter = new RealChromeAdapter({ useCdp });
   const connectorKey = `${request.connector.site}/${request.connector.name}`;
   const approvalGate = request.approvalConfig

@@ -56,7 +56,7 @@ export interface ApprovalRequest {
   connectorKey: string;
   stepIndex: number;
   stepType: PipelineStepType;
-  capability: Capability;
+  capabilities: Capability[];
   description: string;
 }
 

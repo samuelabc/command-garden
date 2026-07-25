@@ -10,6 +10,7 @@ domains:
 capabilities:
   - navigate
   - js_evaluate
+  - network_egress
 
 args:
   - name: month

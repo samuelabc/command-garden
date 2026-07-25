@@ -4,14 +4,14 @@ import { api, groupBySite, type Connector } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 const RESTART_REQUIRED_KEYS = new Set(['daemon.host', 'daemon.port', 'app.port']);
-const DEFAULT_HIGH_RISK_CAPABILITIES = ['js_evaluate', 'cookie_write'] as const;
+const DEFAULT_HIGH_RISK_CAPABILITIES = ['js_evaluate', 'cdp_attach', 'state_mutate', 'network_egress'] as const;
 
 interface ConfigState {
   daemon: { host: string; port: number };
   security: {
     extensionId: string;
     highRiskCapabilities: string[];
-    approvedHighRisk: string[];
+    approvedHighRisk: Record<string, string[]>;
     approvalRequired: string[];
     autoApproveConnectors: string[];
     approvalTimeoutMs: number;
@@ -40,7 +40,9 @@ function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigStat
     security: {
       extensionId: String(s.extensionId ?? ''),
       highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? [...DEFAULT_HIGH_RISK_CAPABILITIES],
-      approvedHighRisk: (s.approvedHighRisk as string[]) ?? [],
+      approvedHighRisk: (s.approvedHighRisk && typeof s.approvedHighRisk === 'object' && !Array.isArray(s.approvedHighRisk))
+        ? s.approvedHighRisk as Record<string, string[]>
+        : {},
       approvalRequired: (s.approvalRequired as string[]) ?? [],
       autoApproveConnectors: (s.autoApproveConnectors as string[]) ?? [],
       approvalTimeoutMs: Number(s.approvalTimeoutMs ?? 120000),
@@ -130,7 +132,7 @@ export default function Config() {
             let strVal: string;
             if (configKey === 'security.approvalTimeoutMs') {
               strVal = String(val);
-            } else if (Array.isArray(val)) {
+            } else if (typeof val === 'object' && val !== null) {
               strVal = JSON.stringify(val);
             } else {
               strVal = String(val);
@@ -202,6 +204,19 @@ export default function Config() {
 
   const formActions = useMemo(() => ({ updateField, addToArray, removeFromArray }), [updateField, addToArray, removeFromArray]);
 
+  const toggleConnectorApproval = useCallback((connectorKey: string, connectorCaps: string[], highRiskCaps: Set<string>) => {
+    setEdited(prev => {
+      if (!prev) return prev;
+      const approved = { ...prev.security.approvedHighRisk };
+      if (connectorKey in approved) {
+        delete approved[connectorKey];
+      } else {
+        approved[connectorKey] = connectorCaps.filter(c => highRiskCaps.has(c));
+      }
+      return { ...prev, security: { ...prev.security, approvedHighRisk: approved } };
+    });
+  }, []);
+
   if (loading) return <Spinner label="Loading configuration..." />;
 
   if (!edited || !saved) {
@@ -229,7 +244,7 @@ export default function Config() {
 
       <div className="space-y-8">
         <div id="cfg-server" className="scroll-mt-4"><ServerSection config={edited} actions={formActions} /></div>
-        <div id="cfg-security" className="scroll-mt-4"><ConnectorSecuritySection config={edited} connectors={connectors} actions={formActions} /></div>
+        <div id="cfg-security" className="scroll-mt-4"><ConnectorSecuritySection config={edited} connectors={connectors} actions={formActions} onToggleApproval={toggleConnectorApproval} /></div>
         <div id="cfg-sources" className="scroll-mt-4"><ConnectorSourcesSection config={edited} actions={formActions} /></div>
         <div id="cfg-audit" className="scroll-mt-4"><AuditSection config={edited} actions={formActions} /></div>
         <div id="cfg-output" className="scroll-mt-4"><OutputSection config={edited} actions={formActions} /></div>
@@ -350,12 +365,13 @@ function TagEditor({ values, onAdd, onRemove, placeholder }: {
   );
 }
 
-function ConnectorSecuritySection({ config, connectors, actions }: {
+function ConnectorSecuritySection({ config, connectors, actions, onToggleApproval }: {
   config: ConfigState;
   connectors: Connector[];
   actions: FormActions;
+  onToggleApproval: (connectorKey: string, connectorCaps: string[], highRiskCaps: Set<string>) => void;
 }) {
-  const { updateField, addToArray, removeFromArray } = actions;
+  const { addToArray, removeFromArray } = actions;
   const highRiskCaps = new Set(config.security.highRiskCapabilities);
   const grouped = useMemo(() => groupBySite(connectors), [connectors]);
 
@@ -386,7 +402,7 @@ function ConnectorSecuritySection({ config, connectors, actions }: {
                     {siteConnectors.map(c => {
                       const name = c.key.split('/')[1];
                       const isHighRisk = c.capabilities.some(cap => highRiskCaps.has(cap));
-                      const isApproved = config.security.approvedHighRisk.includes(c.key);
+                      const isApproved = c.key in config.security.approvedHighRisk;
                       const isAutoApproved = config.security.autoApproveConnectors.includes(c.key);
                       return (
                         <tr key={c.key}>
@@ -402,9 +418,7 @@ function ConnectorSecuritySection({ config, connectors, actions }: {
                           <td>
                             {isHighRisk ? (
                               <input type="checkbox" className="toggle toggle-sm toggle-success" checked={isApproved}
-                                onChange={() => isApproved
-                                  ? removeFromArray('security', 'approvedHighRisk', c.key)
-                                  : addToArray('security', 'approvedHighRisk', c.key)} />
+                                onChange={() => onToggleApproval(c.key, c.capabilities, highRiskCaps)} />
                             ) : <span className="opacity-40">—</span>}
                           </td>
                           <td>

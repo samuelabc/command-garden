@@ -1,6 +1,7 @@
 // src/commands/inspect.ts
 import type { DaemonClient } from '@commandgarden/shared';
 import type { ConnectorDef } from '@commandgarden/shared';
+import { CAPABILITY_RISK } from '@commandgarden/shared';
 
 export async function executeInspect(client: DaemonClient, connectorKey: string): Promise<string> {
   if (!connectorKey.includes('/')) {
@@ -23,8 +24,9 @@ function renderConnector(c: ConnectorDef): string {
   lines.push(`Version:   ${c.version}`);
   if (c.description) lines.push(`Desc:      ${c.description}`);
   lines.push(`Access:    ${c.access}`);
+  if (c.cdp) lines.push(`CDP:       enabled`);
   lines.push(`Domains:   ${c.domains.join(', ')}`);
-  lines.push(`Caps:      ${c.capabilities.join(', ')}`);
+  lines.push(`Caps:      ${c.capabilities.map(cap => `${cap} [${CAPABILITY_RISK[cap]}]`).join(', ')}`);
 
   if (c.args && c.args.length > 0) {
     lines.push('');
@@ -64,8 +66,8 @@ function stepSummary(step: Record<string, unknown>): string {
     case 'filter': return ` → ${step.field} ${step.operator} ${step.value}`;
     case 'map': return ` → ${Object.keys(step.fields as Record<string, string>).join(', ')}`;
     case 'cookie': return ` → ${step.domain}`;
-    case 'fetch': return ` → ${step.url}`;
-    case 'intercept': return ` → ${step.urlPattern}`;
+    case 'fetch': return ` → ${step.method ?? 'GET'} ${step.url}`;
+    case 'transform': return ` → ${step.type}`;
     default: return '';
   }
 }

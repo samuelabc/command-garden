@@ -408,13 +408,13 @@ cg validate connectors/my-connector.yaml
 | `click` | Click an element | `dom_write` |
 | `click_all` | Click all matching elements (with re-scan loop) | `dom_write` |
 | `type` | Type text into an input | `dom_write` |
-| `intercept` | Capture a network response body | `intercept_response` |
 | `cookie` | Read cookies for a domain | `cookie_read` |
-| `fetch` | HTTP request from page context | `cookie_read` |
+| `fetch` | Authenticated HTTP request from page context | `network_fetch` |
+| `js_evaluate` | Run arbitrary JS in page MAIN world | `js_evaluate` |
 | `map` | Transform/rename extracted fields (use `${{ row.field }}`) | none |
 | `filter` | Filter rows by condition | none |
 | `set` | Set a variable for later steps | none |
-| `transform` | Server-side data transform (e.g., HTML→Markdown) | none |
+| `transform` | Server-side data transform (e.g., HTML→Markdown) | `daemon_transform` |
 
 ### Expression syntax
 
@@ -507,8 +507,10 @@ security:
   extensionId: ""
   highRiskCapabilities:
     - js_evaluate
-    - cookie_write
-  approvedHighRisk: []
+    - cdp_attach
+    - state_mutate
+    - network_egress
+  approvedHighRisk: {}
 
 connectors:
   paths:
@@ -535,17 +537,28 @@ Configuration can also be edited in the GUI at the **Configuration** page, which
 
 ### Approving high-risk connectors
 
-Connectors that use `js_evaluate` or `cookie_write` are classified as **high-risk** and blocked by default. There are three ways to approve a connector:
+Connectors that use `js_evaluate`, `cdp_attach`, `state_mutate`, or `network_egress` are classified as **high-risk** and blocked by default. Approval is granular per capability. There are three ways to approve a connector:
 
 1. **GUI — Configuration page:** Toggle the "Approved" switch in the Connector Security table
 2. **GUI — Connectors page:** Click the "Approve" button next to any blocked connector
-3. **CLI / config file:** Add its key (`site/name`) to `security.approvedHighRisk` in `~/.commandgarden/config.yaml`:
+3. **CLI:** Use `cg config approve` to approve specific capabilities:
+
+```bash
+cg config approve timetracking/report js_evaluate network_egress
+cg config approve teams/room-availability js_evaluate cdp_attach
+```
+
+Or edit `~/.commandgarden/config.yaml` directly:
 
 ```yaml
 security:
   approvedHighRisk:
-    - "timetracking/report"
-    - "teams/room-availability"
+    timetracking/report:
+      - js_evaluate
+      - network_egress
+    teams/room-availability:
+      - js_evaluate
+      - cdp_attach
 ```
 
 If a high-risk connector is not approved, running it will return:

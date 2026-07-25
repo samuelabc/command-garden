@@ -53,7 +53,7 @@ describe('routes', () => {
           if (path === '/api/config') {
             return Promise.resolve({
               ok: true,
-              config: { security: { highRiskCapabilities: [...HIGH_RISK_CAPABILITIES], approvedHighRisk: [], autoApproveConnectors: [] } },
+              config: { security: { highRiskCapabilities: [...HIGH_RISK_CAPABILITIES], approvedHighRisk: {}, autoApproveConnectors: [] } },
             });
           }
           return Promise.resolve({ ok: true });
@@ -84,7 +84,7 @@ describe('routes', () => {
               config: {
                 security: {
                   highRiskCapabilities: [...HIGH_RISK_CAPABILITIES],
-                  approvedHighRisk: ['timetracking/report'],
+                  approvedHighRisk: { 'timetracking/report': ['js_evaluate'] },
                   autoApproveConnectors: ['timetracking/report'],
                 },
               },

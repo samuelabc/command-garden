@@ -10,6 +10,8 @@ function mockAdapter(overrides?: Partial<ChromeAdapter>): ChromeAdapter {
     executeInContent: vi.fn().mockResolvedValue(undefined),
     getCookies: vi.fn().mockResolvedValue({}),
     evaluateInPage: vi.fn().mockResolvedValue(undefined),
+    addEgressRules: vi.fn().mockResolvedValue(undefined),
+    removeEgressRules: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -17,7 +19,8 @@ function mockAdapter(overrides?: Partial<ChromeAdapter>): ChromeAdapter {
 function makeConnector(pipeline: PipelineStep[]): ConnectorDef {
   return {
     site: 'test', name: 'cmd', version: '1.0', access: 'read',
-    domains: ['example.com'], capabilities: ['navigate', 'dom_read', 'cookie_read'],
+    domains: ['example.com'],
+    capabilities: ['navigate', 'dom_read', 'dom_write', 'cookie_read', 'network_fetch', 'js_evaluate'],
     args: [], columns: [], pipeline,
   } as unknown as ConnectorDef;
 }
@@ -210,7 +213,7 @@ describe('PipelineRunner', () => {
     const runner = new PipelineRunner(adapter, gate, approvalConfig);
     const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
     await runner.run(connector, {});
-    expect(gate).toHaveBeenCalledWith('navigate', 0, 'navigate', expect.any(String));
+    expect(gate).toHaveBeenCalledWith('navigate', 0, ['navigate'], expect.any(String));
     expect(adapter.navigateTab).toHaveBeenCalled();
   });
 
@@ -261,7 +264,7 @@ describe('PipelineRunner', () => {
     expect(result.steps).toHaveLength(2);
     expect(result.steps![0].step).toBe('navigate');
     expect(result.steps![0].index).toBe(0);
-    expect(result.steps![0].capability).toBe('navigate');
+    expect(result.steps![0].capabilities).toContain('navigate');
     expect(result.steps![0].durationMs).toBeGreaterThanOrEqual(0);
     expect(result.steps![1].step).toBe('extract');
     expect(result.steps![1].index).toBe(1);
@@ -348,7 +351,7 @@ describe('PipelineRunner', () => {
     ]);
     const result = await runner.run(connector, {});
     expect(result.steps![2].step).toBe('map');
-    expect(result.steps![2].capability).toBeUndefined();
+    expect(result.steps![2].capabilities).toEqual([]);
   });
 
   it('skips approval gate for steps with null capability', async () => {
@@ -366,5 +369,78 @@ describe('PipelineRunner', () => {
     await runner.run(connector, {});
     // navigate requires approval, map has null capability so no approval
     expect(gate).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws when step requires undeclared capability', async () => {
+    const adapter = mockAdapter();
+    const runner = new PipelineRunner(adapter);
+    const connector = {
+      site: 'test', name: 'cmd', version: '1.0', access: 'read',
+      domains: ['example.com'],
+      capabilities: ['dom_read'],
+      args: [], columns: [],
+      pipeline: [{ step: 'navigate', url: 'https://example.com' }],
+    } as unknown as ConnectorDef;
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('undeclared capabilities');
+    expect(result.error).toContain('navigate');
+  });
+
+  it('throws when navigate targets undeclared domain', async () => {
+    const adapter = mockAdapter();
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([{ step: 'navigate', url: 'https://evil.com/hack' }]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('domain not declared');
+  });
+
+  it('throws when fetch targets undeclared domain', async () => {
+    const adapter = mockAdapter({
+      executeInContent: vi.fn().mockResolvedValue({ data: [] }),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'fetch', url: 'https://malicious.com/api', method: 'GET', as: 'resp' },
+    ] as unknown as PipelineStep[]);
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('domain not declared');
+  });
+
+  it('applies egress rules for js_evaluate when connector declares network_egress', async () => {
+    const adapter = mockAdapter({
+      evaluateInPage: vi.fn().mockResolvedValue([{ val: 1 }]),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = {
+      site: 'test', name: 'cmd', version: '1.0', access: 'read',
+      domains: ['example.com'],
+      capabilities: ['navigate', 'js_evaluate', 'network_egress'],
+      args: [], columns: [],
+      pipeline: [
+        { step: 'navigate', url: 'https://example.com' },
+        { step: 'js_evaluate', code: 'return await fetch("/api").then(r => r.json())' },
+      ],
+    } as unknown as ConnectorDef;
+    await runner.run(connector, {});
+    expect(adapter.addEgressRules).toHaveBeenCalledWith(1, ['example.com']);
+    expect(adapter.removeEgressRules).toHaveBeenCalledWith(1);
+  });
+
+  it('does not apply egress rules when connector lacks network_egress', async () => {
+    const adapter = mockAdapter({
+      evaluateInPage: vi.fn().mockResolvedValue(42),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = makeConnector([
+      { step: 'navigate', url: 'https://example.com' },
+      { step: 'js_evaluate', code: 'return 42;' },
+    ] as unknown as PipelineStep[]);
+    await runner.run(connector, {});
+    expect(adapter.addEgressRules).not.toHaveBeenCalled();
+    expect(adapter.removeEgressRules).not.toHaveBeenCalled();
   });
 });

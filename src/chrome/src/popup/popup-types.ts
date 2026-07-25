@@ -10,7 +10,7 @@ export interface ApprovalInfo {
   connectorKey: string;
   stepIndex: number;
   stepType: string;
-  capability: string;
+  capabilities: string[];
 }
 
 export type PopupMessage =

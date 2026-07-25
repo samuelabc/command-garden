@@ -10,9 +10,10 @@ describe('configSchema', () => {
     const c = configSchema.parse({});
     expect(c.daemon.port).toBe(9091);
     expect(c.daemon.host).toBe('127.0.0.1');
-    expect(c.security.highRiskCapabilities).toEqual(['js_evaluate', 'cookie_write']);
+    expect(c.security.highRiskCapabilities).toEqual(['js_evaluate', 'cdp_attach', 'state_mutate', 'network_egress']);
     expect(c.security.approvalRequired).toEqual([]);
     expect(c.security.autoApproveConnectors).toEqual([]);
+    expect(c.security.approvedHighRisk).toEqual({});
     expect(c.security.approvalTimeoutMs).toBe(120_000);
     expect(c.audit.retentionDays).toBe(90);
     expect(c.output.defaultFormat).toBe('table');
@@ -45,6 +46,23 @@ describe('configSchema', () => {
     } finally {
       process.chdir(originalCwd);
     }
+  });
+
+  it('migrates old array-style approvedHighRisk to record format', () => {
+    const c = configSchema.parse({
+      security: { approvedHighRisk: ['timetracking/report', 'jira/my-tickets'] },
+    });
+    expect(c.security.approvedHighRisk).toEqual({
+      'timetracking/report': ['js_evaluate'],
+      'jira/my-tickets': ['js_evaluate'],
+    });
+  });
+
+  it('accepts new record-style approvedHighRisk directly', () => {
+    const c = configSchema.parse({
+      security: { approvedHighRisk: { 'timetracking/report': ['js_evaluate'] } },
+    });
+    expect(c.security.approvedHighRisk).toEqual({ 'timetracking/report': ['js_evaluate'] });
   });
 });
 

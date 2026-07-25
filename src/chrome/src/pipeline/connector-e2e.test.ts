@@ -27,6 +27,8 @@ function mockAdapter(overrides?: Partial<ChromeAdapter>): ChromeAdapter {
     executeInContent: vi.fn().mockResolvedValue(undefined),
     getCookies: vi.fn().mockResolvedValue({}),
     evaluateInPage: vi.fn().mockResolvedValue(undefined),
+    addEgressRules: vi.fn().mockResolvedValue(undefined),
+    removeEgressRules: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

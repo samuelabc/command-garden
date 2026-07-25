@@ -1,5 +1,6 @@
 // src/commands/validate.ts
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { parseConnectorYaml, validateConnectorSemantics } from '@commandgarden/shared';
 
 export function executeValidate(filePath: string): string {
@@ -19,7 +20,18 @@ export function executeValidate(filePath: string): string {
     return lines.join('\n');
   }
 
-  const semanticErrors = validateConnectorSemantics(result.data);
+  const evalFileContents = new Map<string, string>();
+  const dir = dirname(filePath);
+  for (const step of result.data.pipeline) {
+    if (step.step === 'js_evaluate' && step.file) {
+      const evalPath = join(dir, step.file);
+      if (existsSync(evalPath)) {
+        evalFileContents.set(step.file, readFileSync(evalPath, 'utf-8'));
+      }
+    }
+  }
+
+  const semanticErrors = validateConnectorSemantics(result.data, { evalFileContents });
   if (semanticErrors.length > 0) {
     const lines = ['Invalid: Semantic validation failed'];
     for (const e of semanticErrors) lines.push(`  - ${e}`);

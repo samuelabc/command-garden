@@ -1,7 +1,8 @@
 import { parse as parseYaml } from 'yaml';
 import { ZodError } from 'zod';
 import { connectorSchema, type ConnectorDef } from './connector.js';
-import { STEP_CAPABILITY_MAP } from './pipeline.js';
+import { STEP_CAPABILITY_MAP, inferStepCapabilities, type EvalAnalysis, type PipelineStep } from './pipeline.js';
+import { detectNetworkEgress } from './eval-analyzer.js';
 
 export interface LoadError {
   code: 'YAML_PARSE_ERROR' | 'SCHEMA_VALIDATION_ERROR';
@@ -42,17 +43,40 @@ export function parseConnectorYaml(yamlContent: string): LoadResult {
   return { ok: true, data: result.data };
 }
 
-export function validateConnectorSemantics(connector: ConnectorDef): string[] {
+export interface SemanticValidationOptions {
+  evalFileContents?: Map<string, string>;
+}
+
+export function validateConnectorSemantics(
+  connector: ConnectorDef,
+  options?: SemanticValidationOptions,
+): string[] {
   const errors: string[] = [];
   const declaredCapabilities = new Set(connector.capabilities);
   const declaredDomains = new Set(connector.domains);
 
+  if (connector.cdp && !declaredCapabilities.has('cdp_attach')) {
+    errors.push('Connector has cdp: true but does not declare the "cdp_attach" capability');
+  }
+
   for (const step of connector.pipeline) {
-    const requiredCap = STEP_CAPABILITY_MAP[step.step];
-    if (requiredCap && !declaredCapabilities.has(requiredCap)) {
-      errors.push(
-        `Pipeline step "${step.step}" requires capability "${requiredCap}" which is not declared`,
-      );
+    let evalAnalysis: EvalAnalysis | undefined;
+    if (step.step === 'js_evaluate' && step.file && options?.evalFileContents) {
+      const code = options.evalFileContents.get(step.file);
+      if (code) {
+        evalAnalysis = { hasNetworkEgress: detectNetworkEgress(code) };
+      }
+    } else if (step.step === 'js_evaluate' && step.code) {
+      evalAnalysis = { hasNetworkEgress: detectNetworkEgress(step.code) };
+    }
+
+    const requiredCaps = inferStepCapabilities(step, connector, evalAnalysis);
+    for (const cap of requiredCaps) {
+      if (!declaredCapabilities.has(cap)) {
+        errors.push(
+          `Pipeline step "${step.step}" requires capability "${cap}" which is not declared`,
+        );
+      }
     }
 
     if (step.step === 'navigate') {
@@ -64,7 +88,6 @@ export function validateConnectorSemantics(connector: ConnectorDef): string[] {
           );
         }
       } catch {
-        // URL might contain ${{ }} expressions — skip domain check for templates
         if (!step.url.includes('${{')) {
           errors.push(`Navigate step has invalid URL: ${step.url}`);
         }
@@ -97,8 +120,6 @@ export function validateConnectorSemantics(connector: ConnectorDef): string[] {
     }
   }
 
-  // Check vars maps: if a vars entry is an object whose values are all strings,
-  // verify each value is declared in the top-level domains list.
   if (connector.vars) {
     for (const [varName, varValue] of Object.entries(connector.vars)) {
       if (varValue == null || typeof varValue !== 'object' || Array.isArray(varValue)) continue;

@@ -15,8 +15,20 @@ export const configSchema = z.object({
   }).default({}),
   security: z.object({
     extensionId: z.string().default(''),
-    highRiskCapabilities: z.array(z.string()).default(['js_evaluate', 'cookie_write']),
-    approvedHighRisk: z.array(z.string()).default([]),
+    highRiskCapabilities: z.array(z.string()).default(['js_evaluate', 'cdp_attach', 'state_mutate', 'network_egress']),
+    approvedHighRisk: z.preprocess(
+      (val) => {
+        if (Array.isArray(val)) {
+          const record: Record<string, string[]> = {};
+          for (const id of val) {
+            if (typeof id === 'string') record[id] = ['js_evaluate'];
+          }
+          return record;
+        }
+        return val;
+      },
+      z.record(z.string(), z.array(z.string())).default({}),
+    ),
     approvalRequired: z.array(z.string()).default([]),
     autoApproveConnectors: z.array(z.string()).default([]),
     approvalTimeoutMs: z.number().int().positive().default(120_000),

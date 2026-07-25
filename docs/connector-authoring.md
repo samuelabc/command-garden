@@ -13,7 +13,7 @@ Use when the target site exposes a REST API and your browser session cookies pro
 ```yaml
 capabilities:
   - navigate
-  - cookie_read
+  - network_fetch
 
 pipeline:
   - step: navigate
@@ -80,7 +80,7 @@ pipeline:
     file: my-connector.eval.js
 ```
 
-> **Warning:** `js_evaluate` is a high-risk capability. The connector must be explicitly approved via `cg config set security.approvedHighRisk <connector>` before it will run.
+> **Warning:** `js_evaluate` is a high-risk capability. The connector must be explicitly approved via `cg config approve <connector-id> js_evaluate` before it will run.
 
 ### Pattern 4: Next.js `__NEXT_DATA__` extraction
 

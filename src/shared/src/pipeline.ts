@@ -8,24 +8,52 @@ export const PIPELINE_STEP_TYPES = [
 
 export type PipelineStepType = (typeof PIPELINE_STEP_TYPES)[number];
 
-export const STEP_CAPABILITY_MAP: Record<PipelineStepType, Capability | null> = {
-  navigate: 'navigate',
-  wait: 'navigate',
-  extract: 'dom_read',
-  extract_tree: 'dom_read',
-  extract_html: 'dom_read',
-  click: 'dom_write',
-  click_all: 'dom_write',
-  type: 'dom_write',
-  intercept: 'intercept_response',
-  cookie: 'cookie_read',
-  fetch: 'cookie_read',
-  map: null,
-  filter: null,
-  set: null,
-  transform: null,
-  js_evaluate: 'js_evaluate',
+export const STEP_CAPABILITY_MAP: Record<PipelineStepType, Capability[]> = {
+  navigate: ['navigate'],
+  wait: ['navigate'],
+  extract: ['dom_read'],
+  extract_tree: ['dom_read'],
+  extract_html: ['dom_read'],
+  click: ['dom_write'],
+  click_all: ['dom_write'],
+  type: ['dom_write'],
+  intercept: [],
+  cookie: ['cookie_read'],
+  fetch: ['network_fetch'],
+  map: [],
+  filter: [],
+  set: [],
+  transform: ['daemon_transform'],
+  js_evaluate: ['js_evaluate'],
 };
+
+export interface EvalAnalysis {
+  hasNetworkEgress: boolean;
+}
+
+export function inferStepCapabilities(
+  step: PipelineStep,
+  connector: { cdp?: boolean },
+  evalAnalysis?: EvalAnalysis,
+): Capability[] {
+  const base = STEP_CAPABILITY_MAP[step.step];
+  const extra: Capability[] = [];
+
+  if (step.step === 'fetch' && 'method' in step && step.method &&
+      !['GET', 'HEAD'].includes(step.method.toUpperCase())) {
+    extra.push('state_mutate');
+  }
+
+  if (step.step === 'js_evaluate' && connector.cdp) {
+    extra.push('cdp_attach');
+  }
+
+  if (step.step === 'js_evaluate' && evalAnalysis?.hasNetworkEgress) {
+    extra.push('network_egress');
+  }
+
+  return [...base, ...extra];
+}
 
 const navigateStepSchema = z.object({
   step: z.literal('navigate'),

@@ -60,12 +60,26 @@ describe('validateCommand', () => {
     const config = configSchema.parse({});
     const r = validateCommand('risky/eval', registry, config);
     expect(r.ok).toBe(false);
-    expect(r.denialReason).toContain('high-risk');
+    expect(r.denialReason).toContain('unapproved high-risk');
   });
 
-  it('accepts high-risk connector when approved', () => {
-    const config = configSchema.parse({ security: { approvedHighRisk: ['risky/eval'] } });
+  it('accepts high-risk connector when all high-risk caps approved', () => {
+    const config = configSchema.parse({
+      security: { approvedHighRisk: { 'risky/eval': ['js_evaluate'] } },
+    });
     const r = validateCommand('risky/eval', registry, config);
     expect(r.ok).toBe(true);
+  });
+
+  it('rejects when only some high-risk caps approved', () => {
+    const config = configSchema.parse({
+      security: {
+        highRiskCapabilities: ['js_evaluate', 'cdp_attach'],
+        approvedHighRisk: { 'risky/eval': ['cdp_attach'] },
+      },
+    });
+    const r = validateCommand('risky/eval', registry, config);
+    expect(r.ok).toBe(false);
+    expect(r.denialReason).toContain('js_evaluate');
   });
 });

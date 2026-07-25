@@ -5,6 +5,7 @@ import {
   DAEMON_STEPS,
   pipelineStepSchema,
   splitPipeline,
+  inferStepCapabilities,
   type PipelineStep,
 } from './pipeline';
 
@@ -16,42 +17,50 @@ describe('PIPELINE_STEP_TYPES', () => {
 
 describe('STEP_CAPABILITY_MAP', () => {
   it('maps navigate step to navigate capability', () => {
-    expect(STEP_CAPABILITY_MAP.navigate).toBe('navigate');
+    expect(STEP_CAPABILITY_MAP.navigate).toEqual(['navigate']);
   });
 
   it('maps wait step to navigate capability', () => {
-    expect(STEP_CAPABILITY_MAP.wait).toBe('navigate');
+    expect(STEP_CAPABILITY_MAP.wait).toEqual(['navigate']);
   });
 
   it('maps extract step to dom_read capability', () => {
-    expect(STEP_CAPABILITY_MAP.extract).toBe('dom_read');
+    expect(STEP_CAPABILITY_MAP.extract).toEqual(['dom_read']);
   });
 
   it('maps click and type steps to dom_write', () => {
-    expect(STEP_CAPABILITY_MAP.click).toBe('dom_write');
-    expect(STEP_CAPABILITY_MAP.type).toBe('dom_write');
+    expect(STEP_CAPABILITY_MAP.click).toEqual(['dom_write']);
+    expect(STEP_CAPABILITY_MAP.type).toEqual(['dom_write']);
   });
 
   it('maps click_all step to dom_write', () => {
-    expect(STEP_CAPABILITY_MAP.click_all).toBe('dom_write');
+    expect(STEP_CAPABILITY_MAP.click_all).toEqual(['dom_write']);
   });
 
   it('maps extract_tree step to dom_read', () => {
-    expect(STEP_CAPABILITY_MAP.extract_tree).toBe('dom_read');
+    expect(STEP_CAPABILITY_MAP.extract_tree).toEqual(['dom_read']);
   });
 
   it('maps extract_html step to dom_read', () => {
-    expect(STEP_CAPABILITY_MAP.extract_html).toBe('dom_read');
+    expect(STEP_CAPABILITY_MAP.extract_html).toEqual(['dom_read']);
   });
 
-  it('maps transform step to null (daemon-side)', () => {
-    expect(STEP_CAPABILITY_MAP.transform).toBeNull();
+  it('maps transform step to daemon_transform', () => {
+    expect(STEP_CAPABILITY_MAP.transform).toEqual(['daemon_transform']);
   });
 
-  it('maps map/filter/set steps to null (no capability needed)', () => {
-    expect(STEP_CAPABILITY_MAP.map).toBeNull();
-    expect(STEP_CAPABILITY_MAP.filter).toBeNull();
-    expect(STEP_CAPABILITY_MAP.set).toBeNull();
+  it('maps fetch step to network_fetch', () => {
+    expect(STEP_CAPABILITY_MAP.fetch).toEqual(['network_fetch']);
+  });
+
+  it('maps map/filter/set steps to empty array (no capability needed)', () => {
+    expect(STEP_CAPABILITY_MAP.map).toEqual([]);
+    expect(STEP_CAPABILITY_MAP.filter).toEqual([]);
+    expect(STEP_CAPABILITY_MAP.set).toEqual([]);
+  });
+
+  it('maps intercept step to empty array (deprecated)', () => {
+    expect(STEP_CAPABILITY_MAP.intercept).toEqual([]);
   });
 });
 
@@ -257,5 +266,60 @@ describe('splitPipeline', () => {
     const { extensionSteps, daemonSteps } = splitPipeline(steps);
     expect(extensionSteps).toHaveLength(0);
     expect(daemonSteps).toHaveLength(1);
+  });
+});
+
+describe('inferStepCapabilities', () => {
+  it('returns base capability for navigate step', () => {
+    const step = { step: 'navigate', url: 'https://example.com' } as PipelineStep;
+    expect(inferStepCapabilities(step, {})).toEqual(['navigate']);
+  });
+
+  it('returns network_fetch for GET fetch', () => {
+    const step = { step: 'fetch', url: 'https://api.example.com', method: 'GET', as: 'data' } as PipelineStep;
+    expect(inferStepCapabilities(step, {})).toEqual(['network_fetch']);
+  });
+
+  it('infers state_mutate for POST fetch', () => {
+    const step = { step: 'fetch', url: 'https://api.example.com', method: 'POST', as: 'resp' } as PipelineStep;
+    const caps = inferStepCapabilities(step, {});
+    expect(caps).toContain('network_fetch');
+    expect(caps).toContain('state_mutate');
+  });
+
+  it('infers state_mutate for DELETE fetch', () => {
+    const step = { step: 'fetch', url: 'https://api.example.com', method: 'DELETE', as: 'resp' } as PipelineStep;
+    expect(inferStepCapabilities(step, {})).toContain('state_mutate');
+  });
+
+  it('infers cdp_attach for js_evaluate on cdp connector', () => {
+    const step = { step: 'js_evaluate', code: 'return 42;' } as PipelineStep;
+    const caps = inferStepCapabilities(step, { cdp: true });
+    expect(caps).toContain('js_evaluate');
+    expect(caps).toContain('cdp_attach');
+  });
+
+  it('does not infer cdp_attach when cdp is false', () => {
+    const step = { step: 'js_evaluate', code: 'return 42;' } as PipelineStep;
+    const caps = inferStepCapabilities(step, { cdp: false });
+    expect(caps).not.toContain('cdp_attach');
+  });
+
+  it('infers network_egress when evalAnalysis indicates egress', () => {
+    const step = { step: 'js_evaluate', code: 'return 42;' } as PipelineStep;
+    const caps = inferStepCapabilities(step, {}, { hasNetworkEgress: true });
+    expect(caps).toContain('js_evaluate');
+    expect(caps).toContain('network_egress');
+  });
+
+  it('does not infer network_egress without evalAnalysis', () => {
+    const step = { step: 'js_evaluate', code: 'return 42;' } as PipelineStep;
+    const caps = inferStepCapabilities(step, {});
+    expect(caps).not.toContain('network_egress');
+  });
+
+  it('returns empty for map/filter/set steps', () => {
+    const step = { step: 'map', fields: { name: '${{ row.title }}' } } as PipelineStep;
+    expect(inferStepCapabilities(step, {})).toEqual([]);
   });
 });

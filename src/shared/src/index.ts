@@ -13,6 +13,8 @@ export {
   PIPELINE_STEP_TYPES,
   type PipelineStepType,
   STEP_CAPABILITY_MAP,
+  inferStepCapabilities,
+  type EvalAnalysis,
   pipelineStepSchema,
   type PipelineStep,
   type NavigateStep,
@@ -49,7 +51,13 @@ export {
   parseConnectorYaml,
   validateConnectorSemantics,
   type LoadError,
+  type SemanticValidationOptions,
 } from './loader.js';
+
+// Eval static analysis
+export {
+  detectNetworkEgress,
+} from './eval-analyzer.js';
 
 // Expression engine
 export {

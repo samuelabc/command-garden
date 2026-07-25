@@ -118,14 +118,14 @@ export async function executeAuditShow(
       lines.push('');
       lines.push('Pipeline Steps:');
       const stepTable = new Table({
-        head: ['#', 'Step', 'Capability', 'Duration', 'Error'],
+        head: ['#', 'Step', 'Capabilities', 'Duration', 'Error'],
         style: { head: ['cyan'] },
       });
       for (const s of e.steps) {
         stepTable.push([
           s.index + 1,
           s.step,
-          s.capability ?? '-',
+          s.capabilities.length > 0 ? s.capabilities.join(', ') : '-',
           `${s.durationMs}ms`,
           s.error ?? '',
         ]);

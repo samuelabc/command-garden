@@ -125,7 +125,7 @@ export default function Audit() {
                                       <tr key={i}>
                                         <td>{i + 1}</td>
                                         <td>{s.step}</td>
-                                        <td>{s.capability}</td>
+                                        <td>{s.capabilities?.join(', ') ?? '—'}</td>
                                         <td>{(s.durationMs / 1000).toFixed(2)}s</td>
                                         <td className="text-error">{s.error ?? ''}</td>
                                       </tr>

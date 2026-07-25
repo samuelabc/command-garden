@@ -28,7 +28,7 @@ domains:
   - "tma.query.api.dvb.corpinter.net.cn"
 capabilities:
   - navigate
-  - cookie_read
+  - network_fetch
 
 columns:
   - name: id

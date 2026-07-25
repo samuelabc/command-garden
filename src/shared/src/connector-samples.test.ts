@@ -102,10 +102,10 @@ describe('sample connectors — field correctness', () => {
     expect(monthArg!.pattern).toBe('^\\d{4}-\\d{2}$');
   });
 
-  it('tokenmaster/clients-list uses cookie_read capability and all region domains', () => {
+  it('tokenmaster/clients-list uses network_fetch capability and all region domains', () => {
     const result = loadConnector('tokenmaster-clients-list.yaml');
     if (!result.ok) throw new Error(result.error.message);
-    expect(result.data.capabilities).toContain('cookie_read');
+    expect(result.data.capabilities).toContain('network_fetch');
     expect(result.data.domains).toContain('tma.query.api.dvb.corpinter.net');
     expect(result.data.domains).toContain('tma.query.api.am.dvb.corpinter.net');
     expect(result.data.domains).toContain('tma.query.api.dvb.corpinter.net.cn');

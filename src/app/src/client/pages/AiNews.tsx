@@ -84,13 +84,16 @@ export default function AiNews() {
   const [mtsError, setMtsError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
-  const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
+  const [approvedHighRisk, setApprovedHighRisk] = useState<Record<string, string[]>>({});
 
   const loadConfig = useCallback(() => {
     api.getConfig()
       .then((res) => {
         const security = (res.config.security ?? {}) as Record<string, unknown>;
-        setApprovedHighRisk((security.approvedHighRisk as string[]) ?? []);
+        const raw = security.approvedHighRisk;
+        setApprovedHighRisk(
+          (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw as Record<string, string[]> : {},
+        );
       })
       .catch(() => {});
   }, []);
@@ -229,7 +232,7 @@ export default function AiNews() {
     err?.includes('not approved') || err?.includes('approvedHighRisk');
 
   const handleApprove = useCallback(async (connectorKey: string) => {
-    const updated = [...approvedHighRisk, connectorKey];
+    const updated = { ...approvedHighRisk, [connectorKey]: ['js_evaluate'] };
     try {
       await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
       setApprovedHighRisk(updated);

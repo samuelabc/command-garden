@@ -104,13 +104,14 @@ const PIPELINE_STEPS: { step: string; capability: string; desc: string }[] = [
   { step: 'click', capability: 'dom_write', desc: 'Click an element' },
   { step: 'click_all', capability: 'dom_write', desc: 'Click all matching elements (with re-scan loop)' },
   { step: 'type', capability: 'dom_write', desc: 'Type text into an input' },
-  { step: 'intercept', capability: 'intercept_response', desc: 'Capture a network response body' },
+  { step: 'intercept', capability: '—', desc: 'Deprecated — use cdp_attach instead' },
   { step: 'cookie', capability: 'cookie_read', desc: 'Read cookies for a domain' },
-  { step: 'fetch', capability: 'cookie_read', desc: 'HTTP request from page context' },
+  { step: 'fetch', capability: 'network_fetch', desc: 'Authenticated HTTP request from page context' },
   { step: 'map', capability: '—', desc: 'Transform/rename extracted fields' },
   { step: 'filter', capability: '—', desc: 'Filter rows by condition' },
   { step: 'set', capability: '—', desc: 'Set a variable for later steps' },
-  { step: 'transform', capability: '—', desc: 'Server-side data transform (e.g. HTML→Markdown)' },
+  { step: 'transform', capability: 'daemon_transform', desc: 'Server-side data transform (e.g. HTML→Markdown)' },
+  { step: 'js_evaluate', capability: 'js_evaluate', desc: 'Run arbitrary JS in page MAIN world' },
 ];
 
 function EndpointRow({ ep }: { ep: Endpoint }) {

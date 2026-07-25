@@ -1,6 +1,6 @@
 // src/domain-guard.test.ts
 import { describe, it, expect } from 'vitest';
-import { buildAllowlist, isUrlAllowed, extractHostname } from './domain-guard.js';
+import { buildAllowlist, buildAllowlistFromConnectors, isUrlAllowed, extractHostname } from './domain-guard.js';
 import type { ConnectorDef } from '@commandgarden/shared';
 
 const makeConnector = (domains: string[]): ConnectorDef => ({
@@ -9,9 +9,9 @@ const makeConnector = (domains: string[]): ConnectorDef => ({
   pipeline: [{ step: 'navigate', url: 'https://example.com' }],
 } as unknown as ConnectorDef);
 
-describe('buildAllowlist', () => {
+describe('buildAllowlistFromConnectors', () => {
   it('merges domains from multiple connectors', () => {
-    const list = buildAllowlist([
+    const list = buildAllowlistFromConnectors([
       makeConnector(['a.com', 'b.com']),
       makeConnector(['b.com', 'c.com']),
     ]);
@@ -21,7 +21,16 @@ describe('buildAllowlist', () => {
   });
 
   it('returns empty set for no connectors', () => {
-    expect(buildAllowlist([]).size).toBe(0);
+    expect(buildAllowlistFromConnectors([]).size).toBe(0);
+  });
+});
+
+describe('buildAllowlist', () => {
+  it('builds set from domain array', () => {
+    const list = buildAllowlist(['a.com', 'b.com']);
+    expect(list.size).toBe(2);
+    expect(list.has('a.com')).toBe(true);
+    expect(list.has('b.com')).toBe(true);
   });
 });
 

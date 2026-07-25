@@ -116,8 +116,8 @@ describe('executeAuditShow', () => {
       capabilities: ['navigate'], rowCount: 5, durationMs: 120,
       correlationId: 'corr-1', connectorHash: 'abc123',
       steps: [
-        { step: 'navigate', index: 0, capability: 'navigate', durationMs: 80 },
-        { step: 'extract', index: 1, capability: 'dom_read', durationMs: 40 },
+        { step: 'navigate', index: 0, capabilities: ['navigate'], durationMs: 80 },
+        { step: 'extract', index: 1, capabilities: ['dom_read'], durationMs: 40 },
       ],
     };
     const client = {

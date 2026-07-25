@@ -321,6 +321,43 @@ export class RealChromeAdapter implements ChromeAdapter {
     return result;
   }
 
+  private egressRuleIds: number[] = [];
+
+  async addEgressRules(tabId: number, allowedDomains: string[]): Promise<void> {
+    const baseId = tabId * 1000;
+    const rules: chrome.declarativeNetRequest.Rule[] = allowedDomains.map((domain, i) => ({
+      id: baseId + i,
+      priority: 1,
+      action: { type: chrome.declarativeNetRequest.RuleActionType.ALLOW },
+      condition: {
+        urlFilter: `||${domain}`,
+        tabIds: [tabId],
+      },
+    }));
+    const blockRule: chrome.declarativeNetRequest.Rule = {
+      id: baseId + allowedDomains.length,
+      priority: 2,
+      action: { type: chrome.declarativeNetRequest.RuleActionType.BLOCK },
+      condition: {
+        urlFilter: '*',
+        tabIds: [tabId],
+      },
+    };
+    rules.push(blockRule);
+    this.egressRuleIds = rules.map(r => r.id);
+    await chrome.declarativeNetRequest.updateSessionRules({
+      addRules: rules,
+    });
+  }
+
+  async removeEgressRules(_tabId: number): Promise<void> {
+    if (this.egressRuleIds.length === 0) return;
+    await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: this.egressRuleIds,
+    });
+    this.egressRuleIds = [];
+  }
+
   /**
    * Detach debugger/listeners and optionally close the managed tab.
    * `closeTab` defaults to false for callers that want to leave the tab

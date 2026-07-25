@@ -246,12 +246,12 @@ describe('server', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('POST /api/config stores JSON array values as arrays', async () => {
+  it('POST /api/config stores JSON object values as objects', async () => {
     const app = await createServer(deps);
     const res = await app.inject({
       method: 'POST', url: '/api/config',
       headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
-      payload: { key: 'security.approvedHighRisk', value: '["timetracking/report"]' },
+      payload: { key: 'security.approvedHighRisk', value: '{"timetracking/report":["js_evaluate","network_egress"]}' },
     });
     expect(res.statusCode).toBe(200);
     const configRes = await app.inject({
@@ -259,7 +259,7 @@ describe('server', () => {
       headers: { 'x-commandgarden': '1', authorization: 'Bearer test-token-abc' },
     });
     const body = JSON.parse(configRes.payload);
-    expect(body.config.security.approvedHighRisk).toEqual(['timetracking/report']);
+    expect(body.config.security.approvedHighRisk).toEqual({ 'timetracking/report': ['js_evaluate', 'network_egress'] });
   });
 
   it('POST /api/config logs config.changed audit event', async () => {

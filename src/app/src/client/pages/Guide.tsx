@@ -22,7 +22,7 @@ export default function Guide() {
   const [extensionOk, setExtensionOk] = useState(false);
   const [connectorCount, setConnectorCount] = useState(0);
   const [connectors, setConnectors] = useState<Connector[]>([]);
-  const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
+  const [approvedHighRisk, setApprovedHighRisk] = useState<Record<string, string[]>>({});
   const [approvingKey, setApprovingKey] = useState<string | null>(null);
 
   const poll = useCallback(async () => {
@@ -42,7 +42,10 @@ export default function Guide() {
       setConnectors(connData.connectors);
       const configRes = await api.getConfig().catch(() => ({ ok: false, config: {} }) as { ok: boolean; config: Record<string, Record<string, unknown>> });
       const security = (configRes.config.security ?? {}) as Record<string, unknown>;
-      setApprovedHighRisk((security.approvedHighRisk as string[]) ?? []);
+      const raw = security.approvedHighRisk;
+      setApprovedHighRisk(
+        (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw as Record<string, string[]> : {},
+      );
     } catch { /* daemon not running */ }
   }, []);
 
@@ -55,7 +58,7 @@ export default function Guide() {
   const handleApprove = useCallback(async (connectorKey: string) => {
     setApprovingKey(connectorKey);
     try {
-      const updated = [...approvedHighRisk, connectorKey];
+      const updated = { ...approvedHighRisk, [connectorKey]: ['js_evaluate'] };
       await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
       poll();
     } catch {

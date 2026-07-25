@@ -338,7 +338,7 @@ export default function Architecture() {
         <ul className="space-y-2">
           <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Session token</span> — generated on daemon start, stored at ~/.commandgarden/session-token. Every API call (except /api/status) requires Bearer auth + X-CommandGarden CSRF header.</li>
           <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Domain guard</span> — connector YAML declares allowed domains. Extension refuses to run on undeclared domains.</li>
-          <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Capability gating</span> — each pipeline step requires a declared capability. High-risk capabilities (js_evaluate, cookie_write) require explicit approval.</li>
+          <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Capability gating</span> — each pipeline step requires declared capabilities. High-risk capabilities (js_evaluate, cdp_attach, state_mutate, network_egress) require per-capability approval.</li>
           <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Audit-or-fail</span> — if the audit store is unavailable, commands are blocked.</li>
           <li className="text-sm opacity-70"><span className="font-semibold opacity-100">No credentials stored</span> — commandGarden reuses existing Chrome sessions. No passwords or cookies are persisted.</li>
           <li className="text-sm opacity-70"><span className="font-semibold opacity-100">Localhost only</span> — daemon and app server bind to 127.0.0.1 by default.</li>

@@ -37,7 +37,7 @@ function promptApproval(request: ApprovalRequest): CancellablePrompt {
     cancelled = true;
     rl.close();
   };
-  const prompt = `\n⚠  Step ${request.stepIndex + 1} [${request.stepType}] in ${request.connectorKey} requires approval.\n   Capability: ${request.capability}\n   ${request.description}\n   Approve? (y/n): `;
+  const prompt = `\n⚠  Step ${request.stepIndex + 1} [${request.stepType}] in ${request.connectorKey} requires approval.\n   Capabilities: ${request.capabilities.join(', ')}\n   ${request.description}\n   Approve? (y/n): `;
   const promise = new Promise<boolean>((resolve) => {
     rl.question(prompt, (answer) => {
       rl.close();

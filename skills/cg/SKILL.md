@@ -69,7 +69,7 @@ Errors return plain text starting with `Error:` — not JSON.
 |---|---|
 | "not running" / "No session token" | `cg up` |
 | "not connected" | Open Chrome with the extension loaded |
-| "not approved" | Add connector key to `security.approvedHighRisk` in `~/.commandgarden/config.yaml` |
+| "not approved" | Run `cg config approve <connector-id> <capability>` to approve required high-risk capabilities |
 | "back/forward cache" | Retry the command |
 
 ## Commands

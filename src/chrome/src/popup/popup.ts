@@ -26,7 +26,7 @@ function renderApprovals(approvals: ApprovalInfo[]): void {
   const cards = approvals.map(a =>
     `<div class="approval-card" data-id="${escapeHtml(a.approvalId)}">
       <div class="approval-connector">${escapeHtml(a.connectorKey)}</div>
-      <div class="approval-detail">Step ${a.stepIndex + 1} [${escapeHtml(a.stepType)}] <span class="approval-cap">${escapeHtml(a.capability)}</span></div>
+      <div class="approval-detail">Step ${a.stepIndex + 1} [${escapeHtml(a.stepType)}] <span class="approval-cap">${escapeHtml(a.capabilities.join(', '))}</span></div>
       <div class="approval-actions">
         <button class="btn-approve" data-approval-id="${escapeHtml(a.approvalId)}" data-approved="true">Approve</button>
         <button class="btn-reject" data-approval-id="${escapeHtml(a.approvalId)}" data-approved="false">Reject</button>

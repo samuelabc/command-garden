@@ -120,7 +120,7 @@ export default function Roles() {
 
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [approvedHighRisk, setApprovedHighRisk] = useState<string[]>([]);
+  const [approvedHighRisk, setApprovedHighRisk] = useState<Record<string, string[]>>({});
   const lastFetchedUserId = useRef<string | null>(null);
 
   const loading = phase === 'loading';
@@ -129,7 +129,10 @@ export default function Roles() {
     api.getConfig()
       .then((res) => {
         const security = (res.config.security ?? {}) as Record<string, unknown>;
-        setApprovedHighRisk((security.approvedHighRisk as string[]) ?? []);
+        const raw = security.approvedHighRisk;
+        setApprovedHighRisk(
+          (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw as Record<string, string[]> : {},
+        );
       })
       .catch(() => {});
   }, []);
@@ -278,7 +281,7 @@ export default function Roles() {
 
   const handleApproveUis = useCallback(async () => {
     try {
-      const updated = [...approvedHighRisk, 'uis/mic-user-information'];
+      const updated = { ...approvedHighRisk, 'uis/mic-user-information': ['js_evaluate'] };
       await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
       setApprovedHighRisk(updated);
       setUisError(null);

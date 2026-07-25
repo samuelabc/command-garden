@@ -12,7 +12,7 @@ A connector's `pipeline` is a sequence of steps that execute top-to-bottom. Most
 CLI request → daemon → [extension steps: browser] → daemon → [daemon steps: server] → response
 ```
 
-Each step requires a **capability** declared in the connector's `capabilities` list. Steps with no capability (`map`, `filter`, `set`, `transform`) are always allowed.
+Each step requires a **capability** declared in the connector's `capabilities` list. Steps with no capability (`map`, `filter`, `set`) are always allowed.
 
 ### Pipeline context
 
@@ -256,7 +256,7 @@ Executes a `fetch()` call from the page's content script with `credentials: 'inc
 
 If the response is a JSON array and `as` is not set, the array becomes pipeline data. If `as` is set, the full response is stored as a variable. If the response is a wrapper object (not an array) and `dataPath` is set, the runner drills into the response at the given path and uses the nested array as pipeline data.
 
-**Capability:** `cookie_read` (medium risk)
+**Capability:** `network_fetch` (medium risk)
 **Output:** Sets pipeline data (if array) or stores in `vars.<as>`
 
 ---
@@ -284,20 +284,7 @@ Reads cookies for a domain.
 
 ### `intercept`
 
-Intercepts network responses matching a URL pattern. Used to capture data from requests the page makes on its own (e.g., GraphQL calls triggered by UI interactions).
-
-```yaml
-- step: intercept
-  urlPattern: "*graphql*"
-  as: captured
-```
-
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `urlPattern` | string | yes | URL pattern to match (glob-style) |
-| `as` | string | no | Variable name to store the captured response |
-
-**Capability:** `intercept_response` (medium risk)
+**Deprecated.** This step is no longer supported. Connectors that need network response capture should use `cdp: true` with the `cdp_attach` capability instead.
 
 ---
 
@@ -420,7 +407,7 @@ When `split_metadata` runs, each named field is stored as a separate variable (e
 
 When `json_unwrap` runs, it drills into the input variable at the dot-separated `path` and sets the result as pipeline data. Use this when a `fetch` step returns a wrapper object (e.g., `{ "items": [...] }`) instead of a plain array.
 
-**Capability:** None (runs server-side)
+**Capability:** `daemon_transform` (low risk)
 **Pipeline ordering:** All `transform` steps must come after all browser-side steps. The daemon splits the pipeline at the first `transform` step — everything before runs in the extension, everything after runs in the daemon.
 
 ---
@@ -460,18 +447,22 @@ If the code returns an array and `as` is not set, the array becomes pipeline dat
 
 ## Capabilities and risk levels
 
-Every step requires a capability declared in the connector's `capabilities` list. The risk level determines whether approval is needed before execution.
+Every step requires one or more capabilities declared in the connector's `capabilities` list. The risk level determines whether approval is needed before execution. High-risk capabilities require per-capability approval via `cg config approve <connector> <capability>`.
 
-| Capability | Risk | Required by |
-|---|---|---|
-| `navigate` | low | `navigate`, `wait` |
-| `dom_read` | low | `extract`, `extract_tree`, `extract_html` |
-| `dom_write` | medium | `click`, `click_all`, `type` |
-| `cookie_read` | medium | `cookie`, `fetch` |
-| `intercept_response` | medium | `intercept` |
-| `js_evaluate` | **high** | `js_evaluate` |
+| Capability | Risk | Required by | Notes |
+|---|---|---|---|
+| `navigate` | low | `navigate`, `wait` | |
+| `dom_read` | low | `extract`, `extract_tree`, `extract_html` | |
+| `daemon_transform` | low | `transform` | Server-side Node execution |
+| `cookie_read` | medium | `cookie` | |
+| `dom_write` | medium | `click`, `click_all`, `type` | |
+| `network_fetch` | medium | `fetch` | Authenticated HTTP requests |
+| `js_evaluate` | **high** | `js_evaluate` | Arbitrary code in page MAIN world |
+| `cdp_attach` | **high** | connectors with `cdp: true` | Chrome DevTools Protocol debugger access |
+| `state_mutate` | **high** | `fetch` with non-GET/HEAD method | Modifies state in target systems |
+| `network_egress` | **high** | `js_evaluate` with outbound fetch | Detected via static analysis of .eval.js |
 
-Steps with no capability (`map`, `filter`, `set`, `transform`) are always allowed.
+Steps with no capability (`map`, `filter`, `set`) are always allowed.
 
 ---
 

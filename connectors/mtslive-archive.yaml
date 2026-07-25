@@ -8,7 +8,7 @@ domains:
   - "mtslive.substack.com"
 capabilities:
   - navigate
-  - cookie_read
+  - network_fetch
 
 args:
   - name: limit

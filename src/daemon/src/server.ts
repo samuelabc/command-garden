@@ -2,7 +2,7 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
 import { randomUUID, createHash } from 'node:crypto';
-import { isRunCommandRequest, createAuditEvent, STEP_CAPABILITY_MAP, expandFanOut, validateEnumArgs, splitPipeline } from '@commandgarden/shared';
+import { isRunCommandRequest, createAuditEvent, expandFanOut, validateEnumArgs, splitPipeline } from '@commandgarden/shared';
 import type { ApprovalRequest, ApprovalConfig } from '@commandgarden/shared';
 import { userInfo } from 'node:os';
 import type { DaemonConfig } from './config.js';
@@ -116,10 +116,7 @@ export async function createServer(deps: ServerDeps) {
     const approvalRequired = new Set(deps.config.security.approvalRequired);
     if (approvalRequired.size === 0) return false;
     if (deps.config.security.autoApproveConnectors.includes(connectorKey)) return false;
-    return connector.pipeline.some(s => {
-      const cap = STEP_CAPABILITY_MAP[s.step as keyof typeof STEP_CAPABILITY_MAP];
-      return cap != null && approvalRequired.has(cap);
-    });
+    return connector.capabilities.some(c => approvalRequired.has(c));
   }
 
   deps.wsRelay.onApprovalRequest((request: ApprovalRequest) => {
@@ -396,7 +393,7 @@ export async function createServer(deps: ServerDeps) {
     }
 
     mkdirSync(dirname(deps.configPath), { recursive: true });
-    writeFileSync(deps.configPath, stringifyYaml(configObj), 'utf-8');
+    writeFileSync(deps.configPath, stringifyYaml(validation.data), 'utf-8');
 
     // Hot-reload: update in-memory config so changes take effect immediately
     deps.config = validation.data;

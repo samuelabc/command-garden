@@ -10,6 +10,8 @@ domains:
 capabilities:
   - navigate
   - js_evaluate
+  - cdp_attach
+  - network_egress
 
 args:
   - name: org

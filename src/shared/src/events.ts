@@ -16,7 +16,7 @@ export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 export interface StepSummary {
   step: string;
   index: number;
-  capability?: string;
+  capabilities: string[];
   durationMs: number;
   error?: string;
 }

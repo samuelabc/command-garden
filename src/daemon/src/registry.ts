@@ -21,10 +21,14 @@ export class ConnectorRegistry {
         const content = readFileSync(join(resolved, file), 'utf-8');
         const result = parseConnectorYaml(content);
         if (!result.ok) { errors.push(`${file}: ${result.error.message}`); continue; }
-        const fileErr = this.resolveFileRefs(result.data, join(resolved, file));
+
+        const evalFileContents = new Map<string, string>();
+        const fileErr = this.resolveFileRefs(result.data, join(resolved, file), evalFileContents);
         if (fileErr) { errors.push(`${file}: ${fileErr}`); continue; }
-        const semErrs = validateConnectorSemantics(result.data);
+
+        const semErrs = validateConnectorSemantics(result.data, { evalFileContents });
         if (semErrs.length > 0) { errors.push(`${file}: ${semErrs.join('; ')}`); continue; }
+
         const key = `${result.data.site}/${result.data.name}`;
         this.connectors.set(key, result.data);
         this.meta.set(key, { yamlContent: content, filePath: join(resolved, file) });
@@ -34,7 +38,11 @@ export class ConnectorRegistry {
     return { loaded, errors };
   }
 
-  private resolveFileRefs(connector: ConnectorDef, yamlPath: string): string | null {
+  private resolveFileRefs(
+    connector: ConnectorDef,
+    yamlPath: string,
+    evalFileContents: Map<string, string>,
+  ): string | null {
     const baseDir = dirname(yamlPath);
     for (const step of connector.pipeline) {
       if (step.step === 'js_evaluate' && step.file) {
@@ -42,7 +50,9 @@ export class ConnectorRegistry {
         if (!existsSync(filePath)) {
           return `js_evaluate file not found: ${step.file}`;
         }
-        (step as { code?: string }).code = readFileSync(filePath, 'utf-8');
+        const code = readFileSync(filePath, 'utf-8');
+        (step as { code?: string }).code = code;
+        evalFileContents.set(step.file, code);
       }
     }
     return null;

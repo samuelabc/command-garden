@@ -3,11 +3,11 @@ import { executeGuiStart, executeGuiStop } from './gui-cmd.js';
 import type { LifecycleStartResult } from './lifecycle-types.js';
 
 export async function executeUp(
-  baseUrl: string, cgHome: string, daemonScript: string, appScript: string, configPath: string,
+  baseUrl: string, cgHome: string, daemonScript: string, appScript: string, nodeBinary: string, configPath: string,
   opts: { noOpen?: boolean } = {},
 ): Promise<string> {
   const lines: string[] = [];
-  const daemonResult = await executeDaemonStart(baseUrl, cgHome, daemonScript);
+  const daemonResult = await executeDaemonStart(baseUrl, cgHome, daemonScript, nodeBinary);
   lines.push(daemonResult.message);
 
   const canProceed = daemonResult.status === 'started' || daemonResult.status === 'already-running';
@@ -15,7 +15,7 @@ export async function executeUp(
     return lines.join('\n');
   }
 
-  const guiResult = await executeGuiStart(baseUrl, cgHome, appScript, {
+  const guiResult = await executeGuiStart(baseUrl, cgHome, appScript, nodeBinary, {
     background: true, configPath, noOpen: opts.noOpen,
   });
   lines.push(typeof guiResult === 'string' ? guiResult : (guiResult as LifecycleStartResult).message);
