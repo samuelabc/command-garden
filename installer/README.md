@@ -1,15 +1,21 @@
-# commandGarden Installer (macOS)
+# commandGarden Installer
 
-Produces a `.pkg` installer wrapped in a `.dmg` that installs commandGarden as a native macOS application. Bundles a Node.js runtime so end users never need to install Node themselves.
+Native installers for macOS and Windows. Bundles a Node.js runtime so end users never need to install Node themselves.
 
-## Prerequisites (build machine only)
+---
+
+## macOS
+
+Produces a `.pkg` installer wrapped in a `.dmg` that installs commandGarden as a native macOS application.
+
+### Prerequisites (build machine only)
 
 - macOS 12+
 - Node.js 20+ and npm (for building the workspace packages)
 - `rsvg-convert` (from librsvg) — for icon generation. Install via `brew install librsvg`
 - Xcode Command Line Tools (`xcode-select --install`)
 
-## Building the Installer
+### Building the Installer
 
 ```bash
 cd installer
@@ -28,7 +34,7 @@ Output lands in `installer/dist/`:
 - `commandGarden-<version>-<arch>.pkg` — standalone installer package
 - `commandGarden-<version>-<arch>.dmg` — disk image containing the .pkg
 
-## User Happy Path
+### User Happy Path
 
 What end users experience after receiving the `.dmg`:
 
@@ -42,7 +48,7 @@ What end users experience after receiving the `.dmg`:
 8. If startup fails, a dialog appears with the error and an "Open Log" button
 9. From terminal, `cg` is available at `/usr/local/bin/cg`
 
-## Validation Checklist
+### Validation Checklist
 
 After building and installing, verify:
 
@@ -54,7 +60,7 @@ After building and installing, verify:
 - [ ] `cg daemon status` shows running after app launch
 - [ ] `cg down` stops all services cleanly
 
-## Uninstalling
+### Uninstalling
 
 ### Option A: Run the bundled uninstall script
 
@@ -83,7 +89,7 @@ rm -rf ~/.commandgarden
 
 The Chrome extension must be removed separately from `chrome://extensions`.
 
-## Troubleshooting
+### Troubleshooting
 
 ### App opens but browser doesn't launch
 
@@ -157,4 +163,111 @@ If `rsvg-convert` is not installed:
 
 ```bash
 brew install librsvg
+```
+
+---
+
+## Windows
+
+Produces a per-user `.exe` installer via Inno Setup. Installs to `%LOCALAPPDATA%\commandGarden`, adds `cg` to the user PATH, and creates a Start Menu shortcut.
+
+### Prerequisites (build machine only)
+
+- macOS or Linux (cross-compiles via Docker)
+- Node.js 20+ and npm
+- Docker Desktop (for running `amake/innosetup` to compile the `.iss` script)
+- `rsvg-convert` + ImageMagick (for `.ico` generation). Install via `brew install librsvg imagemagick`
+
+### Building the Installer
+
+```bash
+cd installer
+
+# Full build (builds packages, downloads Node for win-x64, assembles, compiles .exe)
+./build-windows.sh
+
+# Or run steps individually:
+./download-node.sh win-x64
+./assemble-win.sh
+# Then compile .iss on Windows with Inno Setup, or via Docker:
+VERSION=$(node -e "console.log(require('./package.json').version)" --prefix ../src/cli)
+docker run --rm -v "$PWD:/work" -e CG_VERSION="$VERSION" amake/innosetup /work/windows/commandgarden.iss
+```
+
+Output lands in `installer/dist/`:
+- `win-x64/commandGarden/` — assembled directory
+- `commandGarden-<version>-x64-setup.exe` — installer executable
+
+### User Happy Path
+
+What end users experience after receiving the `.exe`:
+
+1. Double-click `commandGarden-x.x.x-x64-setup.exe`
+2. Follow the installer wizard (Next -> Install)
+3. Installer finishes; optionally launches commandGarden
+4. Open "commandGarden" from the Start Menu
+5. Browser opens to http://127.0.0.1:9092 (the GUI dashboard)
+6. If startup fails, a dialog box appears with the error and option to view the log
+7. From cmd or PowerShell, `cg` is available on PATH
+
+### Validation Checklist
+
+After building and installing on a Windows machine, verify:
+
+- [ ] `%LOCALAPPDATA%\commandGarden\` exists with runtime, app, bin directories
+- [ ] `cg --version` works from a new cmd/PowerShell window
+- [ ] Start Menu shortcut launches the app and opens browser
+- [ ] If daemon fails, a message box appears with error details
+- [ ] `cg daemon status` shows running after app launch
+- [ ] `cg down` stops all services cleanly
+- [ ] Uninstalling via Add/Remove Programs removes the app and cleans PATH
+
+### Uninstalling
+
+Use Windows **Settings -> Apps -> Installed apps** (or Control Panel -> Add/Remove Programs):
+1. Search for "commandGarden"
+2. Click Uninstall
+3. The uninstaller stops services (`cg down`) and removes the installation directory
+
+The uninstaller also removes `{app}\bin` from the user PATH.
+
+To remove user data (optional):
+```cmd
+rmdir /s /q "%USERPROFILE%\.commandgarden"
+```
+
+The Chrome extension must be removed separately from `chrome://extensions`.
+
+### Troubleshooting
+
+#### `cg` command not found after install
+
+Open a **new** cmd or PowerShell window (existing windows don't pick up PATH changes). If still missing, check that `%LOCALAPPDATA%\commandGarden\bin` is in your user PATH:
+
+```cmd
+echo %PATH%
+```
+
+#### "commandGarden failed to start" dialog
+
+Click "OK" to open the log file. Common causes:
+- Port 9091 or 9092 already in use
+- Connector configuration error (check `%USERPROFILE%\.commandgarden\config.yaml`)
+
+#### "Windows protected your PC" (SmartScreen)
+
+Since the installer is not code-signed, Windows SmartScreen may block the `.exe` when first downloaded. Users will see a "Windows protected your PC" dialog.
+
+**To proceed:**
+1. Click "More info" in the SmartScreen dialog
+2. Click "Run anyway"
+
+> Note: Future releases will include code signing to eliminate this friction.
+
+#### PowerShell execution policy blocks the launcher
+
+The Start Menu shortcut uses `-ExecutionPolicy Bypass` for the launcher script. If your organization enforces stricter policies via Group Policy, run from cmd instead:
+
+```cmd
+cg up
 ```
