@@ -24,3 +24,8 @@ Thumbs.db
 
 # extension zip
 src/chrome/commandgarden-chrome.zip
+
+
+# cursor hook
+.cursor/hooks/state/continual-learning-index.json
+.cursor/hooks/state/continual-learning.json
