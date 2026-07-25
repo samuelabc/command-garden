@@ -1,104 +1,45 @@
-# Publishing @commandgarden/cli
+# Publishing & Releasing
 
-This guide covers publishing `@commandgarden/cli` to the npm registry. Only the CLI package is published; the daemon, app, and shared packages are bundled into the CLI tarball automatically.
+This guide covers the full release pipeline for commandGarden: version bump, npm publish, native installer builds, and GitHub Release creation.
 
 ---
 
-## How it works
+## Quick Start
 
-The CLI is a single published npm package that ships three private workspace packages inside it:
+From the `installer/` directory on macOS:
 
-| Package | Role | Bundled via |
-|---|---|---|
-| `@commandgarden/shared` | Types, schemas, utilities | `bundleDependencies` + tsup `noExternal` (inlined into CLI bundle) |
-| `@commandgarden/daemon` | Local HTTP/WS server (Fastify + SQLite) | `bundleDependencies` |
-| `@commandgarden/app` | Web GUI server + SPA assets | `bundleDependencies` |
+```bash
+./release.sh patch   # or minor, or major
+```
 
-**Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining all JS dependencies the CLI imports (`commander`, `cli-table3`, `yaml`, `zod` via shared, `@commandgarden/shared`). Deps only used by the daemon/app child processes (`fastify`, `sql.js`, etc.) are not imported by the CLI and are tree-shaken out. This makes the CLI self-contained for `npm link` and global installs.
+This single command:
 
-**Pack-time:** The `prepack` script (`scripts/prepare-bundle.mjs`) copies workspace packages into `cli/node_modules/@commandgarden/` so `npm pack` includes them via `bundleDependencies`.
-
-**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies (`fastify`, `sql.js`, etc.) from the registry normally. These deps are needed by the daemon and app child processes, not by the CLI bundle itself.
-
-**Run-time:** The CLI resolves the daemon and app entry points via `createRequire` from `node_modules/@commandgarden/daemon` and `@commandgarden/app`.
+1. Bumps the version in `src/cli/package.json`
+2. Commits the bump and creates a git tag (`v<version>`)
+3. Builds all workspace packages
+4. Builds macOS installers (arm64 + x64 `.dmg`)
+5. Builds the Windows installer (`.exe` via Docker/Inno Setup)
+6. Prompts for confirmation before irreversible steps
+7. Publishes `@commandgarden/cli` to npm
+8. Pushes the commit + tag to origin
+9. Creates a GitHub Release with installer assets attached
 
 ---
 
 ## Prerequisites
 
-- Node.js >= 20
-- npm account with publish access to the `@commandgarden` scope
-- Logged in: `npm login`
+- macOS 12+ (required for `pkgbuild` / `hdiutil`)
+- Node.js >= 20 and npm
+- `npm login` — authenticated with publish access to the `@commandgarden` scope
+- GitHub CLI (`gh`) — authenticated (`gh auth login`)
+- Docker Desktop — running (for Windows installer cross-compilation)
+- `rsvg-convert` (`brew install librsvg`) — for macOS icon generation
+- `rsvg-convert` + ImageMagick (`brew install librsvg imagemagick`) — for Windows `.ico` generation
+- Xcode Command Line Tools (`xcode-select --install`)
 
 ---
 
-## Pre-publish checklist
-
-- [ ] All tests pass: `npm test` (from monorepo root)
-- [ ] All packages build: `npm run build` (from monorepo root)
-- [ ] Version is bumped in `src/cli/package.json`
-- [ ] `CHANGELOG.md` is updated (if maintained)
-- [ ] Tarball contents look correct: `npm pack --dry-run` (from `src/cli/`)
-
----
-
-## Publishing
-
-### 1. Build all packages
-
-```bash
-npm install
-npm run build
-```
-
-This builds in dependency order: `shared` -> `daemon` -> `cli` -> `chrome` -> `app`.
-
-### 2. Verify the tarball
-
-```bash
-cd src/cli
-npm pack --dry-run
-```
-
-Confirm the output includes:
-
-```
-dist/main.js                              (CLI bundle)
-node_modules/@commandgarden/daemon/...    (daemon dist + package.json)
-node_modules/@commandgarden/app/...       (app server + client assets)
-node_modules/@commandgarden/shared/...    (shared dist + package.json)
-```
-
-Confirm it does NOT include `src/`, `*.test.ts`, or nested `node_modules/`.
-
-### 3. Publish
-
-```bash
-npm publish --access public
-```
-
-For a dry run (no actual publish):
-
-```bash
-npm publish --access public --dry-run
-```
-
-### 4. Verify the install
-
-```bash
-# Install globally from npm
-npm install -g @commandgarden/cli
-
-# Verify
-cg --version
-cg daemon start
-cg daemon status
-cg daemon stop
-```
-
----
-
-## Version management
+## Version Management
 
 Follow [semver](https://semver.org/):
 
@@ -108,14 +49,120 @@ Follow [semver](https://semver.org/):
 | New feature, new command | minor | Added `cg audit export --format parquet` |
 | Bug fix, dependency update | patch | Fixed `cg up` race condition |
 
-Bump the version in `src/cli/package.json`:
+---
+
+## What Gets Released
+
+Each release produces:
+
+| Artifact | Channel | Audience |
+|---|---|---|
+| `@commandgarden/cli` on npm | npm registry | Developers with Node.js |
+| `commandGarden-<ver>-arm64.dmg` | GitHub Release | macOS Apple Silicon users |
+| `commandGarden-<ver>-x64.dmg` | GitHub Release | macOS Intel users |
+| `commandGarden-<ver>-x64-setup.exe` | GitHub Release | Windows users |
+
+---
+
+## Release Notes
+
+Auto-generated from git log between the previous tag and the new tag. Commits are grouped by conventional prefix:
+
+- `feat:` → Features
+- `fix:` → Fixes
+- Everything else → Other Changes
+
+An install section with npm and download instructions is appended automatically.
+
+---
+
+## Error Recovery
+
+### Build fails before confirmation prompt
+
+The version bump commit and tag are local-only. Undo with:
 
 ```bash
-cd src/cli
-npm version patch   # or minor, or major
+git reset --hard HEAD~1 && git tag -d v<version>
 ```
 
-This updates `package.json` and creates a git tag.
+### npm publish fails
+
+Same as above — nothing has been pushed to GitHub yet.
+
+### GitHub Release fails after npm publish
+
+The npm package is already published (irreversible). Create the release manually:
+
+```bash
+gh release create v<version> \
+  --title "v<version>" \
+  --notes "Release notes here" \
+  installer/dist/commandGarden-<version>-arm64.dmg \
+  installer/dist/commandGarden-<version>-x64.dmg \
+  installer/dist/commandGarden-<version>-x64-setup.exe
+```
+
+---
+
+## npm-Only Publish (Fallback)
+
+If you need to publish to npm without building installers or creating a GitHub Release (e.g., urgent hotfix where installers aren't needed):
+
+```bash
+# 1. Bump version
+cd src/cli
+npm version patch --no-git-tag-version
+
+# 2. Build
+cd ../..
+npm run build
+
+# 3. Verify tarball
+cd src/cli
+npm pack --dry-run
+
+# 4. Publish
+npm publish --access public
+
+# 5. Commit and tag
+cd ../..
+VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('src/cli/package.json','utf8')).version)")
+git add src/cli/package.json
+git commit -m "chore: bump @commandgarden/cli to v${VERSION}"
+git tag "v${VERSION}"
+git push origin main "v${VERSION}"
+```
+
+---
+
+## Architecture Notes
+
+### How the npm package works
+
+The CLI is a single published npm package that ships three private workspace packages inside it:
+
+| Package | Role | Bundled via |
+|---|---|---|
+| `@commandgarden/shared` | Types, schemas, utilities | `bundleDependencies` + tsup `noExternal` (inlined into CLI bundle) |
+| `@commandgarden/daemon` | Local HTTP/WS server (Fastify + SQLite) | `bundleDependencies` |
+| `@commandgarden/app` | Web GUI server + SPA assets | `bundleDependencies` |
+
+**Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining all JS dependencies the CLI imports. Deps only used by the daemon/app child processes are not imported by the CLI and are tree-shaken out.
+
+**Pack-time:** The `prepack` script (`scripts/prepare-bundle.mjs`) copies workspace packages into `cli/node_modules/@commandgarden/` so `npm pack` includes them via `bundleDependencies`.
+
+**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies from the registry normally.
+
+**Run-time:** The CLI resolves the daemon and app entry points via `createRequire` from `node_modules/@commandgarden/daemon` and `@commandgarden/app`.
+
+### Why `bundleDependencies`?
+
+The daemon and app are private workspace packages that can't be installed from the npm registry. `bundleDependencies` is npm's built-in mechanism for shipping private packages inside a published package.
+
+### Why not bundle everything into one JS file?
+
+The daemon and app run as **separate Node.js processes** (spawned via `child_process.spawn`). They need their own `node_modules/` for runtime imports (Fastify, sql.js, etc.).
 
 ---
 
@@ -123,62 +170,18 @@ This updates `package.json` and creates a git tag.
 
 ### `Cannot find @commandgarden/daemon entry point`
 
-The bundled packages are missing. This usually means the `prepack` script did not run.
+The bundled packages are missing. The `prepack` script did not run:
 
 ```bash
 cd src/cli
-node scripts/prepare-bundle.mjs   # manually stage bundled packages
-npm pack --dry-run                 # verify they appear in the tarball
+node scripts/prepare-bundle.mjs
+npm pack --dry-run
 ```
 
 ### Tarball is too large
 
-Check that `src/daemon/package.json`, `src/app/package.json`, and `src/shared/package.json` all have `"files": ["dist"]`. Without this, source files and tests get bundled.
-
-```bash
-cd src/cli
-npm pack --dry-run 2>&1 | head -50
-```
+Check that `src/daemon/package.json`, `src/app/package.json`, and `src/shared/package.json` all have `"files": ["dist"]`.
 
 ### `prepack` fails with "dist not found"
 
-Build all packages first:
-
-```bash
-npm run build
-```
-
----
-
-## Architecture notes
-
-### Why `bundleDependencies`?
-
-The daemon and app are private workspace packages that can't be installed from the npm registry. `bundleDependencies` is npm's built-in mechanism for shipping private packages inside a published package:
-
-- The bundled packages are packed into the tarball at publish time
-- At install time, they're unpacked from the tarball (not fetched from the registry)
-- Their runtime dependencies (listed in the CLI's `dependencies`) are installed normally
-- All runtime deps are pure JS/WASM (no native compilation required at install time)
-
-### Why not bundle everything into one JS file?
-
-The daemon and app run as **separate Node.js processes** (spawned via `child_process.spawn`). They can't be bundled into the CLI's main entry point because they need their own `node_modules/` for runtime imports (Fastify, sql.js, etc.).
-
-Note: the CLI's own JS dependencies (commander, yaml, zod, etc.) ARE bundled into `dist/main.js` via tsup's `noExternal`. These same packages remain listed in `dependencies` because the daemon/app child processes need them installed in `node_modules/`.
-
-### Dependency hoisting
-
-The CLI's `dependencies` includes all runtime dependencies needed by the daemon, app, and shared packages:
-
-```
-CLI dependencies:
-  cli-table3, commander              ← CLI's own deps (also bundled into dist/main.js)
-  fastify, @fastify/websocket        ← daemon deps (external, needed at install time)
-  @fastify/static                    ← app deps (external, needed at install time)
-  sql.js                             ← daemon + app deps (pure WASM SQLite, no native build)
-  yaml                               ← shared across all (bundled into CLI, installed for daemon/app)
-  zod                                ← shared's dep (bundled into CLI, installed for daemon/app)
-```
-
-These are installed by npm at the top level, where Node's module resolution finds them when the daemon or app process imports them.
+Build all packages first: `npm run build`

@@ -271,3 +271,18 @@ The Start Menu shortcut uses `-ExecutionPolicy Bypass` for the launcher script. 
 ```cmd
 cg up
 ```
+
+---
+
+## Releasing
+
+A unified release script handles the full pipeline — version bump, npm publish, building both platform installers, and creating a GitHub Release with the assets attached:
+
+```bash
+cd installer
+./release.sh patch   # or minor, or major
+```
+
+The script must be run on macOS (for `pkgbuild`/`hdiutil`) with Docker running (for the Windows Inno Setup cross-compilation).
+
+For the full release process documentation, prerequisites, error recovery, and architecture notes, see [`docs/PUBLISHING.md`](../docs/PUBLISHING.md).
