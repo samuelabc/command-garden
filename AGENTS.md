@@ -10,7 +10,7 @@
 ## Learned Workspace Facts
 
 - npm monorepo at repo root with workspaces: `src/shared`, `src/daemon`, `src/cli`, `src/chrome`, `src/app`.
-- GitHub remote is `samuelabc/command-garden`; publish the CLI as `@commandgarden/cli` from `src/cli/` per `docs/PUBLISHING.md`; public npm README at `src/cli/README.md` (root README is contributor/internal-facing).
+- GitHub remote is `samuelabc/command-garden`; publish the CLI as `@commandgarden/cli` from `src/cli/` per `docs/PUBLISHING.md`; public npm README at `src/cli/README.md` (root README is contributor/internal-facing). GitHub Releases via `installer/release.sh` (version bump, builds, macOS `.dmg` + Windows `.exe`, push, `gh release create`); npm publish is a separate manual step (`cd src/cli && npm publish`) because npm requires browser MFA.
 - Runtime requires Node.js >= 20; `cg` spawns the daemon and app GUI as separate Node child processes.
 - Root `connectors/` holds built-in YAML connectors (daemon build copies to `src/daemon/connectors/`, gitignored); root `skills/` holds agent skills bundled into the CLI via `src/cli/scripts/prepare-bundle.mjs` and into the macOS installer at `app/app/skills/` via `installer/assemble.sh`.
 - Build order: shared → daemon → cli → chrome → app (`npm run build` from root).
@@ -20,4 +20,4 @@
 - GUI connector apps register built-in connectors in `src/app/src/server/routes/connectors.ts` `APP_ROUTES` (connector id → app route); Security News and AI News pages call `api.run()` directly for multiple sources instead.
 - Connector authoring: declarative `map` cannot flatten arrays of objects (omit or use `js_evaluate`); Substack sites expose archive JSON at `https://{subdomain}.substack.com/api/v1/archive`.
 - Connector `domains` are enforced at load-time and runtime (domain-guard in pipeline runner); `js_evaluate` egress uses `network_egress` + declarativeNetRequest session rules.
-- Non-technical distribution: embedded Node binary + native installer (`installer/` for macOS); Node SEA not viable for multi-process spawn; Chrome extension via CWS Unlisted + IT `ExtensionSettings` force-install; extension builds to `src/chrome/dist/` via `src/chrome/build.mjs`.
+- Non-technical distribution: embedded Node binary + native installers in `installer/` (macOS `.pkg`/`.dmg`; Windows per-user Inno Setup `.exe` cross-compiled via Docker on macOS); Node SEA not viable for multi-process spawn; extension builds to `src/chrome/dist/` via `src/chrome/build.mjs`.

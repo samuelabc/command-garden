@@ -1,6 +1,6 @@
 # Publishing & Releasing
 
-This guide covers the full release pipeline for commandGarden: version bump, npm publish, native installer builds, and GitHub Release creation.
+This guide covers the full release pipeline for commandGarden: version bump, native installer builds, GitHub Release creation, and npm publish.
 
 ---
 
@@ -12,7 +12,7 @@ From the `installer/` directory on macOS:
 ./release.sh patch   # or minor, or major
 ```
 
-This single command:
+This command:
 
 1. Bumps the version in `src/cli/package.json`
 2. Commits the bump and creates a git tag (`v<version>`)
@@ -20,9 +20,15 @@ This single command:
 4. Builds macOS installers (arm64 + x64 `.dmg`)
 5. Builds the Windows installer (`.exe` via Docker/Inno Setup)
 6. Prompts for confirmation before irreversible steps
-7. Publishes `@commandgarden/cli` to npm
-8. Pushes the commit + tag to origin
-9. Creates a GitHub Release with installer assets attached
+7. Pushes the commit + tag to origin
+8. Creates a GitHub Release with installer assets attached
+
+Then publish to npm separately (requires browser-based MFA):
+
+```bash
+cd src/cli
+npm publish --access public
+```
 
 ---
 
@@ -30,12 +36,12 @@ This single command:
 
 - macOS 12+ (required for `pkgbuild` / `hdiutil`)
 - Node.js >= 20 and npm
-- `npm login` — authenticated with publish access to the `@commandgarden` scope
 - GitHub CLI (`gh`) — authenticated (`gh auth login`)
 - Docker Desktop — running (for Windows installer cross-compilation)
 - `rsvg-convert` (`brew install librsvg`) — for macOS icon generation
 - `rsvg-convert` + ImageMagick (`brew install librsvg imagemagick`) — for Windows `.ico` generation
 - Xcode Command Line Tools (`xcode-select --install`)
+- `npm login` — authenticated with publish access to the `@commandgarden` scope (for the npm publish step)
 
 ---
 

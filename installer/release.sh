@@ -13,11 +13,13 @@ usage() {
   echo "  1. Bumps version in src/cli/package.json"
   echo "  2. Commits and tags"
   echo "  3. Builds all packages"
-  echo "  4. Publishes to npm"
-  echo "  5. Builds macOS installers (arm64 + x64)"
-  echo "  6. Builds Windows installer (requires Docker)"
-  echo "  7. Pushes commit + tag to origin"
-  echo "  8. Creates GitHub Release with installer assets"
+  echo "  4. Builds macOS installers (arm64 + x64)"
+  echo "  5. Builds Windows installer (requires Docker)"
+  echo "  6. Pushes commit + tag to origin"
+  echo "  7. Creates GitHub Release with installer assets"
+  echo ""
+  echo "npm publish is done separately (requires browser MFA):"
+  echo "  cd src/cli && npm publish --access public"
   exit 1
 }
 
@@ -161,7 +163,6 @@ echo "============================================"
 echo " Ready to release v${NEW_VERSION}"
 echo "============================================"
 echo ""
-echo "  - npm publish @commandgarden/cli@${NEW_VERSION}"
 echo "  - git push origin main v${NEW_VERSION}"
 echo "  - gh release create v${NEW_VERSION} with 3 assets:"
 echo "      $(basename "$ARM64_DMG")"
@@ -175,13 +176,6 @@ if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
   echo "  git reset --hard HEAD~1 && git tag -d v${NEW_VERSION}"
   exit 1
 fi
-echo ""
-
-# --- Publish to npm ---
-
-echo "=== Publishing to npm ==="
-cd "$CLI_DIR"
-npm publish --access public
 echo ""
 
 # --- Push to GitHub ---
@@ -205,5 +199,7 @@ gh release create "v${NEW_VERSION}" \
 echo ""
 echo "=== Release v${NEW_VERSION} complete ==="
 echo ""
-echo "  npm: https://www.npmjs.com/package/@commandgarden/cli/v/${NEW_VERSION}"
 echo "  GitHub: $(gh release view "v${NEW_VERSION}" --json url -q .url)"
+echo ""
+echo "  Next step — publish to npm (requires browser MFA):"
+echo "    cd src/cli && npm publish --access public"
