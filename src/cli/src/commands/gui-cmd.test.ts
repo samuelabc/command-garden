@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { executeGuiStart, executeGuiStop, executeGuiStatus } from './gui-cmd.js';
+import { executeGuiStart, executeGuiStop, executeGuiStatus, waitForAppAndOpen } from './gui-cmd.js';
 
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
@@ -17,13 +17,17 @@ vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
 }));
 
-function fakeChild(pid = 88888): ChildProcess {
+// `emit` decides which of Node's mutually exclusive spawn outcomes the fake
+// reports. openBrowser awaits one of them, so a child that emits neither would
+// stall every test until the spawn timeout.
+function fakeChild(pid = 88888, emit: 'spawn' | 'error' = 'spawn'): ChildProcess {
   const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
   return {
     pid,
     unref: vi.fn(),
     on: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
       (listeners[event] ??= []).push(cb);
+      if (event === emit) cb(emit === 'error' ? new Error('ENOENT') : undefined);
     }),
     stderr: { on: vi.fn() },
   } as unknown as ChildProcess;
@@ -85,14 +89,12 @@ describe('executeGuiStop', () => {
 
 describe('executeGuiStart', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
-  let child: ReturnType<typeof fakeChild>;
 
   beforeEach(() => {
     mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
     vi.mocked(existsSync).mockReturnValue(false);
-    child = fakeChild();
-    vi.mocked(spawn).mockReturnValue(child);
+    vi.mocked(spawn).mockReturnValue(fakeChild());
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -136,18 +138,20 @@ describe('executeGuiStart', () => {
     killSpy.mockRestore();
   });
 
-  it('does not throw when the browser-opener process errors', async () => {
+  it('reports the URL when the browser-opener process fails to spawn', async () => {
     mockFetch.mockResolvedValue({ ok: true } as Response);
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue('12345');
+    vi.mocked(spawn).mockReturnValue(fakeChild(88888, 'error'));
     const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
-    await executeGuiStart('http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true });
+    const result = await executeGuiStart(
+      'http://127.0.0.1:9091', '/fake/.cg', '/fake/app.js', 'node', { background: true },
+    ) as import('./lifecycle-types.js').LifecycleStartResult;
 
-    const onMock = child.on as unknown as ReturnType<typeof vi.fn>;
-    const errorHandler = onMock.mock.calls.find(([event]: [string]) => event === 'error')?.[1];
-    expect(errorHandler).toBeDefined();
-    expect(() => errorHandler(new Error('ENOENT'))).not.toThrow();
+    expect(result.status).toBe('already-running');
+    expect(result.message).toContain('Could not open a browser');
+    expect(result.message).toContain('http://127.0.0.1:9092');
     killSpy.mockRestore();
   });
 
@@ -176,6 +180,19 @@ describe('executeGuiStart', () => {
     expect(result.status).toBe('started');
     expect(spawn).toHaveBeenCalledWith('node', ['/fake/app.js'], expect.anything());
     expect(writeFileSync).toHaveBeenCalled();
+  });
+
+  it('waits for a concurrent startup and opens the browser', async () => {
+    mockFetch.mockResolvedValue({ ok: true } as Response);
+
+    const result = await waitForAppAndOpen('/fake/.cg');
+
+    expect(result.ok).toBe(true);
+    expect(spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.arrayContaining([expect.stringContaining('9092')]),
+      expect.anything(),
+    );
   });
 
   it('returns locked status when another instance holds the lock', async () => {

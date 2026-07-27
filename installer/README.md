@@ -40,6 +40,7 @@ What end users experience after receiving the `.dmg`:
 
 1. Double-click `commandGarden-x.x.x-arm64.dmg`
 2. Double-click the `.pkg` file inside the mounted volume
+   - If macOS blocks it ("Apple could not verify ... is free of malware"), see [Gatekeeper](#apple-could-not-verify--is-free-of-malware--unidentified-developer-gatekeeper) below
 3. Follow the macOS installer wizard (Continue → Install)
 4. Enter admin password when prompted
 5. `commandGarden.app` appears in `/Applications`
@@ -128,31 +129,46 @@ touch /Applications/commandGarden.app
 killall Finder
 ```
 
-### "unidentified developer" or app won't open (Gatekeeper)
+### "Apple could not verify ... is free of malware" / "unidentified developer" (Gatekeeper)
 
-Since the installer is not code-signed, macOS will quarantine the `.dmg` and `.pkg` when downloaded. Users will see warnings like "can't be opened because Apple cannot check it for malicious software."
+Since the installer is not code-signed or notarized, macOS quarantines the `.dmg` and `.pkg` when downloaded. Depending on the macOS version the dialog reads either "Apple could not verify `commandGarden-x.x.x-arm64.pkg` is free of malware that may harm your Mac or compromise your privacy" (macOS 15 Sequoia and later) or "can't be opened because Apple cannot check it for malicious software" (earlier versions).
 
-**Option A — Right-click Open (simplest):**
-1. Right-click (or Control-click) the `.pkg` file
-2. Select "Open" from the context menu
-3. Click "Open" in the confirmation dialog
+> On macOS 15+, right-click → Open no longer bypasses this for `.pkg` files. Use one of the options below.
 
-**Option B — System Settings:**
-1. Try to open the `.pkg` normally (it will be blocked)
+**Option A — System Settings (no terminal):**
+1. Double-click the `.pkg`, let it be blocked, and click "Done"
 2. Open System Settings → Privacy & Security
-3. Scroll down — a message about the blocked installer appears
-4. Click "Open Anyway"
+3. Scroll to the Security section — a message about the blocked installer appears
+4. Click "Open Anyway" and authenticate
 
-**Option C — Remove quarantine attribute (advanced):**
+**Option B — Remove the quarantine attribute:**
+
+Do this on the `.dmg` *before* mounting it — a mounted DMG volume is read-only, so `xattr` on the `.pkg` inside will fail:
 
 ```bash
-xattr -cr ~/Downloads/commandGarden-*.dmg
+xattr -d com.apple.quarantine ~/Downloads/commandGarden-*.dmg
+open ~/Downloads/commandGarden-*.dmg
 ```
 
-Or after mounting the DMG:
+If you only have the `.pkg` (or already mounted the DMG), copy it out of the volume first:
 
 ```bash
-xattr -cr /Volumes/commandGarden*/commandGarden-*.pkg
+cp /Volumes/commandGarden*/commandGarden-*.pkg ~/Downloads/
+xattr -cr ~/Downloads/commandGarden-*.pkg
+open ~/Downloads/commandGarden-*.pkg
+```
+
+**Option C — Install from the command line (bypasses the Gatekeeper UI):**
+
+```bash
+sudo installer -pkg ~/Downloads/commandGarden-*.pkg -target /
+```
+
+Then verify:
+
+```bash
+cg --version
+open /Applications/commandGarden.app   # GUI at http://127.0.0.1:9092
 ```
 
 > Note: Future releases will include code signing and notarization to eliminate this friction.
@@ -263,6 +279,17 @@ Since the installer is not code-signed, Windows SmartScreen may block the `.exe`
 2. Click "Run anyway"
 
 > Note: Future releases will include code signing to eliminate this friction.
+
+#### Setup fails with "Error 123: The filename, directory name, or volume label syntax is incorrect"
+
+A file in the bundle has a name the Inno Setup compiler cannot represent. The compiler runs under Wine in Docker, so a UTF-8 filename in a bundled npm package (for example `@fastify/send/test/fixtures/snow ☃`, which broke 3.3.0) is read through an ANSI codepage and baked into the setup as an invalid Windows path. Setup then aborts partway through "Creating directories...".
+
+Two guards exist for this:
+
+- `prune-node-modules.sh` strips `test/`, `fixtures/`, `docs/`, `.github/` and similar from the bundled `node_modules` during both assemblies. This removes the offending files and cuts roughly 20 MB per installer.
+- `check-bundle-paths.sh` runs from both `verify.sh` and `verify-win.sh` and fails the build if any bundled path contains a non-ASCII byte, a Windows-reserved character, a trailing dot or space, or is long enough to risk `MAX_PATH`.
+
+If the guard fires, extend the prune lists in `prune-node-modules.sh` rather than removing the check.
 
 #### PowerShell execution policy blocks the launcher
 

@@ -63,6 +63,12 @@ check -f "$RES/AppIcon.icns" "App icon present"
 # Uninstall script
 check -x "$RES/uninstall.sh" "Uninstall script is executable"
 
+# Windows-safe paths — enforced here too so this bundle stays a valid proxy
+# for the Windows one (see installer/check-bundle-paths.sh)
+if ! "$SCRIPT_DIR/check-bundle-paths.sh" "$RES"; then
+  ERRORS=$((ERRORS + 1))
+fi
+
 # Info.plist version check (should not contain placeholder)
 if grep -q "__VERSION__" "$APP/Contents/Info.plist" 2>/dev/null; then
   echo "FAIL: Info.plist still contains __VERSION__ placeholder"

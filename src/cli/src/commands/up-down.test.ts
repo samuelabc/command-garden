@@ -1,4 +1,8 @@
 // src/commands/up-down.test.ts
+//
+// Exercises executeUp against the real daemon/GUI sub-commands. The
+// LifecycleStatus -> ok mapping lives in up-down-exit-code.test.ts, which mocks
+// them out to drive each status directly.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -20,11 +24,13 @@ vi.mock('node:child_process', () => ({
 
 import { executeUp, executeDown } from './up-down.js';
 
+// openBrowser awaits either 'spawn' or 'error', so the fake has to report one
+// of them or every browser-opening test stalls until the spawn timeout.
 function fakeChild(pid = 99999): ChildProcess {
   return {
     pid,
     unref: vi.fn(),
-    on: vi.fn(),
+    on: vi.fn((event: string, cb: () => void) => { if (event === 'spawn') cb(); }),
     stderr: { on: vi.fn() },
   } as unknown as ChildProcess;
 }
@@ -49,21 +55,25 @@ describe('executeUp', () => {
     vi.spyOn(process, 'kill').mockImplementation(() => true);
     vi.mocked(existsSync).mockReturnValue(false);
 
-    const output = await executeUp(
+    const result = await executeUp(
       'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', 'node', '/fake/config.yaml',
     );
-    expect(output).toContain('started');
+    expect(result.message).toContain('started');
+    expect(result.ok).toBe(true);
     expect(spawn).toHaveBeenCalled();
   });
 
   it('reports daemon already running and still starts GUI', async () => {
     mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response);
     vi.mocked(existsSync).mockReturnValue(false);
+    // Without this the spawned GUI's PID looks dead and the stage reports 'failed'.
+    vi.spyOn(process, 'kill').mockImplementation(() => true);
 
-    const output = await executeUp(
+    const result = await executeUp(
       'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', 'node', '/fake/config.yaml',
     );
-    expect(output).toContain('already running');
+    expect(result.message).toContain('already running');
+    expect(result.ok).toBe(true);
   });
 
   it('opens browser by default when GUI is already running', async () => {
@@ -123,10 +133,11 @@ describe('executeUp', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     vi.spyOn(process, 'kill').mockImplementation(() => { throw new Error('ESRCH'); });
 
-    const output = await executeUp(
+    const result = await executeUp(
       'http://127.0.0.1:9091', '/fake/.cg', '/fake/daemon.js', '/fake/app.js', 'node', '/fake/config.yaml',
     );
-    expect(output).toContain('failed to start');
+    expect(result.message).toContain('failed to start');
+    expect(result.ok).toBe(false);
     // spawn was called once for the daemon attempt, never a second time for GUI
     expect(spawn).toHaveBeenCalledTimes(1);
   });
