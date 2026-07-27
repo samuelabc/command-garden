@@ -56,6 +56,9 @@ fi
 rm -f package.json package-lock.json
 cd "$SCRIPT_DIR"
 
+# 5a. Strip test fixtures — keeps the macOS bundle identical to the Windows one
+"$SCRIPT_DIR/prune-node-modules.sh" "$APP_DIR/app/node_modules"
+
 # 5b. Copy workspace packages into node_modules (not on npm, needed at runtime by daemon)
 mkdir -p "$APP_DIR/app/node_modules/@commandgarden/shared"
 cp -r "$MONOREPO_DIR/src/shared/dist" "$APP_DIR/app/node_modules/@commandgarden/shared/dist"

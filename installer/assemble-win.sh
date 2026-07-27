@@ -54,6 +54,9 @@ fi
 rm -f package.json package-lock.json
 cd "$SCRIPT_DIR"
 
+# 5a. Strip test fixtures — some ship filenames Inno Setup cannot represent
+"$SCRIPT_DIR/prune-node-modules.sh" "$WIN_DIR/app/node_modules"
+
 # 5b. Copy workspace packages (not on npm, needed at runtime by daemon)
 mkdir -p "$WIN_DIR/app/node_modules/@commandgarden/shared"
 cp -r "$MONOREPO_DIR/src/shared/dist" "$WIN_DIR/app/node_modules/@commandgarden/shared/dist"

@@ -42,6 +42,11 @@ check -f "$WIN_DIR/bin/cg.cmd" "CLI wrapper cg.cmd present"
 # PowerShell launcher
 check -f "$WIN_DIR/launcher/commandgarden.ps1" "PowerShell launcher present"
 
+# Windows-safe paths — a single bad filename aborts Setup with Error 123
+if ! "$SCRIPT_DIR/check-bundle-paths.sh" "$WIN_DIR"; then
+  ERRORS=$((ERRORS + 1))
+fi
+
 echo ""
 if [ $ERRORS -eq 0 ]; then
   echo "=== All checks passed ==="

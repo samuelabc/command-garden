@@ -264,6 +264,17 @@ Since the installer is not code-signed, Windows SmartScreen may block the `.exe`
 
 > Note: Future releases will include code signing to eliminate this friction.
 
+#### Setup fails with "Error 123: The filename, directory name, or volume label syntax is incorrect"
+
+A file in the bundle has a name the Inno Setup compiler cannot represent. The compiler runs under Wine in Docker, so a UTF-8 filename in a bundled npm package (for example `@fastify/send/test/fixtures/snow ☃`, which broke 3.3.0) is read through an ANSI codepage and baked into the setup as an invalid Windows path. Setup then aborts partway through "Creating directories...".
+
+Two guards exist for this:
+
+- `prune-node-modules.sh` strips `test/`, `fixtures/`, `docs/`, `.github/` and similar from the bundled `node_modules` during both assemblies. This removes the offending files and cuts roughly 20 MB per installer.
+- `check-bundle-paths.sh` runs from both `verify.sh` and `verify-win.sh` and fails the build if any bundled path contains a non-ASCII byte, a Windows-reserved character, a trailing dot or space, or is long enough to risk `MAX_PATH`.
+
+If the guard fires, extend the prune lists in `prune-node-modules.sh` rather than removing the check.
+
 #### PowerShell execution policy blocks the launcher
 
 The Start Menu shortcut uses `-ExecutionPolicy Bypass` for the launcher script. If your organization enforces stricter policies via Group Policy, run from cmd instead:
