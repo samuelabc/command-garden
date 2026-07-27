@@ -191,11 +191,13 @@ Each connector declares its allowed domains. The extension's domain guard blocks
 
 ### High-risk approval
 
-Connectors using high-risk capabilities are blocked by default. Approve them explicitly:
+Connectors using high-risk capabilities are blocked by default, and a connector runs only once **every** high-risk capability it declares is approved. Approve them explicitly:
 
 ```bash
-cg config approve mysite/my-command js_evaluate
+cg config approve mysite/my-command js_evaluate network_egress
 ```
+
+Each `approve` sets the connector's approved list to exactly the capabilities you pass, so list them all in one command rather than approving them one at a time. Use `cg config revoke` to remove individual entries.
 
 ### Step approval
 

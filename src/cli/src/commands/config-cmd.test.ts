@@ -1,7 +1,8 @@
 // src/commands/config-cmd.test.ts
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { executeConfigShow, executeConfigSet } from './config-cmd.js';
+import type { DaemonClient } from '@commandgarden/shared';
+import { executeConfigShow, executeConfigSet, executeConfigApprove } from './config-cmd.js';
 
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
@@ -40,7 +41,7 @@ describe('executeConfigSet', () => {
   it('calls daemon API and returns success', async () => {
     const client = {
       post: vi.fn().mockResolvedValue({ ok: true }),
-    } as unknown as import('../client.js').DaemonClient;
+    } as unknown as DaemonClient;
     const output = await executeConfigSet(client, 'daemon.port', '9999');
     expect(output).toContain('daemon.port');
     expect(output).toContain('9999');
@@ -50,8 +51,62 @@ describe('executeConfigSet', () => {
   it('returns error on API failure', async () => {
     const client = {
       post: vi.fn().mockRejectedValue(new Error('Cannot connect')),
-    } as unknown as import('../client.js').DaemonClient;
+    } as unknown as DaemonClient;
     const output = await executeConfigSet(client, 'daemon.port', '9999');
     expect(output).toContain('Error');
+  });
+});
+
+describe('executeConfigApprove', () => {
+  function mockClient(approvedHighRisk: Record<string, string[]>) {
+    return {
+      get: vi.fn().mockResolvedValue({ ok: true, config: { security: { approvedHighRisk } } }),
+      post: vi.fn().mockResolvedValue({ ok: true }),
+    } as unknown as DaemonClient;
+  }
+
+  it('grants exactly the listed capabilities', async () => {
+    const client = mockClient({});
+    const output = await executeConfigApprove(client, 'risky/two', ['js_evaluate', 'network_egress']);
+    expect(client.post).toHaveBeenCalledWith('/api/config', {
+      key: 'security.approvedHighRisk',
+      value: JSON.stringify({ 'risky/two': ['js_evaluate', 'network_egress'] }),
+    });
+    expect(output).toContain('js_evaluate, network_egress');
+  });
+
+  it('overwrites rather than merges, and reports what was dropped', async () => {
+    const client = mockClient({ 'risky/two': ['cdp_attach', 'js_evaluate'] });
+    const output = await executeConfigApprove(client, 'risky/two', ['js_evaluate']);
+    expect(client.post).toHaveBeenCalledWith('/api/config', {
+      key: 'security.approvedHighRisk',
+      value: JSON.stringify({ 'risky/two': ['js_evaluate'] }),
+    });
+    expect(output).toContain('No longer approved: cdp_attach');
+  });
+
+  it('leaves other connectors untouched', async () => {
+    const client = mockClient({ 'other/one': ['cdp_attach'] });
+    await executeConfigApprove(client, 'risky/two', ['js_evaluate']);
+    expect(client.post).toHaveBeenCalledWith('/api/config', {
+      key: 'security.approvedHighRisk',
+      value: JSON.stringify({ 'other/one': ['cdp_attach'], 'risky/two': ['js_evaluate'] }),
+    });
+  });
+
+  it('deduplicates repeated capabilities', async () => {
+    const client = mockClient({});
+    await executeConfigApprove(client, 'risky/two', ['js_evaluate', 'js_evaluate']);
+    expect(client.post).toHaveBeenCalledWith('/api/config', {
+      key: 'security.approvedHighRisk',
+      value: JSON.stringify({ 'risky/two': ['js_evaluate'] }),
+    });
+  });
+
+  it('requires at least one capability', async () => {
+    const client = mockClient({});
+    const output = await executeConfigApprove(client, 'risky/two', []);
+    expect(output).toContain('Usage:');
+    expect(client.post).not.toHaveBeenCalled();
   });
 });
