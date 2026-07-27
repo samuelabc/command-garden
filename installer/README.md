@@ -40,6 +40,7 @@ What end users experience after receiving the `.dmg`:
 
 1. Double-click `commandGarden-x.x.x-arm64.dmg`
 2. Double-click the `.pkg` file inside the mounted volume
+   - If macOS blocks it ("Apple could not verify ... is free of malware"), see [Gatekeeper](#apple-could-not-verify--is-free-of-malware--unidentified-developer-gatekeeper) below
 3. Follow the macOS installer wizard (Continue → Install)
 4. Enter admin password when prompted
 5. `commandGarden.app` appears in `/Applications`
@@ -128,31 +129,46 @@ touch /Applications/commandGarden.app
 killall Finder
 ```
 
-### "unidentified developer" or app won't open (Gatekeeper)
+### "Apple could not verify ... is free of malware" / "unidentified developer" (Gatekeeper)
 
-Since the installer is not code-signed, macOS will quarantine the `.dmg` and `.pkg` when downloaded. Users will see warnings like "can't be opened because Apple cannot check it for malicious software."
+Since the installer is not code-signed or notarized, macOS quarantines the `.dmg` and `.pkg` when downloaded. Depending on the macOS version the dialog reads either "Apple could not verify `commandGarden-x.x.x-arm64.pkg` is free of malware that may harm your Mac or compromise your privacy" (macOS 15 Sequoia and later) or "can't be opened because Apple cannot check it for malicious software" (earlier versions).
 
-**Option A — Right-click Open (simplest):**
-1. Right-click (or Control-click) the `.pkg` file
-2. Select "Open" from the context menu
-3. Click "Open" in the confirmation dialog
+> On macOS 15+, right-click → Open no longer bypasses this for `.pkg` files. Use one of the options below.
 
-**Option B — System Settings:**
-1. Try to open the `.pkg` normally (it will be blocked)
+**Option A — System Settings (no terminal):**
+1. Double-click the `.pkg`, let it be blocked, and click "Done"
 2. Open System Settings → Privacy & Security
-3. Scroll down — a message about the blocked installer appears
-4. Click "Open Anyway"
+3. Scroll to the Security section — a message about the blocked installer appears
+4. Click "Open Anyway" and authenticate
 
-**Option C — Remove quarantine attribute (advanced):**
+**Option B — Remove the quarantine attribute:**
+
+Do this on the `.dmg` *before* mounting it — a mounted DMG volume is read-only, so `xattr` on the `.pkg` inside will fail:
 
 ```bash
-xattr -cr ~/Downloads/commandGarden-*.dmg
+xattr -d com.apple.quarantine ~/Downloads/commandGarden-*.dmg
+open ~/Downloads/commandGarden-*.dmg
 ```
 
-Or after mounting the DMG:
+If you only have the `.pkg` (or already mounted the DMG), copy it out of the volume first:
 
 ```bash
-xattr -cr /Volumes/commandGarden*/commandGarden-*.pkg
+cp /Volumes/commandGarden*/commandGarden-*.pkg ~/Downloads/
+xattr -cr ~/Downloads/commandGarden-*.pkg
+open ~/Downloads/commandGarden-*.pkg
+```
+
+**Option C — Install from the command line (bypasses the Gatekeeper UI):**
+
+```bash
+sudo installer -pkg ~/Downloads/commandGarden-*.pkg -target /
+```
+
+Then verify:
+
+```bash
+cg --version
+open /Applications/commandGarden.app   # GUI at http://127.0.0.1:9092
 ```
 
 > Note: Future releases will include code signing and notarization to eliminate this friction.
