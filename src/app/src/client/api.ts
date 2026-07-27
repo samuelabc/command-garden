@@ -16,6 +16,7 @@ export const api = {
   getStatus: () => request<{ ok: boolean; extensionConnected: boolean; connectorCount: number }>('GET', '/api/status'),
   getConnectors: () => request<{ ok: boolean; connectors: Connector[] }>('GET', '/api/connectors'),
   getConnector: (site: string, name: string) => request<{ ok: boolean; connector: ConnectorDetail }>('GET', `/api/connectors/${site}/${name}`),
+  approveConnector: (site: string, name: string) => request<{ ok: boolean; approved: string[] }>('POST', `/api/connectors/${site}/${name}/approve`),
   run: (connector: string, args: Record<string, string>) => request<RunResponse>('POST', '/api/run', { connector, args }),
   approve: (approvalId: string, approved: boolean) => request('POST', '/api/approval', { approvalId, approved }),
   getAudit: (params: Record<string, string>) => {
@@ -74,6 +75,7 @@ export interface Connector {
   appRoute: string | null;
   isHighRisk: boolean;
   isApproved: boolean;
+  requiredApprovals: string[];
   isAutoApproved: boolean;
 }
 
