@@ -5,7 +5,7 @@ import { PipelineRunner } from '../pipeline/runner.js';
 import type { ApprovalGate } from '../pipeline/runner.js';
 import { RealChromeAdapter } from './chrome-adapter.js';
 import type { ActivityEntry, ApprovalInfo, PopupMessage } from '../popup/popup-types.js';
-import { initFromStorage, handleSetEnabled, buildStatusResponse } from './service-worker-logic.js';
+import { initFromStorage, handleSetEnabled, buildStatusResponse, clearAllSessionRules } from './service-worker-logic.js';
 
 const DAEMON_URL = 'ws://127.0.0.1:9091/ws/extension';
 const client = new WsClient(DAEMON_URL);
@@ -91,7 +91,13 @@ function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: 
   };
 }
 
+// Reclaim declarativeNetRequest session rules stranded by an earlier run that
+// never got to clean up. Started eagerly, but awaited before any run so a
+// request arriving during startup cannot have its own egress rules swept away.
+const sessionRulesCleared = clearAllSessionRules(chrome.declarativeNetRequest);
+
 client.onRequest(async (request: ExtensionRequest) => {
+  await sessionRulesCleared;
   const useCdp = request.connector.cdp === true;
   const adapter = new RealChromeAdapter({ useCdp });
   const connectorKey = `${request.connector.site}/${request.connector.name}`;

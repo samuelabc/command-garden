@@ -1,6 +1,6 @@
 // src/background/service-worker-logic.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { initFromStorage, handleSetEnabled, buildStatusResponse } from './service-worker-logic.js';
+import { initFromStorage, handleSetEnabled, buildStatusResponse, clearAllSessionRules } from './service-worker-logic.js';
 
 const mockStorage: Record<string, unknown> = {};
 const mockGet = vi.fn((keys: string | string[], cb: (result: Record<string, unknown>) => void) => {
@@ -117,5 +117,47 @@ describe('buildStatusResponse', () => {
       recentActivity: [],
       pendingApprovals: [],
     });
+  });
+});
+
+describe('clearAllSessionRules', () => {
+  it('removes every rule left behind by an earlier worker', async () => {
+    const dnr = {
+      getSessionRules: vi.fn().mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }]),
+      updateSessionRules: vi.fn().mockResolvedValue(undefined),
+    };
+    await clearAllSessionRules(dnr);
+    expect(dnr.updateSessionRules).toHaveBeenCalledWith({ removeRuleIds: [1, 2, 3] });
+  });
+
+  it('does not call updateSessionRules when there is nothing to clear', async () => {
+    const dnr = {
+      getSessionRules: vi.fn().mockResolvedValue([]),
+      updateSessionRules: vi.fn().mockResolvedValue(undefined),
+    };
+    await clearAllSessionRules(dnr);
+    expect(dnr.updateSessionRules).not.toHaveBeenCalled();
+  });
+
+  it('never throws when the rule API rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dnr = {
+      getSessionRules: vi.fn().mockRejectedValue(new Error('no permission')),
+      updateSessionRules: vi.fn(),
+    };
+    await expect(clearAllSessionRules(dnr)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('never throws when removal rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const dnr = {
+      getSessionRules: vi.fn().mockResolvedValue([{ id: 1 }]),
+      updateSessionRules: vi.fn().mockRejectedValue(new Error('gone')),
+    };
+    await expect(clearAllSessionRules(dnr)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

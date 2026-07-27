@@ -2,6 +2,7 @@
 import type { PipelineStep } from '@commandgarden/shared';
 import type { ChromeAdapter } from '../pipeline/runner.js';
 import { createDomRequest, type DomResponse } from '../messages.js';
+import { buildEgressRules, MIN_RULE_ID } from './egress-rules.js';
 
 export interface AdapterOptions {
   useCdp?: boolean;
@@ -322,52 +323,33 @@ export class RealChromeAdapter implements ChromeAdapter {
   }
 
   private egressRuleIds: number[] = [];
-  // Sequential counter for declarativeNetRequest rule IDs.  Using simple
-  // small integers avoids Chrome's strict "expected integer, found number"
-  // validation errors that can occur with tab-ID-based arithmetic.
-  private static nextRuleId = 1;
+  // Rule IDs must be unique among the session rules currently installed, and
+  // those outlive this service worker. The worker clears all session rules on
+  // startup (see clearAllSessionRules) so a counter starting from the minimum
+  // cannot collide with rules left behind by an interrupted earlier run.
+  private static nextRuleId = MIN_RULE_ID;
 
   async addEgressRules(tabId: number, allowedDomains: string[]): Promise<void> {
-    const ids: number[] = [];
-    // In Chrome's declarativeNetRequest, higher priority wins.  ALLOW rules
-    // must have higher priority than the catch-all BLOCK rule so permitted
-    // domains aren't blocked.
-    const rules: chrome.declarativeNetRequest.Rule[] = allowedDomains.map((domain) => {
-      const id = RealChromeAdapter.nextRuleId++;
-      ids.push(id);
-      return {
-        id,
-        priority: 2,
-        action: { type: chrome.declarativeNetRequest.RuleActionType.ALLOW as chrome.declarativeNetRequest.RuleActionType },
-        condition: {
-          urlFilter: `||${domain}`,
-          tabIds: [tabId],
-        },
-      };
-    });
-    const blockId = RealChromeAdapter.nextRuleId++;
-    ids.push(blockId);
-    rules.push({
-      id: blockId,
-      priority: 1,
-      action: { type: chrome.declarativeNetRequest.RuleActionType.BLOCK as chrome.declarativeNetRequest.RuleActionType },
-      condition: {
-        urlFilter: '*',
-        tabIds: [tabId],
-      },
-    });
+    const { rules, ids, nextId } = buildEgressRules(tabId, allowedDomains, RealChromeAdapter.nextRuleId);
+    RealChromeAdapter.nextRuleId = nextId;
+    // Record before the call: if it fails partway we still know which IDs to
+    // attempt to clean up, and a stranded catch-all BLOCK rule would otherwise
+    // silently kill every request in the tab for the rest of the session.
     this.egressRuleIds = ids;
     await chrome.declarativeNetRequest.updateSessionRules({
+      removeRuleIds: ids,
       addRules: rules,
     });
   }
 
   async removeEgressRules(_tabId: number): Promise<void> {
-    if (this.egressRuleIds.length === 0) return;
-    await chrome.declarativeNetRequest.updateSessionRules({
-      removeRuleIds: this.egressRuleIds,
-    });
-    this.egressRuleIds = [];
+    const ids = this.egressRuleIds;
+    if (ids.length === 0) return;
+    try {
+      await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: ids });
+    } finally {
+      this.egressRuleIds = [];
+    }
   }
 
   /**

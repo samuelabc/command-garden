@@ -464,6 +464,12 @@ Every step requires one or more capabilities declared in the connector's `capabi
 
 Steps with no capability (`map`, `filter`, `set`) are always allowed.
 
+### How `network_egress` is enforced
+
+For the duration of a `js_evaluate` step, the extension installs `declarativeNetRequest` session rules on the connector's tab: one ALLOW rule per declared domain, plus a lower-priority catch-all BLOCK rule. The rules are removed as soon as the step finishes.
+
+**Limitation:** the rules are scoped with `tabIds`, so they only match requests Chrome attributes to that tab. Requests issued from a service worker, and some sub-frame requests, are not attributed to the tab and can therefore escape the catch-all BLOCK. Treat `network_egress` as a strong guard on page-initiated traffic, not as a complete containment boundary — the connector's declared `domains` list remains the primary contract.
+
 ---
 
 ## Execution model
