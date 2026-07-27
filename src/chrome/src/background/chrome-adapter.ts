@@ -30,7 +30,10 @@ export class RealChromeAdapter implements ChromeAdapter {
       await chrome.tabs.update(this.tabId, { url, active: true });
     } else {
       const tab = await chrome.tabs.create({ url: 'about:blank', active: true });
-      this.tabId = tab.id!;
+      // An id-less tab is rare but real (e.g. devtools windows). Left as
+      // undefined it flows into every later chrome.* call as a bad number.
+      if (typeof tab.id !== 'number') throw new Error('Could not open a tab for this connector');
+      this.tabId = tab.id;
       if (this.useCdp) await this.attachDebugger(this.tabId);
       await chrome.tabs.update(this.tabId, { url, active: true });
     }
@@ -336,10 +339,17 @@ export class RealChromeAdapter implements ChromeAdapter {
     // attempt to clean up, and a stranded catch-all BLOCK rule would otherwise
     // silently kill every request in the tab for the rest of the session.
     this.egressRuleIds = ids;
-    await chrome.declarativeNetRequest.updateSessionRules({
-      removeRuleIds: ids,
-      addRules: rules,
-    });
+    try {
+      await chrome.declarativeNetRequest.updateSessionRules({
+        removeRuleIds: ids,
+        addRules: rules,
+      });
+    } catch (err) {
+      // Chrome's schema validator names the offending property but not the
+      // value it saw, which makes these unfixable from the log alone.
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`${msg} — rejected payload: ${JSON.stringify(rules)}`);
+    }
   }
 
   async removeEgressRules(_tabId: number): Promise<void> {

@@ -21,6 +21,20 @@ export function buildEgressRules(
   allowedDomains: string[],
   startId: number,
 ): EgressRuleSet {
+  // Chrome validates the rule schema and reports a bare "expected integer,
+  // found number" that names neither the tab nor the step. A js_evaluate step
+  // with no preceding navigate leaves tabId at -1, and chrome.tabs can hand
+  // back a tab without an id, so check here where we can say what went wrong.
+  if (!Number.isSafeInteger(tabId) || tabId < 0) {
+    throw new Error(
+      `network_egress cannot be applied: invalid tab id (${tabId}). ` +
+      'A js_evaluate step that declares network_egress must follow a navigate step.',
+    );
+  }
+  if (!Number.isSafeInteger(startId)) {
+    throw new Error(`network_egress cannot be applied: invalid rule id counter (${startId})`);
+  }
+
   let nextId = Math.max(startId, MIN_RULE_ID);
   const ids: number[] = [];
 

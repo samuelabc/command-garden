@@ -91,6 +91,11 @@ function createApprovalGate(requestId: string, connectorKey: string, timeoutMs: 
   };
 }
 
+// Printed on every worker start so the console tells you which build Chrome
+// actually loaded — an unreloaded extension is otherwise indistinguishable
+// from a fix that did not work.
+console.log(`commandGarden extension ${chrome.runtime.getManifest().version} — worker started`);
+
 // Reclaim declarativeNetRequest session rules stranded by an earlier run that
 // never got to clean up. Started eagerly, but awaited before any run so a
 // request arriving during startup cannot have its own egress rules swept away.

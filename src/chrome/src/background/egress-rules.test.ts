@@ -50,6 +50,20 @@ describe('buildEgressRules', () => {
     expect(Math.min(...ids)).toBeGreaterThanOrEqual(MIN_RULE_ID);
   });
 
+  // Chrome answers a bad tab id with "expected integer, found number", which
+  // names neither the connector nor the step. Fail earlier and say why.
+  it.each([
+    ['no navigate step ran', -1],
+    ['tab id was undefined', undefined as unknown as number],
+    ['tab id was not a whole number', 1.5],
+  ])('rejects an invalid tab id (%s)', (_label, tabId) => {
+    expect(() => buildEgressRules(tabId, ['a.com'], 1)).toThrow(/invalid tab id/);
+  });
+
+  it('rejects a corrupted rule id counter', () => {
+    expect(() => buildEgressRules(7, ['a.com'], NaN)).toThrow(/invalid rule id counter/);
+  });
+
   it('produces ids that do not collide across successive calls', () => {
     const first = buildEgressRules(1, ['a.com'], MIN_RULE_ID);
     const second = buildEgressRules(2, ['b.com'], first.nextId);
