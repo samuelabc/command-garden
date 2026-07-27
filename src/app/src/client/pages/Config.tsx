@@ -371,7 +371,7 @@ function ConnectorSecuritySection({ config, connectors, actions, onToggleApprova
   actions: FormActions;
   onToggleApproval: (connectorKey: string, connectorCaps: string[], highRiskCaps: Set<string>) => void;
 }) {
-  const { addToArray, removeFromArray } = actions;
+  const { updateField, addToArray, removeFromArray } = actions;
   const highRiskCaps = new Set(config.security.highRiskCapabilities);
   const grouped = useMemo(() => groupBySite(connectors), [connectors]);
 
