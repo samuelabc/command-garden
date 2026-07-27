@@ -7,6 +7,17 @@ import { isProcessAlive } from '../process-alive.js';
 import { acquireLock, releaseLock } from '../lockfile.js';
 import type { LifecycleStartResult } from './lifecycle-types.js';
 
+const DEFAULT_APP_PORT = 9092;
+
+// Node emits exactly one of 'spawn' or 'error' for every spawned child, so this
+// only guards against an environment where neither ever arrives. It assumes
+// success: nagging a user whose browser did open is worse than staying quiet.
+const BROWSER_SPAWN_TIMEOUT_MS = 3000;
+
+function appUrlFor(configPath: string | undefined): string {
+  return `http://127.0.0.1:${configPath ? readAppPort(configPath) : DEFAULT_APP_PORT}`;
+}
+
 function readAppPort(configPath: string): number {
   try {
     if (existsSync(configPath)) {
@@ -15,13 +26,37 @@ function readAppPort(configPath: string): number {
       if (typeof port === 'number') return port;
     }
   } catch { /* use default */ }
-  return 9092;
+  return DEFAULT_APP_PORT;
+}
+
+// Opening a browser is best-effort, but a silent failure leaves desktop-launcher
+// users staring at nothing, so a failure has to make it into the message.
+async function openBrowserOrNote(url: string, cgHome: string): Promise<string> {
+  const opened = await openBrowser(url, cgHome);
+  return opened ? '' : `\nCould not open a browser automatically — visit ${url}`;
+}
+
+// Used when another `cg up` holds the startup lock: that instance will finish
+// bringing the services up, but it cannot open a browser for *this* invocation.
+export async function waitForAppAndOpen(cgHome: string, configPath?: string): Promise<{ ok: boolean; message: string }> {
+  const appUrl = appUrlFor(configPath);
+  const outcome = await pollUntilReady({
+    checkReady: async () => { try { await fetch(appUrl); return true; } catch { return false; } },
+    isAlive: () => true,
+    maxAttempts: 40,
+    intervalMs: 500,
+  });
+
+  if (outcome !== 'ready') {
+    return { ok: false, message: `The GUI did not become reachable at ${appUrl}.` };
+  }
+  return { ok: true, message: `GUI is reachable at ${appUrl}.${await openBrowserOrNote(appUrl, cgHome)}` };
 }
 
 export async function executeGuiStart(
   baseUrl: string, cgHome: string, appScript: string, nodeBinary: string, opts: { background?: boolean; noOpen?: boolean; configPath?: string },
 ): Promise<LifecycleStartResult | string> {
-  const appPort = opts.configPath ? readAppPort(opts.configPath) : 9092;
+  const appUrl = appUrlFor(opts.configPath);
 
   try {
     const resp = await fetch(`${baseUrl}/api/status`);
@@ -35,8 +70,8 @@ export async function executeGuiStart(
   if (existsSync(pidPath)) {
     const pid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
     if (isProcessAlive(pid)) {
-      const message = 'GUI is already running.';
-      if (!opts.noOpen) openBrowser(`http://127.0.0.1:${appPort}`, cgHome);
+      const note = opts.noOpen ? '' : await openBrowserOrNote(appUrl, cgHome);
+      const message = `GUI is already running.${note}`;
       return opts.background ? { status: 'already-running', message } : message;
     }
     unlinkSync(pidPath);
@@ -68,7 +103,6 @@ export async function executeGuiStart(
         return { status: 'started', message: `GUI started (PID: ${child.pid ?? 'unknown'}).`, pid: child.pid };
       }
 
-      const appUrl = `http://127.0.0.1:${appPort}`;
       const outcome = await pollUntilReady({
         checkReady: async () => { try { await fetch(appUrl); return true; } catch { return false; } },
         isAlive: () => !spawnFailed && (!child.pid || isProcessAlive(child.pid)),
@@ -77,8 +111,8 @@ export async function executeGuiStart(
       });
 
       if (outcome === 'ready') {
-        openBrowser(appUrl, cgHome);
-        return { status: 'started', message: `GUI started (PID: ${child.pid ?? 'unknown'}).`, pid: child.pid };
+        const note = await openBrowserOrNote(appUrl, cgHome);
+        return { status: 'started', message: `GUI started (PID: ${child.pid ?? 'unknown'}).${note}`, pid: child.pid };
       }
       if (child.pid) try { process.kill(child.pid, 'SIGTERM'); } catch { /* already dead */ }
       if (existsSync(pidPath)) unlinkSync(pidPath);
@@ -91,9 +125,11 @@ export async function executeGuiStart(
   // Foreground — exec directly (this blocks)
   const child = spawn(nodeBinary, [appScript], { stdio: 'inherit' });
   if (!opts.noOpen) {
-    const appUrl = `http://127.0.0.1:${appPort}`;
     const ready = await waitForServer(appUrl, child);
-    if (ready) openBrowser(appUrl, cgHome);
+    if (ready) {
+      const note = await openBrowserOrNote(appUrl, cgHome);
+      if (note) console.error(note.trim());
+    }
   }
   await new Promise<void>((resolve) => child.on('exit', () => resolve()));
   return 'GUI stopped.';
@@ -135,7 +171,7 @@ async function waitForServer(url: string, child: ChildProcess): Promise<boolean>
   return false;
 }
 
-function openBrowser(url: string, cgHome: string): void {
+function openBrowser(url: string, cgHome: string): Promise<boolean> {
   console.error('Opening browser...');
   const logPath = join(cgHome, 'browser.log');
   const log = (line: string): void => {
@@ -151,8 +187,24 @@ function openBrowser(url: string, cgHome: string): void {
 
   const child = spawn(command, args, { stdio: 'ignore', detached: true });
   log(`spawned pid=${child.pid ?? 'unknown'}`);
-  child.on('spawn', () => log('event: spawn (process launched)'));
-  child.on('error', (err) => log(`event: error ${err instanceof Error ? err.stack ?? err.message : String(err)}`));
-  child.on('exit', (code, signal) => log(`event: exit code=${code} signal=${signal}`));
-  child.unref();
+
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (opened: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(opened);
+    };
+    const timer = setTimeout(() => settle(true), BROWSER_SPAWN_TIMEOUT_MS);
+    timer.unref?.();
+
+    child.on('spawn', () => { log('event: spawn (process launched)'); settle(true); });
+    child.on('error', (err) => {
+      log(`event: error ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
+      settle(false);
+    });
+    child.on('exit', (code, signal) => log(`event: exit code=${code} signal=${signal}`));
+    child.unref();
+  });
 }

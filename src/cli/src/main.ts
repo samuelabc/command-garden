@@ -261,9 +261,11 @@ program
   .description('Start daemon + GUI, open browser (use --no-open to skip)')
   .option('--no-open', 'Do not open browser')
   .action(async (opts: { open?: boolean }) => {
-    console.log(await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), getNodeBinary(), CONFIG_PATH, {
+    const result = await executeUp(BASE_URL, CG_HOME, getDaemonScript(), getAppScript(), getNodeBinary(), CONFIG_PATH, {
       noOpen: opts.open === false,
-    }));
+    });
+    console.log(result.message);
+    if (!result.ok) process.exitCode = 1;
   });
 
 program
