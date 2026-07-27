@@ -111,5 +111,6 @@ export {
 // Daemon client
 export {
   DaemonClient,
+  DaemonHttpError,
   readToken,
 } from './daemon-client.js';

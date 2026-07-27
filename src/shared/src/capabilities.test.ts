@@ -110,6 +110,11 @@ describe('requiredApprovals', () => {
   it('returns empty when the high-risk list is empty', () => {
     expect(requiredApprovals(['js_evaluate'], [])).toEqual([]);
   });
+
+  it('deduplicates a capability declared more than once', () => {
+    expect(requiredApprovals(['js_evaluate', 'navigate', 'js_evaluate'], highRisk))
+      .toEqual(['js_evaluate']);
+  });
 });
 
 describe('hasAllApprovals', () => {

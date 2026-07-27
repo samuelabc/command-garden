@@ -8,6 +8,20 @@ export function readToken(tokenPath: string): string | null {
   }
 }
 
+/**
+ * A non-2xx response from the daemon.
+ *
+ * Carries the status so callers can tell "this thing does not exist" apart
+ * from "the daemon is broken" — a transport failure still throws a plain
+ * Error, since there is no status to report.
+ */
+export class DaemonHttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'DaemonHttpError';
+  }
+}
+
 export class DaemonClient {
   constructor(
     private baseUrl: string,
@@ -31,7 +45,7 @@ export class DaemonClient {
     }
     const data = await resp.json();
     if (!resp.ok) {
-      throw new Error((data as Record<string, string>).error ?? `HTTP ${resp.status}`);
+      throw new DaemonHttpError((data as Record<string, string>).error ?? `HTTP ${resp.status}`, resp.status);
     }
     return data as { ok: boolean; extensionConnected: boolean; connectorCount: number };
   }
@@ -125,7 +139,7 @@ export class DaemonClient {
 
     const data = await resp.json();
     if (!resp.ok) {
-      throw new Error((data as Record<string, string>).error ?? `HTTP ${resp.status}`);
+      throw new DaemonHttpError((data as Record<string, string>).error ?? `HTTP ${resp.status}`, resp.status);
     }
     return data as T;
   }

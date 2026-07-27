@@ -29,6 +29,17 @@ pipeline:
     url: "https://example.com"
 `;
 
+const TWO_HIGH_RISK_YAML = `
+site: risky
+name: egress
+version: "1.0"
+domains: ["example.com"]
+capabilities: ["navigate", "js_evaluate", "network_egress"]
+pipeline:
+  - step: navigate
+    url: "https://example.com"
+`;
+
 describe('validateCommand', () => {
   let tmpDir: string;
   let registry: ConnectorRegistry;
@@ -37,6 +48,7 @@ describe('validateCommand', () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'cg-val-'));
     writeFileSync(join(tmpDir, 'cmd.yaml'), CONN_YAML);
     writeFileSync(join(tmpDir, 'risky.yaml'), HIGH_RISK_YAML);
+    writeFileSync(join(tmpDir, 'risky-egress.yaml'), TWO_HIGH_RISK_YAML);
     registry = new ConnectorRegistry([tmpDir]);
     registry.load();
   });
@@ -81,5 +93,24 @@ describe('validateCommand', () => {
     const r = validateCommand('risky/eval', registry, config);
     expect(r.ok).toBe(false);
     expect(r.denialReason).toContain('js_evaluate');
+  });
+
+  // The bug this guards: a connector declaring two high-risk capabilities was
+  // approved for only one, and the partial record read as "approved" upstream.
+  it('rejects a connector whose second high-risk capability is unapproved', () => {
+    const config = configSchema.parse({
+      security: { approvedHighRisk: { 'risky/egress': ['js_evaluate'] } },
+    });
+    const r = validateCommand('risky/egress', registry, config);
+    expect(r.ok).toBe(false);
+    expect(r.denialReason).toContain('network_egress');
+    expect(r.denialReason).not.toContain('js_evaluate');
+  });
+
+  it('accepts that connector once both high-risk capabilities are approved', () => {
+    const config = configSchema.parse({
+      security: { approvedHighRisk: { 'risky/egress': ['js_evaluate', 'network_egress'] } },
+    });
+    expect(validateCommand('risky/egress', registry, config).ok).toBe(true);
   });
 });

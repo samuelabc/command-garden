@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { DaemonClient } from '@commandgarden/shared';
-import { HIGH_RISK_CAPABILITIES, requiredApprovals, hasAllApprovals } from '@commandgarden/shared';
+import { HIGH_RISK_CAPABILITIES, DaemonHttpError, requiredApprovals, hasAllApprovals } from '@commandgarden/shared';
 
 const APP_ROUTES: Record<string, string> = {
   'timetracking/report': '/apps/timetracking',
@@ -74,15 +74,22 @@ export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): voi
     const key = `${site}/${name}`;
 
     // DaemonClient throws on any non-2xx, so an unknown connector arrives as a
-    // rejection rather than an ok:false body.
+    // rejection rather than an ok:false body. Only a genuine 404 means "no such
+    // connector"; anything else is the daemon failing and must not be reported
+    // as a missing connector.
     let capabilities: string[] | undefined;
     try {
       const detail = await daemon.get<{ ok: boolean; connector?: { capabilities?: string[] } }>(
         `/api/connectors/${site}/${name}`,
       );
       capabilities = detail.connector?.capabilities;
-    } catch {
-      capabilities = undefined;
+    } catch (err) {
+      if (err instanceof DaemonHttpError && err.status === 404) {
+        reply.code(404);
+        return { ok: false, error: `Connector "${key}" not found` };
+      }
+      reply.code(502);
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
     if (!capabilities) {
       reply.code(404);

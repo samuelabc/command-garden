@@ -40,7 +40,9 @@ export function requiredApprovals(
   capabilities: readonly string[],
   highRiskCaps: readonly string[],
 ): string[] {
-  return capabilities.filter(c => highRiskCaps.includes(c));
+  // Deduplicated: a connector may declare the same capability for two steps,
+  // and callers write this list straight into the approval record.
+  return [...new Set(capabilities.filter(c => highRiskCaps.includes(c)))];
 }
 
 export function hasAllApprovals(
