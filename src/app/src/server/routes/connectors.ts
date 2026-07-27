@@ -47,7 +47,16 @@ export function connectorRoutes(app: FastifyInstance, daemon: DaemonClient): voi
         hasAppPage: key in APP_ROUTES,
         appRoute: APP_ROUTES[key] ?? null,
         isHighRisk: capabilities.some(cap => highRiskCaps.has(cap)),
-        isApproved: key in approvedHighRisk,
+        // A connector is fully approved only when every high-risk capability
+        // it declares is present in the approval record.  A stale/partial
+        // entry (e.g. connector gained a new high-risk cap after the user
+        // approved) correctly shows as unapproved so the user re-approves.
+        isApproved: (() => {
+          const approvedCaps = approvedHighRisk[key];
+          if (!approvedCaps) return false;
+          const neededHighRisk = capabilities.filter(cap => highRiskCaps.has(cap));
+          return neededHighRisk.length > 0 && neededHighRisk.every(cap => approvedCaps.includes(cap));
+        })(),
         isAutoApproved: autoApproveConnectors.has(key),
       };
     });

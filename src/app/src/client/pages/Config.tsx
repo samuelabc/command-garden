@@ -208,10 +208,16 @@ export default function Config() {
     setEdited(prev => {
       if (!prev) return prev;
       const approved = { ...prev.security.approvedHighRisk };
-      if (connectorKey in approved) {
+      const neededHighRisk = connectorCaps.filter(c => highRiskCaps.has(c));
+      const currentlyApproved = approved[connectorKey] ?? [];
+      // Fully approved = every high-risk cap the connector declares is present.
+      // If only partially approved (stale entry), treat as unapproved so the
+      // toggle click re-approves with the full set of capabilities.
+      const fullyApproved = neededHighRisk.length > 0 && neededHighRisk.every(c => currentlyApproved.includes(c));
+      if (fullyApproved) {
         delete approved[connectorKey];
       } else {
-        approved[connectorKey] = connectorCaps.filter(c => highRiskCaps.has(c));
+        approved[connectorKey] = neededHighRisk;
       }
       return { ...prev, security: { ...prev.security, approvedHighRisk: approved } };
     });
@@ -402,7 +408,11 @@ function ConnectorSecuritySection({ config, connectors, actions, onToggleApprova
                     {siteConnectors.map(c => {
                       const name = c.key.split('/')[1];
                       const isHighRisk = c.capabilities.some(cap => highRiskCaps.has(cap));
-                      const isApproved = c.key in config.security.approvedHighRisk;
+                      // Fully approved only when every high-risk cap the
+                      // connector declares is covered by the approval record.
+                      const approvedCaps = config.security.approvedHighRisk[c.key] ?? [];
+                      const neededHigh = c.capabilities.filter(cap => highRiskCaps.has(cap));
+                      const isApproved = neededHigh.length > 0 && neededHigh.every(cap => approvedCaps.includes(cap));
                       const isAutoApproved = config.security.autoApproveConnectors.includes(c.key);
                       return (
                         <tr key={c.key}>

@@ -322,29 +322,41 @@ export class RealChromeAdapter implements ChromeAdapter {
   }
 
   private egressRuleIds: number[] = [];
+  // Sequential counter for declarativeNetRequest rule IDs.  Using simple
+  // small integers avoids Chrome's strict "expected integer, found number"
+  // validation errors that can occur with tab-ID-based arithmetic.
+  private static nextRuleId = 1;
 
   async addEgressRules(tabId: number, allowedDomains: string[]): Promise<void> {
-    const baseId = tabId * 1000;
-    const rules: chrome.declarativeNetRequest.Rule[] = allowedDomains.map((domain, i) => ({
-      id: baseId + i,
+    const ids: number[] = [];
+    // In Chrome's declarativeNetRequest, higher priority wins.  ALLOW rules
+    // must have higher priority than the catch-all BLOCK rule so permitted
+    // domains aren't blocked.
+    const rules: chrome.declarativeNetRequest.Rule[] = allowedDomains.map((domain) => {
+      const id = RealChromeAdapter.nextRuleId++;
+      ids.push(id);
+      return {
+        id,
+        priority: 2,
+        action: { type: chrome.declarativeNetRequest.RuleActionType.ALLOW as chrome.declarativeNetRequest.RuleActionType },
+        condition: {
+          urlFilter: `||${domain}`,
+          tabIds: [tabId],
+        },
+      };
+    });
+    const blockId = RealChromeAdapter.nextRuleId++;
+    ids.push(blockId);
+    rules.push({
+      id: blockId,
       priority: 1,
-      action: { type: chrome.declarativeNetRequest.RuleActionType.ALLOW },
-      condition: {
-        urlFilter: `||${domain}`,
-        tabIds: [tabId],
-      },
-    }));
-    const blockRule: chrome.declarativeNetRequest.Rule = {
-      id: baseId + allowedDomains.length,
-      priority: 2,
-      action: { type: chrome.declarativeNetRequest.RuleActionType.BLOCK },
+      action: { type: chrome.declarativeNetRequest.RuleActionType.BLOCK as chrome.declarativeNetRequest.RuleActionType },
       condition: {
         urlFilter: '*',
         tabIds: [tabId],
       },
-    };
-    rules.push(blockRule);
-    this.egressRuleIds = rules.map(r => r.id);
+    });
+    this.egressRuleIds = ids;
     await chrome.declarativeNetRequest.updateSessionRules({
       addRules: rules,
     });

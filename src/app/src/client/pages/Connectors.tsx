@@ -93,7 +93,13 @@ export default function Connectors() {
   const handleApprove = useCallback(async (connectorKey: string) => {
     setApprovingKey(connectorKey);
     try {
-      const updated = { ...approvedHighRisk, [connectorKey]: ['js_evaluate'] };
+      // Approve ALL high-risk capabilities the connector actually declares,
+      // not just js_evaluate.  The previous hardcoded value caused partial
+      // approvals that the daemon validator would later reject.
+      const connector = connectors.find(c => c.key === connectorKey);
+      const highRiskCaps = new Set(['js_evaluate', 'cdp_attach', 'state_mutate', 'network_egress']);
+      const neededCaps = (connector?.capabilities ?? []).filter(c => highRiskCaps.has(c));
+      const updated = { ...approvedHighRisk, [connectorKey]: neededCaps.length > 0 ? neededCaps : ['js_evaluate'] };
       await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
       load();
     } catch {
@@ -101,7 +107,7 @@ export default function Connectors() {
     } finally {
       setApprovingKey(null);
     }
-  }, [approvedHighRisk, load]);
+  }, [approvedHighRisk, connectors, load]);
 
   const grouped = useMemo(() => groupBySite(connectors), [connectors]);
 
