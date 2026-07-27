@@ -153,10 +153,12 @@ export class PipelineRunner {
             const code = ctx.interpolate(step.code);
 
             const hasEgress = connector.capabilities.includes('network_egress');
-            if (hasEgress) {
-              await this.adapter.addEgressRules(tabId, connector.domains);
-            }
             try {
+              // Inside the try: if adding the rules fails partway, the catch-all
+              // BLOCK rule may already be installed and must still be removed.
+              if (hasEgress) {
+                await this.adapter.addEgressRules(tabId, connector.domains);
+              }
               const result = await this.adapter.evaluateInPage(tabId, code);
               if (step.as) {
                 ctx.setVar(step.as, result);

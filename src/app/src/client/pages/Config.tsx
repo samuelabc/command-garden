@@ -1,10 +1,10 @@
 import { Fragment, useEffect, useState, useCallback, useMemo } from 'react';
 import { stringify as stringifyYaml, parse as parseYaml } from 'yaml';
+import { HIGH_RISK_CAPABILITIES, requiredApprovals, hasAllApprovals } from '@commandgarden/shared/capabilities';
 import { api, groupBySite, type Connector } from '../api';
 import { Badge } from '../components/Badge';
 import { Spinner } from '../components/Spinner';
 const RESTART_REQUIRED_KEYS = new Set(['daemon.host', 'daemon.port', 'app.port']);
-const DEFAULT_HIGH_RISK_CAPABILITIES = ['js_evaluate', 'cdp_attach', 'state_mutate', 'network_egress'] as const;
 
 interface ConfigState {
   daemon: { host: string; port: number };
@@ -39,7 +39,7 @@ function configFromRaw(raw: Record<string, Record<string, unknown>>): ConfigStat
     daemon: { host: String(d.host ?? '127.0.0.1'), port: Number(d.port ?? 9091) },
     security: {
       extensionId: String(s.extensionId ?? ''),
-      highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? [...DEFAULT_HIGH_RISK_CAPABILITIES],
+      highRiskCapabilities: (s.highRiskCapabilities as string[]) ?? [...HIGH_RISK_CAPABILITIES],
       approvedHighRisk: (s.approvedHighRisk && typeof s.approvedHighRisk === 'object' && !Array.isArray(s.approvedHighRisk))
         ? s.approvedHighRisk as Record<string, string[]>
         : {},
@@ -204,14 +204,20 @@ export default function Config() {
 
   const formActions = useMemo(() => ({ updateField, addToArray, removeFromArray }), [updateField, addToArray, removeFromArray]);
 
-  const toggleConnectorApproval = useCallback((connectorKey: string, connectorCaps: string[], highRiskCaps: Set<string>) => {
+  const toggleConnectorApproval = useCallback((connectorKey: string, connectorCaps: string[], highRiskCaps: string[]) => {
     setEdited(prev => {
       if (!prev) return prev;
+      const required = requiredApprovals(connectorCaps, highRiskCaps);
+      // Nothing to approve: writing an empty array here would create a record
+      // that can never be cleared, since it would always read as unapproved.
+      if (required.length === 0) return prev;
       const approved = { ...prev.security.approvedHighRisk };
-      if (connectorKey in approved) {
+      // A partial record (stale approval from before the connector gained a
+      // capability) reads as unapproved, so the click re-approves the full set.
+      if (hasAllApprovals(required, approved[connectorKey] ?? [])) {
         delete approved[connectorKey];
       } else {
-        approved[connectorKey] = connectorCaps.filter(c => highRiskCaps.has(c));
+        approved[connectorKey] = required;
       }
       return { ...prev, security: { ...prev.security, approvedHighRisk: approved } };
     });
@@ -369,10 +375,10 @@ function ConnectorSecuritySection({ config, connectors, actions, onToggleApprova
   config: ConfigState;
   connectors: Connector[];
   actions: FormActions;
-  onToggleApproval: (connectorKey: string, connectorCaps: string[], highRiskCaps: Set<string>) => void;
+  onToggleApproval: (connectorKey: string, connectorCaps: string[], highRiskCaps: string[]) => void;
 }) {
   const { updateField, addToArray, removeFromArray } = actions;
-  const highRiskCaps = new Set(config.security.highRiskCapabilities);
+  const highRiskCaps = config.security.highRiskCapabilities;
   const grouped = useMemo(() => groupBySite(connectors), [connectors]);
 
   return (
@@ -401,8 +407,11 @@ function ConnectorSecuritySection({ config, connectors, actions, onToggleApprova
                     </tr>
                     {siteConnectors.map(c => {
                       const name = c.key.split('/')[1];
-                      const isHighRisk = c.capabilities.some(cap => highRiskCaps.has(cap));
-                      const isApproved = c.key in config.security.approvedHighRisk;
+                      const required = requiredApprovals(c.capabilities, highRiskCaps);
+                      const isHighRisk = required.length > 0;
+                      // Approved only when every high-risk capability the
+                      // connector declares is covered by the approval record.
+                      const isApproved = isHighRisk && hasAllApprovals(required, config.security.approvedHighRisk[c.key] ?? []);
                       const isAutoApproved = config.security.autoApproveConnectors.includes(c.key);
                       return (
                         <tr key={c.key}>
@@ -410,7 +419,7 @@ function ConnectorSecuritySection({ config, connectors, actions, onToggleApprova
                           <td>
                             <div className="flex flex-wrap gap-1">
                               {c.capabilities.map(cap => (
-                                <Badge key={cap} variant={highRiskCaps.has(cap) ? 'warning' : 'neutral'} size="xs">{cap}</Badge>
+                                <Badge key={cap} variant={highRiskCaps.includes(cap) ? 'warning' : 'neutral'} size="xs">{cap}</Badge>
                               ))}
                             </div>
                           </td>

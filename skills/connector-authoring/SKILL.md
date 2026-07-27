@@ -109,6 +109,10 @@ cg config approve <site>/<name> js_evaluate network_egress
 cg run <site>/<name> --format json
 ```
 
+List **every** high-risk capability the connector declares in one `approve` command: the connector stays blocked until all of them are approved, and each `approve` replaces the previous set rather than adding to it.
+
+`network_egress` restricts a `js_evaluate` step to the connector's declared `domains` using tab-scoped `declarativeNetRequest` rules. Requests Chrome does not attribute to the tab (service workers, some sub-frames) can bypass those rules, so keep `domains` accurate rather than relying on the block as a hard boundary.
+
 ### Read the audit log (always do this first)
 
 ```bash

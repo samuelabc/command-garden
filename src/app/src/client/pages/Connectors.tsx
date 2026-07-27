@@ -68,40 +68,34 @@ function ConnectorGroup({ site, connectors, approvingKey, onApprove }: { site: s
 
 export default function Connectors() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
-  const [approvedHighRisk, setApprovedHighRisk] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [approvingKey, setApprovingKey] = useState<string | null>(null);
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    const connP = api.getConnectors();
-    const configP = api.getConfig().catch(() => ({ ok: false, config: {} }) as { ok: boolean; config: Record<string, Record<string, unknown>> });
-    Promise.all([connP, configP])
-      .then(([connRes, configRes]) => {
-        setConnectors(connRes.connectors);
-        const security = (configRes.config.security ?? {}) as Record<string, unknown>;
-        const raw = security.approvedHighRisk;
-        setApprovedHighRisk(
-          (raw && typeof raw === 'object' && !Array.isArray(raw)) ? raw as Record<string, string[]> : {},
-        );
-      })
+    api.getConnectors()
+      .then(res => setConnectors(res.connectors))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
+  // Which capabilities get granted is decided by the server, which is the only
+  // side that can see security.highRiskCapabilities.
   const handleApprove = useCallback(async (connectorKey: string) => {
+    const [site, name] = connectorKey.split('/');
     setApprovingKey(connectorKey);
+    setApproveError(null);
     try {
-      const updated = { ...approvedHighRisk, [connectorKey]: ['js_evaluate'] };
-      await api.setConfig('security.approvedHighRisk', JSON.stringify(updated));
+      await api.approveConnector(site, name);
       load();
-    } catch {
-      // error is shown via connector state not updating
+    } catch (err) {
+      setApproveError(`Could not approve ${connectorKey}: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setApprovingKey(null);
     }
-  }, [approvedHighRisk, load]);
+  }, [load]);
 
   const grouped = useMemo(() => groupBySite(connectors), [connectors]);
 
@@ -110,6 +104,12 @@ export default function Connectors() {
   return (
     <div className="max-w-4xl mx-auto">
       <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-5">Connectors</h2>
+      {approveError && (
+        <div className="alert alert-error mb-4">
+          <span className="text-sm">{approveError}</span>
+          <button className="btn btn-sm btn-ghost" onClick={() => setApproveError(null)}>Dismiss</button>
+        </div>
+      )}
       {connectors.length === 0 ? (
         <div className="border border-base-300 p-6 text-center">
           <p className="text-sm opacity-50 mb-1">No connectors loaded</p>

@@ -6,6 +6,8 @@ export {
   CAPABILITY_RISK,
   HIGH_RISK_CAPABILITIES,
   isCapability,
+  requiredApprovals,
+  hasAllApprovals,
 } from './capabilities.js';
 
 // Pipeline steps
@@ -109,5 +111,6 @@ export {
 // Daemon client
 export {
   DaemonClient,
+  DaemonHttpError,
   readToken,
 } from './daemon-client.js';

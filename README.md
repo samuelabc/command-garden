@@ -537,7 +537,7 @@ Configuration can also be edited in the GUI at the **Configuration** page, which
 
 ### Approving high-risk connectors
 
-Connectors that use `js_evaluate`, `cdp_attach`, `state_mutate`, or `network_egress` are classified as **high-risk** and blocked by default. Approval is granular per capability. There are three ways to approve a connector:
+Connectors that use `js_evaluate`, `cdp_attach`, `state_mutate`, or `network_egress` are classified as **high-risk** and blocked by default. Approval is granular per capability, and a connector runs only once **every** high-risk capability it declares is approved — a partial approval still blocks it. There are three ways to approve a connector:
 
 1. **GUI — Configuration page:** Toggle the "Approved" switch in the Connector Security table
 2. **GUI — Connectors page:** Click the "Approve" button next to any blocked connector
@@ -547,6 +547,8 @@ Connectors that use `js_evaluate`, `cdp_attach`, `state_mutate`, or `network_egr
 cg config approve timetracking/report js_evaluate network_egress
 cg config approve teams/room-availability js_evaluate cdp_attach
 ```
+
+Both GUI paths grant exactly the high-risk capabilities the connector declares. `cg config approve` grants exactly the capabilities you list, replacing any previous set for that connector, so pass them all in one command; use `cg config revoke` to remove individual entries.
 
 Or edit `~/.commandgarden/config.yaml` directly:
 

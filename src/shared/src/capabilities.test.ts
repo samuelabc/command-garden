@@ -5,6 +5,8 @@ import {
   CAPABILITY_RISK,
   HIGH_RISK_CAPABILITIES,
   isCapability,
+  requiredApprovals,
+  hasAllApprovals,
 } from './capabilities';
 
 describe('CAPABILITIES', () => {
@@ -86,5 +88,53 @@ describe('isCapability', () => {
 
   it('returns false for empty string', () => {
     expect(isCapability('')).toBe(false);
+  });
+});
+
+describe('requiredApprovals', () => {
+  const highRisk = [...HIGH_RISK_CAPABILITIES];
+
+  it('returns the intersection of declared and high-risk capabilities', () => {
+    expect(requiredApprovals(['navigate', 'js_evaluate', 'network_egress'], highRisk))
+      .toEqual(['js_evaluate', 'network_egress']);
+  });
+
+  it('returns empty for a connector with no high-risk capabilities', () => {
+    expect(requiredApprovals(['navigate', 'dom_read'], highRisk)).toEqual([]);
+  });
+
+  it('respects a custom high-risk list', () => {
+    expect(requiredApprovals(['navigate', 'js_evaluate'], ['navigate'])).toEqual(['navigate']);
+  });
+
+  it('returns empty when the high-risk list is empty', () => {
+    expect(requiredApprovals(['js_evaluate'], [])).toEqual([]);
+  });
+
+  it('deduplicates a capability declared more than once', () => {
+    expect(requiredApprovals(['js_evaluate', 'navigate', 'js_evaluate'], highRisk))
+      .toEqual(['js_evaluate']);
+  });
+});
+
+describe('hasAllApprovals', () => {
+  it('returns true when every required capability is approved', () => {
+    expect(hasAllApprovals(['js_evaluate', 'network_egress'], ['js_evaluate', 'network_egress'])).toBe(true);
+  });
+
+  it('returns false when only some required capabilities are approved', () => {
+    expect(hasAllApprovals(['js_evaluate', 'network_egress'], ['js_evaluate'])).toBe(false);
+  });
+
+  it('returns false when nothing is approved', () => {
+    expect(hasAllApprovals(['js_evaluate'], [])).toBe(false);
+  });
+
+  it('is vacuously true when nothing is required', () => {
+    expect(hasAllApprovals([], [])).toBe(true);
+  });
+
+  it('ignores extra approvals beyond what is required', () => {
+    expect(hasAllApprovals(['js_evaluate'], ['js_evaluate', 'cdp_attach'])).toBe(true);
   });
 });

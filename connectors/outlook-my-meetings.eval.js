@@ -40,6 +40,54 @@ function dateCellLabel(iso) {
   return `${d}, ${MONTHS[m - 1]}, ${y}`;
 }
 
+/** Format a target ISO date (YYYY-MM-DD) in the same locale format as the
+ *  current Start date input value. Detects format by comparing the input's
+ *  numeric parts against today's known year/month/day. Falls back to
+ *  Intl.DateTimeFormat when format detection is ambiguous (e.g. day == month). */
+function formatDateForInput(inputVal, isoDate) {
+  const now = new Date();
+  const tY = now.getFullYear(), tM = now.getMonth() + 1, tD = now.getDate();
+  const [dY, dM, dD] = isoDate.split('-').map(Number);
+
+  const m = inputVal.match(/(\d+)(\D+)(\d+)(\D+)(\d+)/);
+  if (!m) {
+    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+  }
+  const [, p1, sep1, p2, sep2, p3] = m;
+  const nums = [Number(p1), Number(p2), Number(p3)];
+
+  // Identify year position (unambiguous — 4-digit or matches current year)
+  const yIdx = nums.findIndex(n => n === tY);
+  if (yIdx === -1) {
+    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+  }
+
+  // Identify month vs day from the remaining two positions
+  const rest = [0, 1, 2].filter(i => i !== yIdx);
+  if (tM === tD) {
+    // Ambiguous: today's day equals month — can't distinguish, use Intl
+    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+  }
+
+  let mIdx, dIdx;
+  if (nums[rest[0]] === tM && nums[rest[1]] === tD) {
+    mIdx = rest[0]; dIdx = rest[1];
+  } else if (nums[rest[0]] === tD && nums[rest[1]] === tM) {
+    mIdx = rest[1]; dIdx = rest[0];
+  } else {
+    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+  }
+
+  // Reconstruct with target date values, preserving original zero-padding
+  const tokens = [p1, p2, p3];
+  const fmt = (val, orig) => orig.length >= 2 ? String(val).padStart(2, '0') : String(val);
+  const out = [];
+  out[yIdx] = String(dY);
+  out[mIdx] = fmt(dM, tokens[mIdx]);
+  out[dIdx] = fmt(dD, tokens[dIdx]);
+  return out[0] + sep1 + out[1] + sep2 + out[2];
+}
+
 function $(sel) { return document.querySelector(sel); }
 function exists(sel) { return !!$(sel); }
 
@@ -122,28 +170,43 @@ if (!schedulingAssistantOpen()) {
 // then set the target date so getSchedule fires fresh.
 readCapture();
 
-const cellSel = `button[aria-label='${dateCellLabel(date)}']`;
 const target = new Date(`${date}T00:00:00`);
 const now = new Date();
-const navSel = target >= new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  ? "button[aria-label^='Go to next month']"
-  : "button[aria-label^='Go to previous month']";
+const sameMonth = target.getFullYear() === now.getFullYear()
+  && target.getMonth() === now.getMonth();
 
 const dateInput = $("input[aria-label='Start date']");
-if (dateInput) dateInput.click();
 
-for (let i = 0; i < 30; i++) {
-  if (exists(cellSel)) {
-    $(cellSel).click();
-    break;
+if (sameMonth) {
+  // Same month: calendar picker opens on the current month, so the target
+  // cell is already visible — click the input to open the picker, find the cell.
+  const cellSel = `button[aria-label='${dateCellLabel(date)}']`;
+  if (dateInput) dateInput.click();
+  for (let i = 0; i < 30; i++) {
+    if (exists(cellSel)) {
+      $(cellSel).click();
+      break;
+    }
+    await sleep(500);
   }
-  if (exists(navSel)) {
-    try { $(navSel).click(); } catch (_e) { /* retry */ }
-  } else {
-    const di = $("input[aria-label='Start date']");
-    if (di) di.click();
+} else {
+  // Different month: calendar picker navigation to past months is unreliable
+  // (OWA Scheduling Assistant may disable backward navigation). Instead, type
+  // the date directly into the input using execCommand('insertText'), which
+  // triggers React's SyntheticEvent system — the React value setter (typeText)
+  // silently fails on OWA inputs (see docs/teams-rooms-availability-notes.md).
+  if (dateInput) {
+    const formatted = formatDateForInput(dateInput.value, date);
+    dateInput.focus();
+    dateInput.select();
+    document.execCommand('insertText', false, formatted);
+    // Blur + Enter to commit the typed date and trigger getSchedule
+    dateInput.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
+    }));
+    dateInput.blur();
+    await sleep(2000);
   }
-  await sleep(500);
 }
 
 // ── Read the organizer's schedule from CDP-captured getSchedule ──────

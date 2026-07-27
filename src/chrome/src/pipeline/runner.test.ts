@@ -430,6 +430,30 @@ describe('PipelineRunner', () => {
     expect(adapter.removeEgressRules).toHaveBeenCalledWith(1);
   });
 
+  it('removes egress rules even when adding them fails', async () => {
+    const adapter = mockAdapter({
+      addEgressRules: vi.fn().mockRejectedValue(new Error('duplicate rule id')),
+      evaluateInPage: vi.fn().mockResolvedValue([{ val: 1 }]),
+    });
+    const runner = new PipelineRunner(adapter);
+    const connector = {
+      site: 'test', name: 'cmd', version: '1.0', access: 'read',
+      domains: ['example.com'],
+      capabilities: ['navigate', 'js_evaluate', 'network_egress'],
+      args: [], columns: [],
+      pipeline: [
+        { step: 'navigate', url: 'https://example.com' },
+        { step: 'js_evaluate', code: 'return await fetch("/api").then(r => r.json())' },
+      ],
+    } as unknown as ConnectorDef;
+    const result = await runner.run(connector, {});
+    expect(result.ok).toBe(false);
+    // A stranded catch-all BLOCK rule would kill all traffic in the tab for the
+    // rest of the browser session, so cleanup must run regardless.
+    expect(adapter.removeEgressRules).toHaveBeenCalledWith(1);
+    expect(adapter.evaluateInPage).not.toHaveBeenCalled();
+  });
+
   it('does not apply egress rules when connector lacks network_egress', async () => {
     const adapter = mockAdapter({
       evaluateInPage: vi.fn().mockResolvedValue(42),

@@ -35,3 +35,19 @@ export const HIGH_RISK_CAPABILITIES: readonly Capability[] = CAPABILITIES.filter
 export function isCapability(value: string): value is Capability {
   return (CAPABILITIES as readonly string[]).includes(value);
 }
+
+export function requiredApprovals(
+  capabilities: readonly string[],
+  highRiskCaps: readonly string[],
+): string[] {
+  // Deduplicated: a connector may declare the same capability for two steps,
+  // and callers write this list straight into the approval record.
+  return [...new Set(capabilities.filter(c => highRiskCaps.includes(c)))];
+}
+
+export function hasAllApprovals(
+  required: readonly string[],
+  approved: readonly string[],
+): boolean {
+  return required.every(c => approved.includes(c));
+}

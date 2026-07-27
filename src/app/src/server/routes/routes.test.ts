@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 import { registerRoutes } from './index.js';
-import { DaemonClient, HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
+import { DaemonClient, DaemonHttpError, HIGH_RISK_CAPABILITIES } from '@commandgarden/shared';
 import { AppStore } from '../store.js';
 
 function mockDaemon() {
@@ -100,6 +100,151 @@ describe('routes', () => {
       expect(body.connectors[1].isHighRisk).toBe(false);
       expect(body.connectors[1].isApproved).toBe(false);
       expect(body.connectors[1].isAutoApproved).toBe(false);
+    });
+
+    it('treats a partial approval record as unapproved', async () => {
+      (daemon.get as ReturnType<typeof vi.fn>)
+        .mockImplementation((path: string) => {
+          if (path === '/api/connectors') {
+            return Promise.resolve({
+              ok: true,
+              connectors: [
+                { key: 'risky/two', description: 'two high-risk caps', access: 'read', domains: [], capabilities: ['js_evaluate', 'network_egress'] },
+              ],
+            });
+          }
+          if (path === '/api/config') {
+            return Promise.resolve({
+              ok: true,
+              config: {
+                security: {
+                  highRiskCapabilities: [...HIGH_RISK_CAPABILITIES],
+                  approvedHighRisk: { 'risky/two': ['js_evaluate'] },
+                  autoApproveConnectors: [],
+                },
+              },
+            });
+          }
+          return Promise.resolve({ ok: true });
+        });
+      const resp = await app.inject({ method: 'GET', url: '/api/connectors' });
+      const body = JSON.parse(resp.payload);
+      expect(body.connectors[0].isHighRisk).toBe(true);
+      expect(body.connectors[0].isApproved).toBe(false);
+      expect(body.connectors[0].requiredApprovals).toEqual(['js_evaluate', 'network_egress']);
+    });
+  });
+
+  describe('POST /api/connectors/:site/:name/approve', () => {
+    function mockApproveDaemon(opts: {
+      capabilities?: string[];
+      highRiskCapabilities?: string[];
+      approvedHighRisk?: Record<string, string[]>;
+      connectorFound?: boolean;
+      lookupError?: Error;
+    }) {
+      (daemon.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+        if (path.startsWith('/api/connectors/')) {
+          if (opts.lookupError) return Promise.reject(opts.lookupError);
+          if (opts.connectorFound === false) {
+            return Promise.reject(new DaemonHttpError('Connector "risky/two" not found', 404));
+          }
+          return Promise.resolve({ ok: true, connector: { capabilities: opts.capabilities ?? [] } });
+        }
+        if (path === '/api/config') {
+          return Promise.resolve({
+            ok: true,
+            config: {
+              security: {
+                highRiskCapabilities: opts.highRiskCapabilities ?? [...HIGH_RISK_CAPABILITIES],
+                approvedHighRisk: opts.approvedHighRisk ?? {},
+                autoApproveConnectors: [],
+              },
+            },
+          });
+        }
+        return Promise.resolve({ ok: true });
+      });
+      (daemon.post as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true });
+    }
+
+    it('approves every high-risk capability the connector declares', async () => {
+      mockApproveDaemon({ capabilities: ['navigate', 'js_evaluate', 'network_egress'] });
+      const resp = await app.inject({ method: 'POST', url: '/api/connectors/risky/two/approve' });
+      expect(resp.statusCode).toBe(200);
+      expect(JSON.parse(resp.payload)).toEqual({ ok: true, approved: ['js_evaluate', 'network_egress'] });
+      expect(daemon.post).toHaveBeenCalledWith('/api/config', {
+        key: 'security.approvedHighRisk',
+        value: JSON.stringify({ 'risky/two': ['js_evaluate', 'network_egress'] }),
+      });
+    });
+
+    it('preserves approvals for other connectors', async () => {
+      mockApproveDaemon({
+        capabilities: ['js_evaluate'],
+        approvedHighRisk: { 'other/one': ['cdp_attach'] },
+      });
+      await app.inject({ method: 'POST', url: '/api/connectors/risky/two/approve' });
+      expect(daemon.post).toHaveBeenCalledWith('/api/config', {
+        key: 'security.approvedHighRisk',
+        value: JSON.stringify({ 'other/one': ['cdp_attach'], 'risky/two': ['js_evaluate'] }),
+      });
+    });
+
+    it('honours a custom highRiskCapabilities list', async () => {
+      mockApproveDaemon({
+        capabilities: ['navigate', 'js_evaluate'],
+        highRiskCapabilities: ['navigate'],
+      });
+      const resp = await app.inject({ method: 'POST', url: '/api/connectors/risky/two/approve' });
+      expect(JSON.parse(resp.payload).approved).toEqual(['navigate']);
+    });
+
+    it('overwrites a stale record rather than merging', async () => {
+      mockApproveDaemon({
+        capabilities: ['js_evaluate'],
+        approvedHighRisk: { 'risky/two': ['cdp_attach', 'js_evaluate'] },
+      });
+      await app.inject({ method: 'POST', url: '/api/connectors/risky/two/approve' });
+      expect(daemon.post).toHaveBeenCalledWith('/api/config', {
+        key: 'security.approvedHighRisk',
+        value: JSON.stringify({ 'risky/two': ['js_evaluate'] }),
+      });
+    });
+
+    it('rejects a connector that declares no high-risk capabilities', async () => {
+      mockApproveDaemon({ capabilities: ['navigate', 'dom_read'] });
+      const resp = await app.inject({ method: 'POST', url: '/api/connectors/safe/one/approve' });
+      expect(resp.statusCode).toBe(400);
+      expect(JSON.parse(resp.payload).ok).toBe(false);
+      expect(daemon.post).not.toHaveBeenCalled();
+    });
+
+    it('404s for an unknown connector', async () => {
+      mockApproveDaemon({ connectorFound: false });
+      const resp = await app.inject({ method: 'POST', url: '/api/connectors/no/such/approve' });
+      expect(resp.statusCode).toBe(404);
+      expect(daemon.post).not.toHaveBeenCalled();
+    });
+
+    // A daemon that is down must not be reported as a missing connector: the
+    // user would go looking for a connector that is in fact fine.
+    it('502s when the daemon is unreachable', async () => {
+      mockApproveDaemon({ lookupError: new Error('Cannot connect to daemon. Is it running? Try: cg daemon start') });
+      const resp = await app.inject({ method: 'POST', url: '/api/connectors/risky/two/approve' });
+      expect(resp.statusCode).toBe(502);
+      const body = JSON.parse(resp.payload);
+      expect(body.ok).toBe(false);
+      expect(body.error).toContain('Cannot connect to daemon');
+      expect(daemon.post).not.toHaveBeenCalled();
+    });
+
+    it('502s when the daemon fails with a non-404 status', async () => {
+      mockApproveDaemon({ lookupError: new DaemonHttpError('Internal error', 500) });
+      const resp = await app.inject({ method: 'POST', url: '/api/connectors/risky/two/approve' });
+      expect(resp.statusCode).toBe(502);
+      expect(JSON.parse(resp.payload).error).toContain('Internal error');
+      expect(daemon.post).not.toHaveBeenCalled();
     });
   });
 

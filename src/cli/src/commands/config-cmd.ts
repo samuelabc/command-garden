@@ -36,15 +36,22 @@ export async function executeConfigApprove(
     const security = (config.security ?? {}) as Record<string, unknown>;
     const approvedHighRisk = (security.approvedHighRisk ?? {}) as Record<string, string[]>;
 
+    // Overwrite rather than merge, matching the GUI: an approval grants
+    // exactly the listed capabilities, so previously approved ones do not
+    // silently accumulate. Use "cg config revoke" to drop individual entries.
     const existing = approvedHighRisk[connectorId] ?? [];
-    const merged = [...new Set([...existing, ...capabilities])];
-    approvedHighRisk[connectorId] = merged;
+    const granted = [...new Set(capabilities)];
+    approvedHighRisk[connectorId] = granted;
 
     await client.post('/api/config', {
       key: 'security.approvedHighRisk',
       value: JSON.stringify(approvedHighRisk),
     });
-    return `Approved ${connectorId} for capabilities: ${merged.join(', ')}`;
+    const dropped = existing.filter(c => !granted.includes(c));
+    const summary = `Approved ${connectorId} for capabilities: ${granted.join(', ')}`;
+    return dropped.length > 0
+      ? `${summary}\nNo longer approved: ${dropped.join(', ')}`
+      : summary;
   } catch (err) {
     return `Error: ${err instanceof Error ? err.message : String(err)}`;
   }
