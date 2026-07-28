@@ -187,7 +187,7 @@ const BATTERIES = [
   {
     icon: FileText,
     title: 'Connectors',
-    mono: '13 YAML pipelines',
+    mono: '21 YAML pipelines',
     desc: 'Declarative recipes: navigate → wait → extract → map. No code unless declared.',
   },
   {
@@ -205,7 +205,7 @@ const BATTERIES = [
   {
     icon: Shield,
     title: 'Security Controls',
-    mono: '7 capabilities · 3 risk tiers',
+    mono: '10 capabilities · 3 risk tiers',
     desc: 'Domain-scoped allowlists, step-by-step approval gates, per-session auth tokens.',
   },
 ];

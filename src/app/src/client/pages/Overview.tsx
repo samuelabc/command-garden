@@ -69,7 +69,7 @@ export default function Overview() {
           Turn any website into a CLI command.
         </h1>
         <p className="text-base sm:text-lg opacity-70 max-w-[65ch] mb-8 leading-relaxed" style={{ textWrap: 'pretty' } as React.CSSProperties}>
-          commandGarden reuses your existing browser sessions to extract structured data from authenticated websites. You're already logged in — it just reads what's on screen.
+          commandGarden reuses your existing browser sessions to extract structured data from authenticated websites. You're already logged in; it just reads what's on screen.
         </p>
 
         {/* Mini-flow diagram */}
@@ -94,7 +94,7 @@ export default function Overview() {
       {/* ── Section 2: The Problem ──────────────────────────── */}
       <section id="why-problem" className="py-16 border-b border-base-300 scroll-mt-4">
         <SectionKicker>Where the data actually lives</SectionKicker>
-        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">The Problem</h2>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-8">Why agents can't reach your data</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="border border-base-300 p-5">
@@ -103,7 +103,7 @@ export default function Overview() {
               <h3 className="font-display font-semibold text-sm">Real-world data lives in browsers</h3>
             </div>
             <p className="text-sm opacity-70 leading-relaxed">
-              AI agents can't reach data inside enterprise tools and SaaS dashboards. These systems are where the work happens, but they're locked behind browser sessions.
+              AI agents can't reach data inside enterprise tools and SaaS dashboards. Those pages need a logged-in session, and the agent doesn't have one.
             </p>
           </div>
 
@@ -123,7 +123,7 @@ export default function Overview() {
               <h3 className="font-display font-semibold text-sm">Browser automation is expensive</h3>
             </div>
             <p className="text-sm opacity-70 leading-relaxed">
-              AI browser tools like Playwright burn tokens on every interaction just to understand what's on screen — even when the page layout hasn't changed.
+              Agent-driven browser tools burn tokens on every interaction just to work out what's on screen, even when the layout hasn't changed since the last run.
             </p>
           </div>
         </div>
@@ -136,9 +136,9 @@ export default function Overview() {
       {/* ── Section 3: The Solution ─────────────────────────── */}
       <section id="why-solution" className="py-16 border-b border-base-300 scroll-mt-4">
         <SectionKicker>How commandGarden works</SectionKicker>
-        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">The Solution</h2>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Connectors</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-10">
-          commandGarden replaces ad-hoc browser automation with <strong className="text-base-content">connectors</strong>: pre-built recipes that know how to navigate a site and return structured JSON. The agent (or a human) runs one CLI command and gets back a fixed-schema response, instead of re-parsing the page from scratch.
+          commandGarden replaces ad-hoc browser automation with <strong className="text-base-content">connectors</strong>: YAML recipes that already encode how to navigate a site and what to pull off the page. An agent runs one CLI command and gets back a fixed schema instead of re-parsing the page. Click the same connector in the GUI and you get the same rows.
         </p>
 
         {/* Before / After — strikethrough reduction */}
@@ -178,7 +178,7 @@ export default function Overview() {
             <div className="space-y-0">
               {[
                 { label: 'Task received', note: 'agent or human' },
-                { label: 'cg run site/command', note: 'one CLI call', accent: true },
+                { label: 'cg run site/command', note: 'one call, CLI or GUI', accent: true },
                 { label: 'Structured JSON', note: 'fixed schema' },
               ].map((s, i) => (
                 <div key={i}>
@@ -224,7 +224,7 @@ export default function Overview() {
             <div>
               <h3 className="font-display font-semibold mb-1">Fixed-format parsing, done locally</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed">
-                Each connector defines a pipeline that produces the same output shape on every run. Parsing happens in the extension and daemon — nothing leaves your machine.
+                Each connector defines a pipeline that produces the same output shape on every run. Parsing happens in the extension and daemon. Nothing leaves your machine.
               </p>
             </div>
           </div>
@@ -232,9 +232,9 @@ export default function Overview() {
           <div className="flex gap-4">
             <Terminal className="w-5 h-5 shrink-0 mt-0.5 text-primary" />
             <div>
-              <h3 className="font-display font-semibold mb-1">One CLI for humans and AI agents</h3>
+              <h3 className="font-display font-semibold mb-1">CLI for agents, GUI for humans</h3>
               <p className="text-sm opacity-70 max-w-[60ch] leading-relaxed mb-3">
-                The same command works whether a human types it or an AI agent calls it via a skill. Same arguments, same JSON schema.
+                Agents call connectors through the CLI and get a fixed JSON schema. The GUI runs those same connectors with the same arguments, so you get the same rows without opening a terminal.
               </p>
               <CodeBlock>{`cg run timetracking/report --month 2026-06`}</CodeBlock>
             </div>
@@ -273,10 +273,10 @@ export default function Overview() {
       {/* ── Section 4: Architecture ─────────────────────────── */}
       <section id="why-architecture" className="py-16 border-b border-base-300 bg-base-200/30 -mx-4 px-4 md:-mx-5 md:px-5 scroll-mt-4">
         <div className="max-w-4xl mx-auto">
-        <SectionKicker>Five processes, all on localhost</SectionKicker>
+        <SectionKicker>Nothing leaves localhost</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Architecture</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          All communication stays on localhost. Here's what each piece does.
+          Here's what each piece does.
         </p>
 
         {/* SVG Architecture Diagram */}
@@ -390,12 +390,12 @@ export default function Overview() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           {[
-            { icon: Terminal, title: 'CLI', mono: 'cg', desc: 'Entry point for humans and AI agents. One command in, JSON out.' },
+            { icon: Terminal, title: 'CLI', mono: 'cg', desc: 'Agent entry point. One command in, JSON out.' },
             { icon: Server, title: 'Daemon', mono: ':9091', desc: 'Validates auth and capabilities, loads connectors, writes audit log.' },
             { icon: Globe, title: 'Extension', mono: 'MV3', desc: 'Runs inside your authenticated Chrome. Accesses cookies and page data.' },
             { icon: FileText, title: 'Connectors', mono: 'YAML', desc: 'Declarative pipelines: navigate → wait → extract → map. No code execution.' },
             { icon: Database, title: 'Audit Log', mono: 'SQLite', desc: 'Every execution logged: connector, domains, timing, approvals.' },
-            { icon: Layout, title: 'GUI', mono: ':9092', desc: 'React SPA with app pages, connector browsing, and config management.' },
+            { icon: Layout, title: 'GUI', mono: ':9092', desc: 'Human entry point. App pages, connector browsing, and config management.' },
           ].map(({ icon: Icon, title, mono, desc }) => (
             <div key={title} className="flex gap-3 p-3 border border-base-300 bg-base-100">
               <Icon className="w-4 h-4 shrink-0 mt-0.5 opacity-40" />
@@ -415,7 +415,7 @@ export default function Overview() {
             Full architecture details <ArrowRight className="w-3 h-3" />
           </Link>
           <Link to="/concepts" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
-            Concepts deep dive <ArrowRight className="w-3 h-3" />
+            Concepts <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
         </div>
@@ -423,10 +423,10 @@ export default function Overview() {
 
       {/* ── Section 5: Built-in Apps ────────────────────────── */}
       <section id="why-apps" className="py-16 border-b border-base-300 scroll-mt-4">
-        <SectionKicker>Ships with six connectors</SectionKicker>
+        <SectionKicker>Six apps built on the bundled connectors</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Built-in Apps</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          commandGarden ships with connectors and app pages for common enterprise tasks. Each runs on your local machine using your browser session.
+          commandGarden ships with app pages for timesheets, meeting rooms, dev journals, and security feeds. Each runs on your local machine using your browser session.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -496,7 +496,7 @@ export default function Overview() {
               ))}
             </div>
             <p className="text-xs opacity-50 ml-[1.875rem]">
-              Or open the GUI at <span className="font-mono">localhost:9092</span> and use the visual interface.
+              Or run the same connector from the GUI at <span className="font-mono">localhost:9092</span>.
             </p>
           </div>
 
@@ -530,13 +530,6 @@ export default function Overview() {
             </p>
           </div>
         </div>
-
-        <div className="mt-8 border border-primary/20 bg-primary/[0.03] p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-          <p className="text-sm opacity-70">
-            Human or agent, the output is the same. Same connector, same schema.
-          </p>
-        </div>
       </section>
 
       {/* ── Section 7: Security ─────────────────────────────── */}
@@ -545,7 +538,7 @@ export default function Overview() {
         <SectionKicker>Touching enterprise data means no shortcuts</SectionKicker>
         <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Security</h2>
         <p className="text-sm opacity-70 max-w-[65ch] leading-relaxed mb-8">
-          This tool has access to your cookies and session tokens. That's a lot of trust, so the defaults are locked down — you have to explicitly open things up.
+          This tool has access to your cookies and session tokens. That's a lot of trust, so the defaults are locked down. You have to open things up explicitly.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -583,7 +576,7 @@ export default function Overview() {
 
       {/* ── Section 8: Get Started ──────────────────────────── */}
       <section id="why-get-started" className="py-16 border-b border-base-300 scroll-mt-4">
-        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Get started in 60 seconds</h2>
+        <h2 className="font-display text-xl font-bold uppercase tracking-[0.06em] mb-4">Install and run</h2>
 
         <CodeBlock>{`# Install
 npm install -g @commandgarden/cli
