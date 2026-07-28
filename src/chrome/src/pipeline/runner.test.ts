@@ -32,6 +32,7 @@ describe('PipelineRunner', () => {
     const connector = makeConnector([{ step: 'navigate', url: 'https://example.com' }]);
     await runner.run(connector, {});
     expect(adapter.navigateTab).toHaveBeenCalledWith('https://example.com');
+    expect(adapter.waitForTabLoad).toHaveBeenCalledWith(1, ['example.com']);
   });
 
   it('executes wait step via content script', async () => {
