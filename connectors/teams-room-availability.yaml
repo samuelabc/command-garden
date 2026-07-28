@@ -6,6 +6,8 @@ access: read
 cdp: true
 
 domains:
+  - "outlook.cloud.microsoft"
+  - "mcas-proxyweb.mcas.ms"
   - "outlook.cloud.microsoft.mcas.ms"
 capabilities:
   - navigate
@@ -45,10 +47,9 @@ columns:
 
 pipeline:
   - step: navigate
-    url: "https://outlook.cloud.microsoft.mcas.ms/calendar/deeplink/compose"
+    url: "https://outlook.cloud.microsoft/calendar/deeplink/compose"
   - step: wait
     selector: "body"
     timeout: 30000
   - step: js_evaluate
     file: teams-room-availability.eval.js
-
