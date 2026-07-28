@@ -40,56 +40,139 @@ function dateCellLabel(iso) {
   return `${d}, ${MONTHS[m - 1]}, ${y}`;
 }
 
-/** Format a target ISO date (YYYY-MM-DD) in the same locale format as the
- *  current Start date input value. Detects format by comparing the input's
- *  numeric parts against today's known year/month/day. Falls back to
- *  Intl.DateTimeFormat when format detection is ambiguous (e.g. day == month). */
-function formatDateForInput(inputVal, isoDate) {
+function $(sel) { return document.querySelector(sel); }
+function exists(sel) { return !!$(sel); }
+
+// ── Start date handling ──────────────────────────────────────────────
+// Canonical source: connectors/lib/owa-date-input.js
+
+/** Describe the numeric layout of a date input's current value by matching its
+ *  parts against today's known year/month/day. Returns null when the layout is
+ *  undetectable or ambiguous (no recognisable year, or today's day equals its
+ *  month so the two positions can't be told apart). */
+function detectDateLayout(inputVal) {
   const now = new Date();
   const tY = now.getFullYear(), tM = now.getMonth() + 1, tD = now.getDate();
-  const [dY, dM, dD] = isoDate.split('-').map(Number);
 
-  const m = inputVal.match(/(\d+)(\D+)(\d+)(\D+)(\d+)/);
-  if (!m) {
-    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
-  }
+  const m = String(inputVal || '').match(/(\d+)(\D+)(\d+)(\D+)(\d+)/);
+  if (!m) return null;
   const [, p1, sep1, p2, sep2, p3] = m;
-  const nums = [Number(p1), Number(p2), Number(p3)];
+  const tokens = [p1, p2, p3];
+  const nums = tokens.map(Number);
 
-  // Identify year position (unambiguous — 4-digit or matches current year)
   const yIdx = nums.findIndex(n => n === tY);
-  if (yIdx === -1) {
-    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
-  }
+  if (yIdx === -1) return null;
 
-  // Identify month vs day from the remaining two positions
+  if (tM === tD) return null;
   const rest = [0, 1, 2].filter(i => i !== yIdx);
-  if (tM === tD) {
-    // Ambiguous: today's day equals month — can't distinguish, use Intl
-    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
-  }
-
   let mIdx, dIdx;
   if (nums[rest[0]] === tM && nums[rest[1]] === tD) {
     mIdx = rest[0]; dIdx = rest[1];
   } else if (nums[rest[0]] === tD && nums[rest[1]] === tM) {
     mIdx = rest[1]; dIdx = rest[0];
   } else {
-    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+    return null;
   }
 
-  // Reconstruct with target date values, preserving original zero-padding
-  const tokens = [p1, p2, p3];
-  const fmt = (val, orig) => orig.length >= 2 ? String(val).padStart(2, '0') : String(val);
+  return { yIdx, mIdx, dIdx, sep1, sep2, tokens };
+}
+
+/** Format a target ISO date in the same locale format as the current input
+ *  value. Falls back to Intl.DateTimeFormat (browser locale, which may not be
+ *  OWA's mailbox regional setting) when the layout can't be detected. */
+function formatDateForInput(inputVal, isoDate) {
+  const layout = detectDateLayout(inputVal);
+  if (!layout) {
+    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+  }
+  const [dY, dM, dD] = isoDate.split('-').map(Number);
+  const { yIdx, mIdx, dIdx, sep1, sep2, tokens } = layout;
+  // Padding is only readable from a decisive token: 1 char is unpadded, 2 chars
+  // below 10 is padded ("07"), 2 chars of 10+ says nothing. Take the whole
+  // date's padding from whichever field is decisive.
+  const evidence = orig => orig.length === 1 ? false
+    : (orig.length === 2 && Number(orig) < 10) ? true
+    : null;
+  const pads = evidence(tokens[mIdx]) ?? evidence(tokens[dIdx]) ?? true;
+  const fmt = val => pads ? String(val).padStart(2, '0') : String(val);
   const out = [];
   out[yIdx] = String(dY);
-  out[mIdx] = fmt(dM, tokens[mIdx]);
-  out[dIdx] = fmt(dD, tokens[dIdx]);
+  out[mIdx] = fmt(dM);
+  out[dIdx] = fmt(dD);
   return out[0] + sep1 + out[1] + sep2 + out[2];
 }
 
-function $(sel) { return document.querySelector(sel); }
-function exists(sel) { return !!$(sel); }
+/** True when a date input's value reads as the given ISO date. `layout` must be
+ *  the layout detected BEFORE the value changed (position detection keys off
+ *  today's date). Without one, falls back to an order-independent numeric match. */
+function inputReadsDate(inputVal, isoDate, layout) {
+  const m = String(inputVal || '').match(/(\d+)(\D+)(\d+)(\D+)(\d+)/);
+  if (!m) return false;
+  const nums = [Number(m[1]), Number(m[3]), Number(m[5])];
+  const [dY, dM, dD] = isoDate.split('-').map(Number);
+  if (layout) {
+    return nums[layout.yIdx] === dY
+      && nums[layout.mIdx] === dM
+      && nums[layout.dIdx] === dD;
+  }
+  const want = [dY, dM, dD].sort((a, b) => a - b);
+  const got = nums.slice().sort((a, b) => a - b);
+  return want.every((v, i) => v === got[i]);
+}
+
+/**
+ * Set the Scheduling Assistant's Start date to an ISO date (YYYY-MM-DD).
+ *
+ * Same month: the picker opens on the current month, so the day cell is
+ * already visible. Different month: picker month navigation is unreliable
+ * (OWA may disable or ignore it) and silently leaves the date unchanged, so
+ * type the date instead via execCommand('insertText') — the React value setter
+ * pattern sets the value but OWA never reacts to it
+ * (see docs/teams-rooms-availability-notes.md).
+ *
+ * Verifies rather than sleeping blindly: both paths can fail without throwing.
+ */
+async function setStartDate(isoDate) {
+  const sel = "input[aria-label='Start date']";
+  const dateInput = $(sel);
+  if (!dateInput) throw new Error('Start date input not found');
+
+  const layout = detectDateLayout(dateInput.value);
+
+  const target = new Date(`${isoDate}T00:00:00`);
+  const now = new Date();
+  const sameMonth = target.getFullYear() === now.getFullYear()
+    && target.getMonth() === now.getMonth();
+
+  if (sameMonth) {
+    const cellSel = `button[aria-label='${dateCellLabel(isoDate)}']`;
+    dateInput.click();
+    for (let i = 0; i < 30; i++) {
+      if (exists(cellSel)) { $(cellSel).click(); break; }
+      await sleep(500);
+    }
+  } else {
+    const formatted = formatDateForInput(dateInput.value, isoDate);
+    dateInput.focus();
+    dateInput.select();
+    document.execCommand('insertText', false, formatted);
+    // Enter + blur commits the typed date and triggers getSchedule.
+    dateInput.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true,
+    }));
+    dateInput.blur();
+  }
+
+  for (let i = 0; i < 15; i++) {
+    await sleep(200);
+    const cur = $(sel);
+    if (cur && inputReadsDate(cur.value, isoDate, layout)) return;
+  }
+  const cur = $(sel);
+  throw new Error(
+    `Could not set the Start date to ${isoDate} (input still reads "${cur ? cur.value : ''}")`,
+  );
+}
 
 /** Click a button/link by accessible name. Returns true if found. */
 function clickByName(name) {
@@ -170,44 +253,7 @@ if (!schedulingAssistantOpen()) {
 // then set the target date so getSchedule fires fresh.
 readCapture();
 
-const target = new Date(`${date}T00:00:00`);
-const now = new Date();
-const sameMonth = target.getFullYear() === now.getFullYear()
-  && target.getMonth() === now.getMonth();
-
-const dateInput = $("input[aria-label='Start date']");
-
-if (sameMonth) {
-  // Same month: calendar picker opens on the current month, so the target
-  // cell is already visible — click the input to open the picker, find the cell.
-  const cellSel = `button[aria-label='${dateCellLabel(date)}']`;
-  if (dateInput) dateInput.click();
-  for (let i = 0; i < 30; i++) {
-    if (exists(cellSel)) {
-      $(cellSel).click();
-      break;
-    }
-    await sleep(500);
-  }
-} else {
-  // Different month: calendar picker navigation to past months is unreliable
-  // (OWA Scheduling Assistant may disable backward navigation). Instead, type
-  // the date directly into the input using execCommand('insertText'), which
-  // triggers React's SyntheticEvent system — the React value setter (typeText)
-  // silently fails on OWA inputs (see docs/teams-rooms-availability-notes.md).
-  if (dateInput) {
-    const formatted = formatDateForInput(dateInput.value, date);
-    dateInput.focus();
-    dateInput.select();
-    document.execCommand('insertText', false, formatted);
-    // Blur + Enter to commit the typed date and trigger getSchedule
-    dateInput.dispatchEvent(new KeyboardEvent('keydown', {
-      key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true
-    }));
-    dateInput.blur();
-    await sleep(2000);
-  }
-}
+await setStartDate(date);
 
 // ── Read the organizer's schedule from CDP-captured getSchedule ──────
 // The Scheduling Assistant always includes the organizer's own schedule

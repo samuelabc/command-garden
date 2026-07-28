@@ -70,13 +70,144 @@ function typeText(sel, text) {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/** Clear and retype into an input using execCommand, which triggers React's internal events. */
-function reactType(sel, text) {
-  const el = $(sel);
-  if (!el) throw new Error(`Element "${sel}" not found for typing`);
+/** Clear and retype into an input using execCommand, which triggers React's internal events.
+ *  Accepts a selector or an element. */
+function reactType(target, text) {
+  const el = typeof target === 'string' ? $(target) : target;
+  if (!el) throw new Error(`Element "${target}" not found for typing`);
   el.focus();
   el.select();
   document.execCommand('insertText', false, text);
+}
+
+// ── Start date handling ──────────────────────────────────────────────
+// Canonical source: connectors/lib/owa-date-input.js
+
+/** Describe the numeric layout of a date input's current value by matching its
+ *  parts against today's known year/month/day. Returns null when the layout is
+ *  undetectable or ambiguous (no recognisable year, or today's day equals its
+ *  month so the two positions can't be told apart). */
+function detectDateLayout(inputVal) {
+  const now = new Date();
+  const tY = now.getFullYear(), tM = now.getMonth() + 1, tD = now.getDate();
+
+  const m = String(inputVal || '').match(/(\d+)(\D+)(\d+)(\D+)(\d+)/);
+  if (!m) return null;
+  const [, p1, sep1, p2, sep2, p3] = m;
+  const tokens = [p1, p2, p3];
+  const nums = tokens.map(Number);
+
+  const yIdx = nums.findIndex(n => n === tY);
+  if (yIdx === -1) return null;
+
+  if (tM === tD) return null;
+  const rest = [0, 1, 2].filter(i => i !== yIdx);
+  let mIdx, dIdx;
+  if (nums[rest[0]] === tM && nums[rest[1]] === tD) {
+    mIdx = rest[0]; dIdx = rest[1];
+  } else if (nums[rest[0]] === tD && nums[rest[1]] === tM) {
+    mIdx = rest[1]; dIdx = rest[0];
+  } else {
+    return null;
+  }
+
+  return { yIdx, mIdx, dIdx, sep1, sep2, tokens };
+}
+
+/** Format a target ISO date in the same locale format as the current input
+ *  value. Falls back to Intl.DateTimeFormat (browser locale, which may not be
+ *  OWA's mailbox regional setting) when the layout can't be detected. */
+function formatDateForInput(inputVal, isoDate) {
+  const layout = detectDateLayout(inputVal);
+  if (!layout) {
+    return new Intl.DateTimeFormat(navigator.language).format(new Date(`${isoDate}T12:00:00`));
+  }
+  const [dY, dM, dD] = isoDate.split('-').map(Number);
+  const { yIdx, mIdx, dIdx, sep1, sep2, tokens } = layout;
+  // Padding is only readable from a decisive token: 1 char is unpadded, 2 chars
+  // below 10 is padded ("07"), 2 chars of 10+ says nothing. Take the whole
+  // date's padding from whichever field is decisive.
+  const evidence = orig => orig.length === 1 ? false
+    : (orig.length === 2 && Number(orig) < 10) ? true
+    : null;
+  const pads = evidence(tokens[mIdx]) ?? evidence(tokens[dIdx]) ?? true;
+  const fmt = val => pads ? String(val).padStart(2, '0') : String(val);
+  const out = [];
+  out[yIdx] = String(dY);
+  out[mIdx] = fmt(dM);
+  out[dIdx] = fmt(dD);
+  return out[0] + sep1 + out[1] + sep2 + out[2];
+}
+
+/** True when a date input's value reads as the given ISO date. `layout` must be
+ *  the layout detected BEFORE the value changed (position detection keys off
+ *  today's date). Without one, falls back to an order-independent numeric match. */
+function inputReadsDate(inputVal, isoDate, layout) {
+  const m = String(inputVal || '').match(/(\d+)(\D+)(\d+)(\D+)(\d+)/);
+  if (!m) return false;
+  const nums = [Number(m[1]), Number(m[3]), Number(m[5])];
+  const [dY, dM, dD] = isoDate.split('-').map(Number);
+  if (layout) {
+    return nums[layout.yIdx] === dY
+      && nums[layout.mIdx] === dM
+      && nums[layout.dIdx] === dD;
+  }
+  const want = [dY, dM, dD].sort((a, b) => a - b);
+  const got = nums.slice().sort((a, b) => a - b);
+  return want.every((v, i) => v === got[i]);
+}
+
+/**
+ * Set the Scheduling Assistant's Start date to an ISO date (YYYY-MM-DD).
+ *
+ * Same month: the picker opens on the current month, so the day cell is
+ * already visible. Different month: picker month navigation is unreliable
+ * (OWA may disable or ignore it) and silently leaves the date unchanged, so
+ * type the date instead — same reactType/execCommand path the room finder
+ * needs, because the React value setter used by typeText() sets the value but
+ * OWA never reacts to it.
+ *
+ * Always verifies: an uncommitted date is not visible in the output, because
+ * buildTimeline() clips to the requested day and a fully-booked room then
+ * reads back as free all day.
+ */
+async function setStartDate(isoDate) {
+  const sel = "input[aria-label='Start date']";
+  const dateInput = $(sel);
+  if (!dateInput) throw new Error('Start date input not found');
+
+  const layout = detectDateLayout(dateInput.value);
+
+  const target = new Date(`${isoDate}T00:00:00`);
+  const now = new Date();
+  const sameMonth = target.getFullYear() === now.getFullYear()
+    && target.getMonth() === now.getMonth();
+
+  if (sameMonth) {
+    const cellSel = `button[aria-label='${dateCellLabel(isoDate)}']`;
+    dateInput.click();
+    for (let i = 0; i < 30; i++) {
+      if (exists(cellSel)) { $(cellSel).click(); break; }
+      await sleep(500);
+    }
+  } else {
+    reactType(dateInput, formatDateForInput(dateInput.value, isoDate));
+    // Enter + blur commits the typed date and triggers getSchedule.
+    dateInput.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true,
+    }));
+    dateInput.blur();
+  }
+
+  for (let i = 0; i < 15; i++) {
+    await sleep(200);
+    const cur = $(sel);
+    if (cur && inputReadsDate(cur.value, isoDate, layout)) return;
+  }
+  const cur = $(sel);
+  throw new Error(
+    `Could not set the Start date to ${isoDate} (input still reads "${cur ? cur.value : ''}")`,
+  );
 }
 
 // ── Fetch interceptor ────────────────────────────────────────────────
@@ -242,40 +373,41 @@ if (!schedulingAssistantOpen()) {
 }
 
 // ── Set the date ─────────────────────────────────────────────────────
-
-const cellSel = `button[aria-label='${dateCellLabel(date)}']`;
-const target = new Date(`${date}T00:00:00`);
-const now = new Date();
-const navSel = target >= new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  ? "button[aria-label^='Go to next month']"
-  : "button[aria-label^='Go to previous month']";
-
-const dateInput = $("input[aria-label='Start date']");
-if (dateInput) dateInput.click();
-
-for (let i = 0; i < 30; i++) {
-  if (exists(cellSel)) {
-    $(cellSel).click();
-    break;
-  }
-  if (exists(navSel)) {
-    try { $(navSel).click(); } catch (_e) { /* retry */ }
-  } else {
-    const di = $("input[aria-label='Start date']");
-    if (di) di.click();
-  }
-  await sleep(500);
-}
+await setStartDate(date);
 
 // ── Capture pre-existing mailbox IDs (organizer) ─────────────────────
+// Sequential mode identifies each room by elimination (the first scheduleId not
+// in `knownIds`), so every schedule already on the form must land here first.
+//
+// Deliberately does NOT clear the buffer beforehand: opening the Scheduling
+// Assistant fires a getSchedule for the organizer, and that is the most
+// reliable source of their id — when the requested date is already the one on
+// the form, the date change fires nothing at all. `seen` holds mailbox ids, not
+// per-week data, so a response for the wrong week is still useful here.
+//
+// Drains until captures go quiet rather than stopping at the first one, so a
+// late date-change response can't arrive after the room-add and be claimed as a room.
 
 const seen = new Set();
-for (let i = 0; i < 6; i++) {
+let quietPolls = 0;
+for (let i = 0; i < 20; i++) {
   await sleep(300);
+  let arrived = false;
   for (const pair of readCapture()) {
-    for (const id of schedulesFromPair(pair).keys()) seen.add(id);
+    for (const id of schedulesFromPair(pair).keys()) {
+      seen.add(id);
+      arrived = true;
+    }
   }
-  if (seen.size > 0) break;
+  quietPolls = arrived ? 0 : quietPolls + 1;
+  if (seen.size > 0 && quietPolls >= 3) break;
+}
+
+// Elimination is unsound without a baseline: every id would look like a room and
+// the organizer's own calendar would be reported as one. Batch mode is exempt —
+// it matches captured ids against the caller-supplied emails instead.
+if (seen.size === 0 && !canBatch) {
+  throw new Error('No free/busy responses captured before adding rooms — cannot tell rooms apart from the organizer');
 }
 
 // ── Add room by email (required attendees path) ──────────────────────

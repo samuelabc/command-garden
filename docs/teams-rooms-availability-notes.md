@@ -47,6 +47,25 @@ When typing into the room finder for the **first** room (fresh input opened via 
 
 The **reuse path** (subsequent rooms via `reactType` on an already-open input) already had `await sleep(1000)`. The first-room path was missing it.
 
+### Setting the Start date
+
+Canonical snippet: `connectors/lib/owa-date-input.js` (copy-pasted into all three OWA connectors).
+
+| Target date | Strategy | Notes |
+|---|---|---|
+| **Same month as today** | Open the picker, click the day cell | The picker opens on the current month, so the cell is already visible. |
+| **Different month** | Type into the input via `execCommand('insertText')` | Month navigation (`Go to next/previous month`) is unreliable — OWA may disable or ignore it, and the loop silently falls through with the date unchanged. |
+
+The input's locale format is inferred by matching its current value's numeric parts against today's year/month/day, so the typed string matches OWA's mailbox regional setting rather than the browser locale. Zero-padding is read only from a *decisive* token (1 char = unpadded, 2 chars below 10 = padded, 2 chars of 10+ = no information), so `7/28/2026` yields `8/3/2026` and not `8/03/2026`.
+
+**Always verify the date committed.** Both paths can fail without throwing, and `buildTimeline()` clips results to the requested day — so an uncommitted date returns a plausible all-free timeline rather than an error, painting every room green on the floor plan. `setStartDate()` polls the input and throws instead.
+
+### Don't clear the capture buffer before setting the date
+
+The `seen` baseline (organizer mailbox ids, used to identify rooms by elimination) must be built from **both** the Scheduling-Assistant-open response and the date-change response. Clearing the buffer before setting the date discards the former — and when the requested date is already the one on the form, the date change fires no getSchedule at all, leaving the baseline empty and the organizer's own calendar reported as a room.
+
+`seen` holds mailbox ids, not per-week data, so a response for the "wrong" week is still useful. This is the opposite of `outlook-my-meetings`, where the captured schedule *is* the output and stale weeks must be cleared.
+
 ### Batch capture accumulation
 
 In batch mode, OWA fires a new `getSchedule` response each time a room is added. Later responses may carry an **empty `scheduleItems` array** for previously-added rooms while including items only for the most recently added room. The eval accumulates items across all responses per `scheduleId`, deduplicating by item `id` (or a composite key of `[startTime, endTime, subject]`), so that earlier rooms' data is never lost to a later overwrite.
