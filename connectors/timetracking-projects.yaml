@@ -1,7 +1,7 @@
 site: timetracking
 name: projects
 version: "1.0"
-description: "List all available projects and activities for the current user"
+description: "List the projects and activities the current user can book to today"
 access: read
 
 domains:
@@ -11,13 +11,6 @@ capabilities:
   - navigate
   - js_evaluate
   - network_egress
-
-args:
-  - name: month
-    type: string
-    required: false
-    help: "Month in YYYY-MM format (default: current month)"
-    pattern: "^\\d{4}-\\d{2}$"
 
 columns:
   - name: projectId

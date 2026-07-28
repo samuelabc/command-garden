@@ -52,7 +52,7 @@ Errors return plain text starting with `Error:` — not JSON.
 | `socket/security-news` | Latest security news from Socket.dev | `tag` (optional) |
 | `teams/room-availability` | Room free/busy for one room | `room`, `date` |
 | `teams/rooms-availability` | Room free/busy for multiple rooms | `rooms`, `email`, `date` |
-| `timetracking/projects` | Available projects & activities | `month` |
+| `timetracking/projects` | Projects & activities bookable today | — |
 | `timetracking/report` | Monthly time-tracking report | `month` |
 | `tldrsec/newsletter` | tl;dr sec newsletter issues | — |
 | `tokenmaster/client-trustedby` | Clients that trust a given client | `clientid`, `region` |

@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2026-06-01T00:00:00Z",
+    "calendarHeader": { "status": "RELEASED" },
+    "calendarLines": [
+      {
+        "mserp_projectid": "PID0000222_007_001",
+        "mserp_activitynumber": "A000100002",
+        "mserp_category": "B1-X Offshore",
+        "mserp_hours": 8,
+        "mserp_journalid": "J01230642",
+        "mserp_linenumber": 1
+      }
+    ]
+  },
+  {
+    "date": "2026-06-02T00:00:00Z",
+    "calendarHeader": { "status": "RELEASED" },
+    "calendarLines": [
+      {
+        "mserp_projectid": "PID0000222_007_001",
+        "mserp_activitynumber": "A000100002",
+        "mserp_category": "B1-X Offshore",
+        "mserp_hours": 6,
+        "mserp_journalid": "J01231252",
+        "mserp_linenumber": 1
+      },
+      {
+        "mserp_projectid": "PID0000333",
+        "mserp_activitynumber": "A000100004",
+        "mserp_category": "Non-billable hours",
+        "mserp_hours": 2,
+        "mserp_journalid": "J01231252",
+        "mserp_linenumber": 2
+      }
+    ]
+  },
+  {
+    "date": "2026-06-03T00:00:00Z",
+    "calendarHeader": { "status": "draft" },
+    "calendarLines": [
+      {
+        "mserp_projectid": "PID9999999_000_000",
+        "mserp_activitynumber": "A000999999",
+        "mserp_category": "Non-billable hours",
+        "mserp_hours": 4,
+        "mserp_journalid": "J01231999",
+        "mserp_linenumber": 1
+      }
+    ]
+  }
+]

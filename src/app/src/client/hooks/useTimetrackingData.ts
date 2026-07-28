@@ -48,7 +48,8 @@ export function useTimetrackingData(month: string, result: RunResponse | null) {
   const refreshProjects = useCallback(async () => {
     setRefreshingProjects(true);
     try {
-      const resp = await api.run('timetracking/projects', { month });
+      // Projects reflects today's roster only — it takes no month arg.
+      const resp = await api.run('timetracking/projects', {});
       if (resp.ok && resp.data && resp.data.length > 0) {
         const projects = resp.data.map((r) => ({
           projectId: String(r.projectId ?? ''),

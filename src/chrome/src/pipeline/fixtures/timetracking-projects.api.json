@@ -1,0 +1,104 @@
+[
+  {
+    "mserp_projectid": "PID0000111_001_041",
+    "mserp_projectname": "ACME BC Capability development Q1-3",
+    "activities": [
+      {
+        "mserp_jobid": "JID00100001",
+        "mserp_opractid": null,
+        "mserp_description": "Sec - Security Base",
+        "mserp_projectid": "PID0000111_001_041",
+        "mserp_dataareaid": "co01",
+        "mserp_activitynumber": "A000100001",
+        "mserp_linepropertyid": "NonBill",
+        "mserp_category": "Non-billable hours",
+        "taskStartDate": null,
+        "taskFinishDate": null,
+        "taskResources": [],
+        "bookedHours": null,
+        "plannedHours": null
+      }
+    ],
+    "projectCategory": "PROJECT",
+    "projectStartDate": null,
+    "projectEndDate": null
+  },
+  {
+    "mserp_projectid": "PID0000222_007_001",
+    "mserp_projectname": "RD-XYZ Widgetmaster CLOUD & EXA Example Tools 2026",
+    "activities": [
+      {
+        "mserp_jobid": "JID00100002",
+        "mserp_opractid": null,
+        "mserp_description": "EXA-SEC-Tools DEV ZZ",
+        "mserp_projectid": "PID0000222_007_001",
+        "mserp_dataareaid": "co01",
+        "mserp_activitynumber": "A000100002",
+        "mserp_linepropertyid": "Billable",
+        "mserp_category": "B1-X Offshore",
+        "taskStartDate": null,
+        "taskFinishDate": null,
+        "taskResources": [],
+        "bookedHours": null,
+        "plannedHours": null
+      }
+    ],
+    "projectCategory": "PROJECT",
+    "projectStartDate": null,
+    "projectEndDate": null
+  },
+  {
+    "mserp_projectid": "PID0000333",
+    "mserp_projectname": "Internal - ACME 0000 Example Co Widget Embedded onboard &",
+    "activities": [
+      {
+        "mserp_jobid": "JID00100003",
+        "mserp_opractid": null,
+        "mserp_description": "Onboarding",
+        "mserp_projectid": "PID0000333",
+        "mserp_dataareaid": "co01",
+        "mserp_activitynumber": "A000100003",
+        "mserp_linepropertyid": "NonBill",
+        "mserp_category": "Non-billable hours",
+        "taskStartDate": null,
+        "taskFinishDate": null,
+        "taskResources": [],
+        "bookedHours": null,
+        "plannedHours": null
+      },
+      {
+        "mserp_jobid": "JID00100004",
+        "mserp_opractid": null,
+        "mserp_description": "Organisation & Events",
+        "mserp_projectid": "PID0000333",
+        "mserp_dataareaid": "co01",
+        "mserp_activitynumber": "A000100004",
+        "mserp_linepropertyid": "NonBill",
+        "mserp_category": "Non-billable hours",
+        "taskStartDate": null,
+        "taskFinishDate": null,
+        "taskResources": [],
+        "bookedHours": null,
+        "plannedHours": null
+      },
+      {
+        "mserp_jobid": "JID00100005",
+        "mserp_opractid": null,
+        "mserp_description": "Learning & Development",
+        "mserp_projectid": "PID0000333",
+        "mserp_dataareaid": "co01",
+        "mserp_activitynumber": "A000100005",
+        "mserp_linepropertyid": "NonBill",
+        "mserp_category": "Non-billable hours",
+        "taskStartDate": null,
+        "taskFinishDate": null,
+        "taskResources": [],
+        "bookedHours": null,
+        "plannedHours": null
+      }
+    ],
+    "projectCategory": "PROJECT",
+    "projectStartDate": null,
+    "projectEndDate": null
+  }
+]

@@ -27,10 +27,23 @@ while (Date.now() < __deadline) {
 }
 if (!token) throw new Error('No valid MSAL access token after 60s — log in and retry');
 
+const now = new Date();
+const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
 let month = '${{ args.month | default("") }}';
-if (!month) {
-  const now = new Date();
-  month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+if (!month) month = currentMonth;
+
+// ReportFAK takes a period start, but Projects treats `date` as an as-of DAY
+// that only answers for the current date. Sending the period start to both
+// left every projectName/activityName null; so does any historical date, so
+// Projects is queried as of today and used purely as a name lookup table.
+// A project no longer on today's roster resolves to null, as it did before.
+// Canonical source: connectors/lib/asof-date.js
+function projectsAsOfDate() {
+  const d = new Date();
+  return d.getFullYear() +
+    '-' + String(d.getMonth() + 1).padStart(2, '0') +
+    '-' + String(d.getDate()).padStart(2, '0');
 }
 
 const apiBase = 'https://mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net/api/';
@@ -38,7 +51,7 @@ const authHeaders = { Authorization: 'Bearer ' + token, Accept: 'application/jso
 
 const [resp, projResp] = await Promise.all([
   fetch(apiBase + 'ReportFAK?date=' + month + '-01', { headers: authHeaders }),
-  fetch(apiBase + 'Projects?date=' + month + '-01', { headers: authHeaders }).catch(() => null),
+  fetch(apiBase + 'Projects?date=' + projectsAsOfDate(), { headers: authHeaders }).catch(() => null),
 ]);
 if (!resp.ok) throw new Error('ReportFAK returned HTTP ' + resp.status);
 
