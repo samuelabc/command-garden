@@ -9,7 +9,7 @@ import { buildAllowlist, isUrlAllowed } from '../domain-guard.js';
 
 export interface ChromeAdapter {
   navigateTab(url: string): Promise<number>;
-  waitForTabLoad(tabId: number): Promise<void>;
+  waitForTabLoad(tabId: number, allowedDomains: string[]): Promise<void>;
   executeInContent(tabId: number, step: PipelineStep): Promise<unknown>;
   getCookies(domain: string): Promise<Record<string, string>>;
   evaluateInPage(tabId: number, code: string): Promise<unknown>;
@@ -90,7 +90,7 @@ export class PipelineRunner {
             const url = ctx.interpolate(step.url);
             this.enforceDomain(url, connector);
             tabId = await this.adapter.navigateTab(url);
-            await this.adapter.waitForTabLoad(tabId);
+            await this.adapter.waitForTabLoad(tabId, connector.domains);
             break;
           }
           case 'wait':

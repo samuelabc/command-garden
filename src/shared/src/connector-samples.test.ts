@@ -94,6 +94,26 @@ describe('sample connectors — field correctness', () => {
     expect(result.data.domains).toContain('mbti-bam-wzde-prd-ejdchtb0g9afexhr.a01.azurefd.net');
   });
 
+  it('Outlook-based connectors allow the expected MCAS redirect chain', () => {
+    for (const filename of [
+      'teams-room-availability.yaml',
+      'teams-rooms-availability.yaml',
+      'outlook-my-meetings.yaml',
+    ]) {
+      const result = loadConnector(filename);
+      if (!result.ok) throw new Error(result.error.message);
+      expect(result.data.domains).toEqual(expect.arrayContaining([
+        'outlook.cloud.microsoft',
+        'mcas-proxyweb.mcas.ms',
+        'outlook.cloud.microsoft.mcas.ms',
+      ]));
+      expect(result.data.pipeline[0]).toMatchObject({
+        step: 'navigate',
+        url: 'https://outlook.cloud.microsoft/calendar/deeplink/compose',
+      });
+    }
+  });
+
   it('timetracking/report month arg has pattern validation', () => {
     const result = loadConnector('timetracking-report.yaml');
     if (!result.ok) throw new Error(result.error.message);

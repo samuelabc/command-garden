@@ -3,6 +3,7 @@ import type { PipelineStep } from '@commandgarden/shared';
 import type { ChromeAdapter } from '../pipeline/runner.js';
 import { createDomRequest, type DomResponse } from '../messages.js';
 import { buildEgressRules, MIN_RULE_ID } from './egress-rules.js';
+import { buildAllowlist, isUrlAllowed } from '../domain-guard.js';
 
 export interface AdapterOptions {
   useCdp?: boolean;
@@ -40,15 +41,16 @@ export class RealChromeAdapter implements ChromeAdapter {
     return this.tabId;
   }
 
-  async waitForTabLoad(tabId: number): Promise<void> {
+  async waitForTabLoad(tabId: number, allowedDomains: string[]): Promise<void> {
     const deadline = Date.now() + 60000;
+    const allowlist = buildAllowlist(allowedDomains);
     while (Date.now() < deadline) {
       const tab = await chrome.tabs.get(tabId);
-      const onTarget = this.targetOrigin
-        ? tab.url?.startsWith(this.targetOrigin)
-        : (tab.url && !tab.url.startsWith('about:') && !tab.url.startsWith('chrome:'));
+      const onTarget = tab.url ? isUrlAllowed(tab.url, allowlist) : false;
       if (tab.status === 'complete' && onTarget) {
-        // Attach to the Service Worker target to capture its network events
+        // Redirects may land on a different declared domain. Track the final
+        // origin so CDP can find the service worker that actually owns the page.
+        try { this.targetOrigin = new URL(tab.url!).origin; } catch { this.targetOrigin = null; }
         if (this.useCdp) await this.attachToServiceWorker();
         return;
       }
