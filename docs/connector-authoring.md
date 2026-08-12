@@ -1,6 +1,6 @@
 # Connector Authoring Guide
 
-This guide covers patterns, best practices, and common pitfalls when writing commandGarden connectors. For the basic YAML structure, see the [README](../README.md#writing-a-custom-connector).
+This guide covers patterns, best practices, and common pitfalls when writing commandGarden connectors. For the basic YAML structure, see the [Developer & Technical Guide](../DEVELOPMENT.md#writing-a-custom-connector).
 
 ---
 

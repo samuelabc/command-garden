@@ -2,7 +2,7 @@
 
 - Place code packages (`app`, `cli`, `chrome`, `daemon`, `shared`) under `src/`; keep `docs/`, `skills/`, and `connectors/` at the repo root.
 - Author new built-in connectors using `skills/connector-authoring/SKILL.md` (and `RECON-PLAYBOOK.md` when needed).
-- When adding built-in connectors, update `README.md` and `skills/cg/SKILL.md` (connector table, usage section, and CLI-from-source examples).
+- When adding built-in connectors, update `DEVELOPMENT.md` and `skills/cg/SKILL.md` (connector table, usage section, and CLI-from-source examples). The root `README.md` is a user-facing landing page; only touch it if a connector is prominent enough to belong in the highlights.
 - Timetracking GUI: keep goal summary stats always visible; collapse the monthly calendar by default.
 - News feed pages (AI News, Security News): show article summaries by default, not only on hover.
 - Keep Chrome extension publishing documentation in `docs/chrome-web-store.md`, not in `docs/PUBLISHING.md`.
@@ -10,7 +10,7 @@
 ## Learned Workspace Facts
 
 - npm monorepo at repo root with workspaces: `src/shared`, `src/daemon`, `src/cli`, `src/chrome`, `src/app`.
-- GitHub remote is `samuelabc/command-garden`; publish the CLI as `@commandgarden/cli` from `src/cli/` per `docs/PUBLISHING.md`; public npm README at `src/cli/README.md` (root README is contributor/internal-facing). GitHub Releases via `installer/release.sh` (version bump, builds, macOS `.dmg` + Windows `.exe`, push, `gh release create`); npm publish is a separate manual step (`cd src/cli && npm publish`) because npm requires browser MFA.
+- GitHub remote is `samuelabc/command-garden`; publish the CLI as `@commandgarden/cli` from `src/cli/` per `docs/PUBLISHING.md`; public npm README at `src/cli/README.md`; root `README.md` is a user-facing landing page while `DEVELOPMENT.md` (repo root) is the contributor/technical guide. GitHub Releases via `installer/release.sh` (version bump, builds, macOS `.dmg` + Windows `.exe`, push, `gh release create`); npm publish is a separate manual step (`cd src/cli && npm publish`) because npm requires browser MFA.
 - Runtime requires Node.js >= 20; `cg` spawns the daemon and app GUI as separate Node child processes.
 - Root `connectors/` holds built-in YAML connectors (daemon build copies to `src/daemon/connectors/`, gitignored); root `skills/` holds agent skills bundled into the CLI via `src/cli/scripts/prepare-bundle.mjs` and into the macOS installer at `app/app/skills/` via `installer/assemble.sh`.
 - Build order: shared → daemon → cli → chrome → app (`npm run build` from root).
