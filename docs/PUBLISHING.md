@@ -146,25 +146,32 @@ git push origin main "v${VERSION}"
 
 ### How the npm package works
 
-The CLI is a single published npm package that ships three private workspace packages inside it:
+The CLI is a single published npm package that ships three private workspace packages **and their entire third-party production dependency tree** inside it (`"bundleDependencies": true`):
 
 | Package | Role | Bundled via |
 |---|---|---|
 | `@commandgarden/shared` | Types, schemas, utilities | `bundleDependencies` + tsup `noExternal` (inlined into CLI bundle) |
 | `@commandgarden/daemon` | Local HTTP/WS server (Fastify + SQLite) | `bundleDependencies` |
 | `@commandgarden/app` | Web GUI server + SPA assets | `bundleDependencies` |
+| Third-party runtime deps (zod, fastify, sql.js, ...) | Imported by the daemon/app child processes | `bundleDependencies` (physically copied into `cli/node_modules/` at pack time) |
 
 **Build-time:** tsup bundles the CLI entry point (`src/main.ts`) into `dist/main.js`, inlining all JS dependencies the CLI imports. Deps only used by the daemon/app child processes are not imported by the CLI and are tree-shaken out.
 
-**Pack-time:** The `prepack` script (`scripts/prepare-bundle.mjs`) copies workspace packages into `cli/node_modules/@commandgarden/` so `npm pack` includes them via `bundleDependencies`.
+**Pack-time:** The `prepack` script (`scripts/prepare-bundle.mjs`):
+1. Copies the built workspace packages into `cli/node_modules/@commandgarden/`.
+2. Copies the **resolved production dependency closure** straight out of the monorepo's root `node_modules/` (the exact, lockfile-pinned versions that were built and tested against) into `cli/node_modules/`. It reads the closure from `npm ls --omit=dev --all --parseable` and copies each top-level package recursively (private nested `node_modules/` come along). Nothing is resolved from the registry, so bundled versions can never drift from what was tested.
 
-**Install-time:** npm unpacks the bundled packages and installs their runtime dependencies from the registry normally.
+Combined with `"bundleDependencies": true`, `npm pack` then ships the entire runtime tree in the tarball. Because the copy is a resolved on-disk tree that is never re-resolved at install time, the script refuses to bundle any package declaring `os`/`cpu` constraints (a native/platform-specific dep would otherwise ship the publisher's-OS binary to every user).
+
+**Install-time:** npm extracts the whole bundled tree. **Nothing is fetched from the registry** — the package is fully self-contained.
 
 **Run-time:** The CLI resolves the daemon and app entry points via `createRequire` from `node_modules/@commandgarden/daemon` and `@commandgarden/app`.
 
-### Why `bundleDependencies`?
+### Why bundle the full dependency tree? (do NOT revert to a partial bundle)
 
-The daemon and app are private workspace packages that can't be installed from the npm registry. `bundleDependencies` is npm's built-in mechanism for shipping private packages inside a published package.
+The daemon and app are private workspace packages that can't be installed from the npm registry, so they must be bundled. But `bundleDependencies` has a sharp edge: npm treats **every dependency of a bundled package** as part of the bundle (`inBundle`). On a **global** install (`npm i -g`), npm does not fetch those deps from the registry — it only extracts what physically ships in the tarball. So if the third-party deps (zod, fastify, sql.js, ...) are *not* physically bundled, a global install produces **empty** `node_modules/zod`, `node_modules/fastify`, etc., and the daemon crashes at startup with `ERR_MODULE_NOT_FOUND`. (Local, non-global installs happen to work because hoisting sidesteps this — so the bug only shows up via `npm i -g`, which is how most users install the CLI.)
+
+Bundling the entire production tree makes the tarball self-contained and avoids this failure mode entirely.
 
 ### Why not bundle everything into one JS file?
 
@@ -184,9 +191,20 @@ node scripts/prepare-bundle.mjs
 npm pack --dry-run
 ```
 
-### Tarball is too large
+### Tarball is large
 
-Check that `src/daemon/package.json`, `src/app/package.json`, and `src/shared/package.json` all have `"files": ["dist"]`.
+This is expected up to a point: the CLI bundles its entire third-party **production** dependency tree (see Architecture Notes) so global installs are self-contained. Only production deps are bundled — the closure comes from `npm ls --omit=dev`, so build-time-only deps (React, Vite, etc.) are excluded. If the tarball is much larger than expected, check that build-only deps are declared in `devDependencies` (not `dependencies`) in each workspace package, and that `src/daemon/package.json`, `src/app/package.json`, and `src/shared/package.json` all have `"files": ["dist"]`.
+
+### `cg up` fails with `ERR_MODULE_NOT_FOUND` after a global install
+
+Symptom: `node_modules/zod` (or `fastify`, `sql.js`, ...) inside the installed CLI is an **empty directory**. Cause: the tarball was published *without* physically bundling the third-party dependency tree, so `npm i -g` created empty placeholders instead of fetching them. Fix: ensure `"bundleDependencies": true` and that `prepack` (`scripts/prepare-bundle.mjs`) copied the full prod tree from root `node_modules/` into `cli/node_modules/` before packing (run `npm install` at the monorepo root first so the closure exists). Verify with:
+
+```bash
+cd src/cli && npm pack
+tar tzf commandgarden-cli-*.tgz | grep 'node_modules/zod/package.json'   # must print a match
+```
+
+Emergency workaround for an already-broken install (no republish): `cd "$(npm root -g)/@commandgarden/cli" && npm install --omit=dev`.
 
 ### `prepack` fails with "dist not found"
 
