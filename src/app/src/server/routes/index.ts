@@ -13,6 +13,7 @@ import { journalRoutes } from './journal.js';
 import { securityNewsCacheRoutes } from './security-news-cache.js';
 import { aiNewsCacheRoutes } from './ai-news-cache.js';
 import { trustedPeersCacheRoutes } from './trusted-peers-cache.js';
+import { clientSecretsCacheRoutes } from './client-secrets-cache.js';
 import { rolesCacheRoutes } from './roles-cache.js';
 import { roomAvailabilityCacheRoutes } from './room-availability-cache.js';
 import { skillsRoutes } from './skills.js';
@@ -30,6 +31,7 @@ export function registerRoutes(app: FastifyInstance, daemon: DaemonClient, store
   securityNewsCacheRoutes(app, store);
   aiNewsCacheRoutes(app, store);
   trustedPeersCacheRoutes(app, store);
+  clientSecretsCacheRoutes(app, store);
   rolesCacheRoutes(app, store);
   roomAvailabilityCacheRoutes(app, store);
   skillsRoutes(app);

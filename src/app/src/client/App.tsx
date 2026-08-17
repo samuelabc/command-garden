@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState, useMemo, lazy, Suspense } from 'react';
 import { useActiveSection } from './hooks/useActiveSection';
 import { api, groupBySite } from './api';
@@ -14,6 +14,7 @@ import Journal from './pages/Journal';
 import SecurityNews from './pages/SecurityNews';
 import AiNews from './pages/AiNews';
 import TrustedPeerExpiry from './pages/TrustedPeerExpiry';
+import ClientSecretRotation from './pages/ClientSecretRotation';
 import Roles from './pages/Roles';
 import Saba from './pages/Saba';
 import Architecture from './pages/Architecture';
@@ -25,7 +26,7 @@ import {
   LayoutDashboard, BookOpen, Clock, DoorOpen, NotebookPen,
   ShieldCheck, Newspaper, Plug, ScrollText, Settings,
   Lightbulb, Terminal, Sparkles, Layers, Network, Presentation,
-  UserCheck, Astroid
+  UserCheck, Astroid, KeyRound
 } from 'lucide-react';
 
 const Slides = lazy(() => import('./pages/Slides'));
@@ -242,6 +243,7 @@ function Layout() {
             <NavLink to="/apps/journal" className={navClassIndented}><NotebookPen className="w-4 h-4 shrink-0" />Dev Journal</NavLink>
             <NavLink to="/apps/roles" className={navClassIndented}><UserCheck className="w-4 h-4 shrink-0" />Roles</NavLink>
             <NavLink to="/apps/trusted-peer-expiry" className={navClassIndented}><ShieldCheck className="w-4 h-4 shrink-0" />Trusted Peer Expiry</NavLink>
+            <NavLink to="/apps/client-secret-rotation" className={navClassIndented}><KeyRound className="w-4 h-4 shrink-0" />Secret Rotation</NavLink>
             <div className="pl-5 pr-3 pt-3 pb-1 font-mono text-[0.65rem] font-medium opacity-70 uppercase tracking-[0.12em]">Intelligence</div>
             <NavLink to="/apps/security-news" className={navClassIndented}><Newspaper className="w-4 h-4 shrink-0" />Security News</NavLink>
             <NavLink to="/apps/ai-news" className={navClassIndented}><Astroid className="w-4 h-4 shrink-0" />AI News</NavLink>
@@ -311,6 +313,7 @@ export default function App() {
           <Route path="apps/roles" element={<Roles />} />
           <Route path="apps/saba" element={<Saba />} />
           <Route path="apps/trusted-peer-expiry" element={<TrustedPeerExpiry />} />
+          <Route path="apps/client-secret-rotation" element={<ClientSecretRotation />} />
           <Route path="architecture" element={<Architecture />} />
           <Route path="api-reference" element={<ApiReference />} />
           <Route path="skills" element={<Skills />} />

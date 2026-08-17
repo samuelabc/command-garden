@@ -324,6 +324,38 @@ describe('routes', () => {
     });
   });
 
+  describe('Client secrets cache', () => {
+    it('GET returns null when empty', async () => {
+      const resp = await app.inject({ method: 'GET', url: '/api/client-secrets/cache' });
+      expect(resp.statusCode).toBe(200);
+      expect(JSON.parse(resp.payload)).toEqual({ ok: true, data: null, fetchedAt: null });
+    });
+
+    it('POST stores and GET retrieves data', async () => {
+      const data = [{ clientId: 'C1', generatedAt: '2025-01-01T00:00:00Z' }];
+      const postResp = await app.inject({
+        method: 'POST', url: '/api/client-secrets/cache',
+        payload: { data },
+      });
+      expect(postResp.statusCode).toBe(200);
+      expect(JSON.parse(postResp.payload).ok).toBe(true);
+
+      const getResp = await app.inject({ method: 'GET', url: '/api/client-secrets/cache' });
+      const body = JSON.parse(getResp.payload);
+      expect(body.ok).toBe(true);
+      expect(body.data).toEqual(data);
+      expect(body.fetchedAt).toBeTruthy();
+    });
+
+    it('POST returns 400 without data array', async () => {
+      const resp = await app.inject({
+        method: 'POST', url: '/api/client-secrets/cache',
+        payload: {},
+      });
+      expect(resp.statusCode).toBe(400);
+    });
+  });
+
   describe('Roles cache', () => {
     it('GET returns null fields when empty', async () => {
       const resp = await app.inject({ method: 'GET', url: '/api/roles/cache' });

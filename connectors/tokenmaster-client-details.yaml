@@ -1,0 +1,51 @@
+site: tokenmaster
+name: client-details
+version: "1.0"
+description: "Show client details including token generation dates for a TokenMaster client"
+access: read
+
+vars:
+  domains:
+    emea: tma.query.api.dvb.corpinter.net
+    amap: tma.query.api.am.dvb.corpinter.net
+    cn: tma.query.api.dvb.corpinter.net.cn
+
+args:
+  - name: clientid
+    type: string
+    required: true
+    help: "The client ID to look up details for"
+  - name: region
+    type: string
+    required: false
+    default: "emea"
+    enum: [emea, amap, cn]
+    help: "Region to query (emea, amap, cn, or 'all' for fan-out). Default: emea"
+
+domains:
+  - "tma.query.api.dvb.corpinter.net"
+  - "tma.query.api.am.dvb.corpinter.net"
+  - "tma.query.api.dvb.corpinter.net.cn"
+capabilities:
+  - navigate
+  - js_evaluate
+  - network_egress
+
+columns:
+  - name: id
+    type: string
+  - name: name
+    type: string
+  - name: generated_at
+    type: string
+  - name: token_count
+    type: number
+
+pipeline:
+  - step: navigate
+    url: "https://${{ args.region | lookup(vars.domains) }}/v1/clients/${{ args.clientid }}"
+  - step: wait
+    selector: "body"
+    timeout: 30000
+  - step: js_evaluate
+    file: "tokenmaster-client-details.eval.js"

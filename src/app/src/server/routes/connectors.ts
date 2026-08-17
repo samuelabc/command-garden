@@ -10,6 +10,7 @@ const APP_ROUTES: Record<string, string> = {
   'saba/pending-training': '/apps/saba',
   'tokenmaster/clients-list': '/apps/trusted-peer-expiry',
   'tokenmaster/client-trustedby': '/apps/trusted-peer-expiry',
+  'tokenmaster/client-details': '/apps/client-secret-rotation',
   'alice/role-list': '/apps/roles',
   'uis/mic-user-information': '/apps/roles',
   'ado/git-commits': '/apps/journal',

@@ -436,6 +436,7 @@ export default function Overview() {
             { icon: BookOpen, title: 'Dev Journal', tag: 'Productivity', desc: 'Auto-generated daily journal from Git commits and Jira tickets', route: '/apps/journal', cmd: 'ado/git-commits' },
             { icon: Newspaper, title: 'Security News', tag: 'Security', desc: 'Aggregated feed from Socket.dev, Wiz, and tl;dr sec', route: '/apps/security-news', cmd: 'socket/security-news' },
             { icon: KeyRound, title: 'Trusted Peer Expiry', tag: 'Productivity', desc: 'TokenMaster client trust relationships with expiry tracking', route: '/apps/trusted-peer-expiry', cmd: 'tokenmaster/clients-list' },
+            { icon: Lock, title: 'Client Secret Rotation', tag: 'Productivity', desc: 'TokenMaster client secret age overview with rotation tracking', route: '/apps/client-secret-rotation', cmd: 'tokenmaster/client-details' },
             { icon: Library, title: 'GCS Knowledge Base', tag: 'Security', desc: 'Browse and read internal security docs, converted to Markdown', route: null as string | null, cmd: 'gcs/kb-pages' },
           ]).map(({ icon: Icon, title, tag, desc, route, cmd }) => (
             <div key={title} className="border border-base-300 p-4">

@@ -148,6 +148,7 @@ timetracking/report            read    timetracking.mercedes…       navigate, 
 teams/room-availability        read    outlook.cloud.microsoft.…    navigate, js_evaluate
 tokenmaster/clients-list       read    tma.query.api.dvb.corp…      navigate, cookie_read
 tokenmaster/client-trustedby   read    tma.query.api.dvb.corp…      navigate, cookie_read
+tokenmaster/client-details     read    tma.query.api.dvb.corp…      navigate, js_evaluate
 uis/mic-user-information       read    uis.query.api.dvb.corp…      navigate, js_evaluate
 alice/role-list                read    alice.mercedes-benz.com      navigate, cookie_read
 every/newsletter               read    every.to                     navigate, js_evaluate
@@ -201,6 +202,20 @@ cg run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C95
 ```
 
 This connector calls the TokenMaster API (`/v2/clients/{clientid}/trustedby`) to retrieve the list of clients that trust a given client. Returns `id`, `name`, `is_onboard_client`, `idDisplay`, and `expiry_date`. Same declarative `navigate → wait → fetch → map` pipeline as `clients-list`.
+
+### TokenMaster client details
+
+```bash
+# Show details for a client (default region: emea)
+cg run tokenmaster/client-details --clientid DAIVBADM_RMS_EMEA_PROD_00000 --format table
+
+# Query a different region
+cg run tokenmaster/client-details --clientid DAIVBADM_RMS_AMAP_PROD_00000 --region amap --format table
+```
+
+This connector calls the TokenMaster API (`/v1/clients/{clientid}`) to retrieve a single client's details. Returns one row with `id`, `name`, `generated_at` (generation date of the newest active token — i.e. when the client secret was last rotated), and `token_count` (active tokens; more than one means an old secret has not been revoked yet). Powers the Secret Rotation overview page in the GUI. Uses `js_evaluate` because the `/v1/clients/{clientid}` response is a single object and `tokens` is a nested array, which the declarative `map` step cannot index.
+
+> **Note:** This connector uses `js_evaluate` and `network_egress` (high-risk capabilities) and must be approved before first use — see [Approving high-risk connectors](#approving-high-risk-connectors).
 
 ### UIS user information
 
@@ -693,6 +708,7 @@ node src/cli/dist/main.js run timetracking/report --month 2026-07 --format json
 node src/cli/dist/main.js run tokenmaster/clients-list --format table
 node src/cli/dist/main.js run tokenmaster/clients-list --region emea --format table
 node src/cli/dist/main.js run tokenmaster/client-trustedby --clientid 3562D247-46AA-44E3-A0ED-ADF5A4C954F1 --format table
+node src/cli/dist/main.js run tokenmaster/client-details --clientid DAIVBADM_RMS_EMEA_PROD_00000 --format table
 node src/cli/dist/main.js run uis/mic-user-information --userId SATHIEN --format json
 node src/cli/dist/main.js run alice/role-list --userId SATHIEN --format json
 node src/cli/dist/main.js run gcs/kb-pages --format table
