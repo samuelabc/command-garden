@@ -60,6 +60,8 @@ export const api = {
     request<{ ok: boolean }>('POST', '/api/roles/cache', payload),
   getCachedTrustedPeers: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/trusted-peers/cache'),
   cacheTrustedPeers: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/trusted-peers/cache', { data }),
+  getCachedClientSecrets: () => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', '/api/client-secrets/cache'),
+  cacheClientSecrets: (data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/client-secrets/cache', { data }),
   getCachedRoomAvailability: (date: string) => request<{ ok: boolean; data: Record<string, unknown>[] | null; fetchedAt: string | null }>('GET', `/api/room-availability/cache?date=${date}`),
   cacheRoomAvailability: (date: string, data: Record<string, unknown>[]) => request<{ ok: boolean }>('POST', '/api/room-availability/cache', { date, data }),
   getSkills: () => request<{ ok: boolean; skills: Skill[] }>('GET', '/api/skills'),

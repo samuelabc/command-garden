@@ -56,6 +56,7 @@ Errors return plain text starting with `Error:` — not JSON.
 | `timetracking/report` | Monthly time-tracking report | `month` |
 | `tldrsec/newsletter` | tl;dr sec newsletter issues | — |
 | `tokenmaster/client-trustedby` | Clients that trust a given client | `clientid`, `region` |
+| `tokenmaster/client-details` | Client details incl. secret generation date | `clientid`, `region` |
 | `tokenmaster/clients-list` | Clients managed by current user | `region` |
 | `uis/mic-user-information` | User identity, department, groups, and scopes from UIS | `userId` |
 | `simonwillison/blog` | Simon Willison's blog posts (Atom feed) | `tag` (optional) |
