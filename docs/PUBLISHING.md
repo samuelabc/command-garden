@@ -135,6 +135,7 @@ npm publish --access public
 cd ../..
 VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('src/cli/package.json','utf8')).version)")
 git add src/cli/package.json
+git add src/cli/package-lock.json
 git commit -m "chore: bump @commandgarden/cli to v${VERSION}"
 git tag "v${VERSION}"
 git push origin main "v${VERSION}"
