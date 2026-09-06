@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // src/content/dom-executor.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { waitForSelector, extractData, clickElement, clickAll, extractTree, typeIntoElement } from './dom-executor.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { waitForSelector, extractData, clickElement, clickAll, extractTree, typeIntoElement, fetchFromPage } from './dom-executor.js';
 
 describe('waitForSelector', () => {
   beforeEach(() => { document.body.innerHTML = ''; });
@@ -248,5 +248,39 @@ describe('typeIntoElement', () => {
   it('throws for missing element', async () => {
     document.body.innerHTML = '';
     await expect(typeIntoElement('#missing', 'x')).rejects.toThrow('not found');
+  });
+});
+
+describe('fetchFromPage', () => {
+  function mockFetch(body: string, contentType: string) {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      headers: { get: (h: string) => h.toLowerCase() === 'content-type' ? contentType : null },
+      json: () => Promise.resolve(JSON.parse(body)),
+      text: () => Promise.resolve(body),
+    });
+  }
+
+  it('parses response as JSON for application/json', async () => {
+    mockFetch('{"items":[1,2]}', 'application/json');
+    const result = await fetchFromPage('https://example.com/api');
+    expect(result).toEqual({ items: [1, 2] });
+  });
+
+  it('parses response as JSON for application/feed+json', async () => {
+    mockFetch('{"items":[1,2]}', 'application/feed+json');
+    const result = await fetchFromPage('https://example.com/feed.json');
+    expect(result).toEqual({ items: [1, 2] });
+  });
+
+  it('parses response as JSON for application/vnd.api+json', async () => {
+    mockFetch('{"data":[]}', 'application/vnd.api+json');
+    const result = await fetchFromPage('https://example.com/api');
+    expect(result).toEqual({ data: [] });
+  });
+
+  it('returns text for non-JSON content types', async () => {
+    mockFetch('<html>hello</html>', 'text/html');
+    const result = await fetchFromPage('https://example.com/page');
+    expect(result).toBe('<html>hello</html>');
   });
 });

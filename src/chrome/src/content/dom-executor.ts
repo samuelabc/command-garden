@@ -120,6 +120,6 @@ export async function fetchFromPage(
     method, headers, body, credentials: 'include',
   });
   const contentType = resp.headers.get('content-type') ?? '';
-  if (contentType.includes('application/json')) return resp.json();
+  if (contentType.includes('json')) return resp.json();
   return resp.text();
 }
