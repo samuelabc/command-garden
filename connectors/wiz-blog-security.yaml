@@ -38,7 +38,7 @@ pipeline:
   - step: navigate
     url: "https://www.wiz.io/blog/tag/${{ args.tag }}"
   - step: wait
-    selector: "#__NEXT_DATA__"
+    selector: "article"
     timeout: 15000
   - step: js_evaluate
     file: wiz-blog-security.eval.js
